@@ -1,0 +1,413 @@
+import { Injectable } from '@nestjs/common';
+import { Provider, User } from '@prisma/client';
+import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
+import { LoginUserDto } from '@gitroom/nestjs-libraries/dtos/auth/login.user.dto';
+import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
+import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
+import { AuthService as AuthChecker } from '@gitroom/helpers/auth/auth.service';
+import { AuthProviderManager } from '@gitroom/backend/services/auth/providers/providers.manager';
+import dayjs from 'dayjs';
+import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot-return.password.dto';
+import {
+  EmailService,
+  emailButton,
+} from '@gitroom/nestjs-libraries/services/email.service';
+import { NewsletterService } from '@gitroom/nestjs-libraries/newsletter/newsletter.service';
+import { AffiliateService } from '@gitroom/nestjs-libraries/database/prisma/affiliates/affiliate.service';
+import { LoginLockoutService } from '@gitroom/nestjs-libraries/services/login.lockout.service';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private _userService: UsersService,
+    private _organizationService: OrganizationService,
+    private _emailService: EmailService,
+    private _providerManager: AuthProviderManager,
+    private _affiliateService: AffiliateService,
+    private _loginLockoutService: LoginLockoutService
+  ) {}
+  async canRegister(provider: string) {
+    if (
+      process.env.DISABLE_REGISTRATION !== 'true' ||
+      provider === Provider.GENERIC
+    ) {
+      return true;
+    }
+
+    return (await this._organizationService.getCount()) === 0;
+  }
+
+  async routeAuth(
+    provider: Provider,
+    body: CreateOrgUserDto | LoginUserDto,
+    ip: string,
+    userAgent: string,
+    addToOrg?:
+      | boolean
+      | { orgId: string; role: 'USER' | 'ADMIN'; id: string; email?: string },
+    affiliateCookie?: string
+  ) {
+    if (provider === Provider.LOCAL) {
+      if (process.env.DISALLOW_PLUS && body.email.includes('+')) {
+        throw new Error('Email with plus sign is not allowed');
+      }
+      if (body instanceof CreateOrgUserDto) {
+        body.email = body.email.toLowerCase();
+      }
+      const user = await this._userService.getUserByEmail(body.email);
+      if (body instanceof CreateOrgUserDto) {
+        if (user) {
+          throw new Error('Email already exists');
+        }
+
+        if (!(await this.canRegister(provider))) {
+          throw new Error('Registration is disabled');
+        }
+
+        const create = await this._organizationService.createOrgAndUser(
+          body,
+          ip,
+          userAgent
+        );
+
+        await this._affiliateService.attributeOrganization({
+          organizationId: create.id,
+          userId: create.users[0].user.id,
+          email: body.email,
+          cookie: affiliateCookie,
+        });
+
+        const addedOrg =
+          addToOrg && typeof addToOrg !== 'boolean'
+            ? await this._organizationService.addUserToOrg(
+                create.users[0].user.id,
+                addToOrg.id,
+                addToOrg.orgId,
+                addToOrg.role,
+                // email invites can only be accepted by the invited address
+                addToOrg.email || undefined
+              )
+            : false;
+
+        const obj = { addedOrg, jwt: await this.jwt(create.users[0].user) };
+        await this._emailService.sendEmailSync(
+          body.email,
+          'Activate your account',
+          this.activationEmail(create.users[0].user)
+        );
+        return obj;
+      }
+
+      // a locked email gets the same error as a wrong password, whether or not
+      // the account exists
+      if (await this._loginLockoutService.isLocked(body.email)) {
+        throw new Error('Invalid user name or password');
+      }
+
+      if (!user || !AuthChecker.comparePassword(body.password, user.password)) {
+        await this._loginLockoutService.recordFailure(body.email);
+        throw new Error('Invalid user name or password');
+      }
+
+      await this._loginLockoutService.clear(body.email);
+
+      if (!user.activated) {
+        throw new Error('User is not activated');
+      }
+
+      return { addedOrg: false, jwt: await this.jwt(user) };
+    }
+
+    const user = await this.loginOrRegisterProvider(
+      provider,
+      body as CreateOrgUserDto,
+      ip,
+      userAgent,
+      affiliateCookie
+    );
+
+    const addedOrg =
+      addToOrg && typeof addToOrg !== 'boolean'
+        ? await this._organizationService.addUserToOrg(
+            user.id,
+            addToOrg.id,
+            addToOrg.orgId,
+            addToOrg.role,
+            addToOrg.email || undefined
+          )
+        : false;
+    return { addedOrg, jwt: await this.jwt(user) };
+  }
+
+  public getOrgFromCookie(cookie?: string) {
+    if (!cookie) {
+      return false;
+    }
+
+    try {
+      const getOrg: any = AuthChecker.verifyTypedJWT(cookie, 'invite');
+      if (
+        typeof getOrg.orgId !== 'string' ||
+        typeof getOrg.id !== 'string' ||
+        !['USER', 'ADMIN'].includes(getOrg.role) ||
+        !getOrg.timeLimit ||
+        dayjs(getOrg.timeLimit).isBefore(dayjs())
+      ) {
+        return false;
+      }
+
+      return getOrg as {
+        email: string;
+        role: 'USER' | 'ADMIN';
+        orgId: string;
+        id: string;
+      };
+    } catch (err) {
+      return false;
+    }
+  }
+
+  private async loginOrRegisterProvider(
+    provider: Provider,
+    body: CreateOrgUserDto,
+    ip: string,
+    userAgent: string,
+    affiliateCookie?: string
+  ) {
+    const providerInstance = this._providerManager.getProvider(provider);
+    const providerUser = await providerInstance.getUser(body.providerToken);
+
+    if (!providerUser) {
+      throw new Error('Invalid provider token');
+    }
+
+    const user = await this._userService.getUserByProvider(
+      providerUser.id,
+      provider
+    );
+    if (user) {
+      return user;
+    }
+
+    if (!(await this.canRegister(provider))) {
+      throw new Error('Registration is disabled');
+    }
+
+    const create = await this._organizationService.createOrgAndUser(
+      {
+        company: body.company,
+        email: providerUser.email,
+        password: '',
+        provider,
+        providerId: providerUser.id,
+        datafast_visitor_id: body.datafast_visitor_id,
+      },
+      ip,
+      userAgent
+    );
+
+    await this._affiliateService.attributeOrganization({
+      organizationId: create.id,
+      userId: create.users[0].user.id,
+      email: providerUser.email,
+      cookie: affiliateCookie,
+    });
+
+    this._track('register', providerUser.email, body.datafast_visitor_id).catch(
+      (err) => {}
+    );
+
+    await NewsletterService.register(providerUser.email);
+
+    try {
+      if (providerInstance?.postRegistration) {
+        await providerInstance.postRegistration(body.providerToken, create.id);
+      }
+    } catch (err) {
+      // Don't fail registration if postRegistration fails
+    }
+
+    return create.users[0].user;
+  }
+
+  private async _track(
+    name: string,
+    email: string,
+    datafast_visitor_id: string
+  ) {
+    if (email && datafast_visitor_id && process.env.DATAFAST_API_KEY) {
+      try {
+        await fetch('https://datafa.st/api/v1/goals', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.DATAFAST_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            datafast_visitor_id: datafast_visitor_id,
+            name: name,
+            metadata: {
+              email,
+            },
+          }),
+        });
+      } catch (err) {}
+    }
+  }
+
+  // The response of /auth/forgot and /auth/resend-activation must not tell
+  // whether an account exists, so the email goes out in the background and
+  // a missing account costs the same as a found one
+  private sendInBackground(to: string, subject: string, html: string) {
+    this._emailService.sendEmailSync(to, subject, html).catch((err) => {
+      console.log('Failed to send auth email', err?.message);
+    });
+  }
+
+  private activationEmail(user: Pick<User, 'id' | 'email'>) {
+    const token = AuthChecker.signTypedJWT('activation', {
+      id: user.id,
+      email: user.email,
+    });
+    return `Welcome to PostDelegate! Confirm your email address to activate your account.${emailButton(
+      `${process.env.FRONTEND_URL}/auth/activate/${token}`,
+      'Activate my account'
+    )}The link expires in 2 days. If you did not create this account, you can ignore this email.`;
+  }
+
+  async forgot(email: string) {
+    const user = await this._userService.getUserByEmail(email);
+    if (!user || user.providerName !== Provider.LOCAL) {
+      return false;
+    }
+
+    // the fingerprint ties the link to the current password, so it works once
+    const resetValues = AuthChecker.signTypedJWT('reset', {
+      id: user.id,
+      pv: AuthChecker.passwordFingerprint(user.password),
+    });
+
+    this.sendInBackground(
+      user.email,
+      'Reset your password',
+      `We received a request to reset the password of your PostDelegate account.${emailButton(
+        `${process.env.FRONTEND_URL}/auth/forgot/${resetValues}`,
+        'Reset my password'
+      )}The link expires in 20 minutes. If you did not ask for this, you can ignore this email and your password stays the same.`
+    );
+    return true;
+  }
+
+  async forgotReturn(body: ForgotReturnPasswordDto) {
+    let token: { id: string; pv: string };
+    try {
+      token = AuthChecker.verifyTypedJWT(body.token, 'reset');
+    } catch (err) {
+      return false;
+    }
+
+    if (typeof token.id !== 'string') {
+      return false;
+    }
+
+    const user = await this._userService.getUserById(token.id);
+    if (
+      !user ||
+      user.providerName !== Provider.LOCAL ||
+      token.pv !== AuthChecker.passwordFingerprint(user.password)
+    ) {
+      return false;
+    }
+
+    return this._userService.updatePassword(user.id, body.password);
+  }
+
+  async activate(code: string, tracking: string) {
+    let token: { id: string; email: string };
+    try {
+      token = AuthChecker.verifyTypedJWT(code, 'activation');
+    } catch (err) {
+      return false;
+    }
+
+    if (typeof token.id !== 'string') {
+      return false;
+    }
+
+    const user = await this._userService.getUserById(token.id);
+    if (!user || user.activated) {
+      return false;
+    }
+
+    await this._userService.activateUser(user.id);
+    this._track('register', user.email, tracking).catch((err) => {});
+    await NewsletterService.register(user.email);
+    return this.jwt(user);
+  }
+
+  async resendActivationEmail(email: string) {
+    const user = await this._userService.getUserByEmail(email);
+
+    if (!user || user.activated) {
+      return false;
+    }
+
+    this.sendInBackground(
+      user.email,
+      'Activate your account',
+      this.activationEmail(user)
+    );
+
+    return true;
+  }
+
+  oauthLink(provider: string, query?: any) {
+    const providerInstance = this._providerManager.getProvider(provider);
+    return providerInstance.generateLink(query);
+  }
+
+  async checkExists(
+    provider: string,
+    code: string,
+    redirectUri?: string,
+    state?: string,
+    stateCookie?: string
+  ) {
+    // the mobile app passes redirect_uri and keeps no cookies, the web flow
+    // never passes it, so the state nonce is only enforced for the web flow
+    if (
+      !process.env.NOT_SECURED &&
+      !redirectUri &&
+      (!state || state !== stateCookie)
+    ) {
+      throw new Error('Invalid state');
+    }
+
+    const providerInstance = this._providerManager.getProvider(provider);
+    const token = await providerInstance.getToken(code, redirectUri);
+    const user = await providerInstance.getUser(token);
+    if (!user) {
+      throw new Error('Invalid user');
+    }
+    const checkExists = await this._userService.getUserByProvider(
+      user.id,
+      provider as Provider
+    );
+    if (checkExists) {
+      return { jwt: await this.jwt(checkExists) };
+    }
+
+    return { token };
+  }
+
+  // The session token: who it is and which password it was issued for
+  // (so changing the password signs every other session out). Nothing else
+  // from the user row, the claims are never trusted for authorization
+  private async jwt(user: Pick<User, 'id'>) {
+    const current = await this._userService.getUserById(user.id);
+    return AuthChecker.signTypedJWT('session', {
+      id: user.id,
+      pv: AuthChecker.passwordFingerprint(current?.password),
+    });
+  }
+}

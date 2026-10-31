@@ -1,0 +1,63 @@
+app.postdelegate.com {
+    encode zstd gzip
+    header {
+        -Server
+        -X-Powered-By
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Nothing embeds the app; refuse framing so the login page cannot be clickjacked.
+        X-Frame-Options SAMEORIGIN
+        Content-Security-Policy "frame-ancestors 'self'"
+    }
+    # Only Cloudflare may reach the origin, so CF-Connecting-IP (used for
+    # per-visitor rate limits, TRUST_CF_CONNECTING_IP) cannot be forged.
+    # Ranges: https://www.cloudflare.com/ips/ (fetched 2026-10-30)
+    @direct not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+    handle @direct {
+        abort
+    }
+    handle /source {
+        header Cache-Control "no-store"
+        redir * /source/postdelegate-80283818.tar.gz 302
+    }
+    handle_path /source/* {
+        root * /source
+        file_server
+    }
+    @privacy path /legal/privacy /legal/privacy/
+    handle @privacy {
+        root * /legal-public
+        rewrite * /privacy.html
+        file_server
+    }
+    @terms path /legal/terms /legal/terms/
+    handle @terms {
+        root * /legal-public
+        rewrite * /terms.html
+        file_server
+    }
+    # MCP OAuth (custom connectors in Claude/ChatGPT): clients probe the
+    # resource and its discovery documents at the origin root; the backend
+    # serves them under /api, so re-enter the /api mapping.
+    @mcpOauth path /mcp-oauth-dynamic /mcp-oauth-dynamic/* /.well-known/oauth-protected-resource/mcp-oauth-dynamic /.well-known/oauth-authorization-server/mcp-oauth-dynamic
+    handle @mcpOauth {
+        rewrite * /api{uri}
+        reverse_proxy postiz:5000
+    }
+    @affiliateTerms path /legal/affiliate-terms /legal/affiliate-terms/
+    handle @affiliateTerms {
+        root * /legal-public
+        rewrite * /affiliate-terms.html
+        file_server
+    }
+    @deletion path /legal/data-deletion /legal/data-deletion/ /data-deletion /data-deletion/
+    handle @deletion {
+        root * /legal-public
+        rewrite * /data-deletion.html
+        file_server
+    }
+    handle {
+        reverse_proxy postiz:5000
+    }
+}

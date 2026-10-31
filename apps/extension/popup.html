@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Share to PostDelegate</title>
+    <link rel="stylesheet" href="/src/popup/popup.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header class="header">
+        <img class="logo" src="/icon-48.png" alt="" width="28" height="28" />
+        <div class="header-text">
+          <h1>Share to PostDelegate</h1>
+          <p id="org-name" class="muted" hidden></p>
+        </div>
+        <button id="disconnect" class="link-button" type="button" hidden>Disconnect</button>
+      </header>
+
+      <section id="view-loading" class="view">
+        <p class="muted center">Loading...</p>
+      </section>
+
+      <section id="view-connect" class="view" hidden>
+        <p class="lead">
+          Connect your workspace with an API key to share pages straight from your browser.
+        </p>
+        <form id="connect-form" autocomplete="off">
+          <label for="api-key">API key</label>
+          <input id="api-key" type="password" spellcheck="false" placeholder="Paste your API key" required />
+          <p class="hint">
+            <a id="docs-link" href="https://postdelegate.com/docs/api" target="_blank" rel="noopener noreferrer">Where do I find it?</a>
+            The key is stored only in this browser.
+          </p>
+          <p id="connect-error" class="message error" role="alert" hidden></p>
+          <button id="connect-button" class="btn primary" type="submit">Connect</button>
+        </form>
+      </section>
+
+      <section id="view-main" class="view" hidden>
+        <label for="text">Post text</label>
+        <textarea id="text" rows="7" placeholder="What do you want to share?"></textarea>
+        <div class="row between">
+          <span id="char-count" class="muted small"></span>
+        </div>
+
+        <div id="image-row" class="image-row" hidden>
+          <img id="image-preview" alt="" />
+          <label class="check">
+            <input id="include-image" type="checkbox" />
+            <span id="image-label">Include page image</span>
+          </label>
+        </div>
+
+        <label>Channels</label>
+        <div id="channels" class="channels" role="group" aria-label="Channels"></div>
+        <p id="no-channels" class="muted small" hidden>
+          No channels yet. <a href="https://app.postdelegate.com/launches" target="_blank" rel="noopener noreferrer">Connect a channel</a> in PostDelegate first.
+        </p>
+
+        <label for="schedule-at">Schedule for</label>
+        <div class="row">
+          <input id="schedule-at" type="datetime-local" />
+          <button id="schedule" class="btn secondary" type="button">Schedule</button>
+        </div>
+
+        <p id="main-error" class="message error" role="alert" hidden></p>
+        <button id="reconnect" class="btn secondary" type="button" hidden>Reconnect</button>
+
+        <div class="row actions">
+          <button id="post-now" class="btn primary" type="button">Post now</button>
+          <button id="draft" class="btn secondary" type="button">Save as draft</button>
+        </div>
+      </section>
+
+      <section id="view-success" class="view center" hidden>
+        <div class="check-circle" aria-hidden="true">&#10003;</div>
+        <h2 id="success-title"></h2>
+        <p id="success-detail" class="muted"></p>
+        <a id="calendar-link" class="btn primary block" href="https://app.postdelegate.com/launches" target="_blank" rel="noopener noreferrer">Open calendar</a>
+        <button id="done" class="btn secondary block" type="button">Done</button>
+      </section>
+    </main>
+    <script type="module" src="/src/popup/popup.ts"></script>
+  </body>
+</html>
