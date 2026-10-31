@@ -48,7 +48,17 @@ export const Checkbox = forwardRef<
       <div
         ref={ref}
         {...disableForm ? {} : form.register(props.name!)}
+        role="checkbox"
+        aria-checked={!!val}
+        {...(label ? { 'aria-label': label } : {})}
+        tabIndex={0}
         onClick={changeStatus}
+        onKeyDown={(e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            changeStatus();
+          }
+        }}
         className={clsx(
           'cursor-pointer rounded-[4px] select-none w-[24px] h-[24px] justify-center items-center flex text-white',
           variant === 'default' || !variant
@@ -58,7 +68,7 @@ export const Checkbox = forwardRef<
         )}
       >
         {val && (
-          <div>
+          <div aria-hidden="true">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"

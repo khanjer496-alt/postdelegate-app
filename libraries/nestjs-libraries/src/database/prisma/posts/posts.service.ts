@@ -544,14 +544,38 @@ export class PostsService {
 
   async getPostsMinified(orgId: string, query: GetPostsDto) {
     return minifyPosts({
-      posts: await this._postRepository.getPosts(orgId, query),
+      posts: this.firstMediaOnly(
+        await this._postRepository.getPosts(orgId, query, true)
+      ),
     });
   }
 
   async getPostsList(orgId: string, query: GetPostsListDto) {
-    return minifyPostsList(
-      await this._postRepository.getPostsList(orgId, query)
-    );
+    const list = await this._postRepository.getPostsList(orgId, query);
+    return minifyPostsList({
+      ...list,
+      posts: this.firstMediaOnly(list.posts),
+    });
+  }
+
+  // the calendar preview shows only the first picture, the rest stays out of
+  // the response
+  private firstMediaOnly<T extends { image?: string | null }>(posts: T[]) {
+    return posts.map((post) => {
+      let first: { path?: string; thumbnail?: string } | undefined;
+      try {
+        first = JSON.parse(post.image || '[]')?.[0];
+      } catch (err) {
+        first = undefined;
+      }
+
+      return {
+        ...post,
+        image: first?.path
+          ? JSON.stringify([{ path: first.path, thumbnail: first.thumbnail }])
+          : null,
+      };
+    });
   }
 
   async updateMedia(

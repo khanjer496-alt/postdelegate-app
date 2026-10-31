@@ -34,9 +34,10 @@ export const AttachToFeedbackIcon: FC = () => {
       ref={buttonRef}
       type="button"
       aria-label="Feedback"
-      className="hover:text-newTextColor"
+      className="flex items-center justify-center hover:text-newTextColor mobile:w-[40px] mobile:h-[40px] rounded-[8px] mobile:hover:bg-boxFocused"
     >
       <svg
+        aria-hidden="true"
         width="24"
         height="24"
         viewBox="0 0 32 32"

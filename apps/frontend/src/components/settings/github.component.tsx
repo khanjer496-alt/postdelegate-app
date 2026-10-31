@@ -96,7 +96,7 @@ const ConnectComponent: FC<{
           {t('connect_your_repository', 'Connect your repository')}
         </div>
         <Button
-          className="bg-transparent border-0 text-gray mt-[7px]"
+          className="bg-transparent shadow-none border-0 text-gray mt-[7px]"
           onClick={cancelConnection}
         >
           {t('cancel', 'Cancel')}

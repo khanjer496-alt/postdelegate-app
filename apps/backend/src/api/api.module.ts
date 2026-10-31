@@ -51,6 +51,7 @@ import { AdminController } from '@gitroom/backend/api/routes/admin.controller';
 import { AffiliatesController } from '@gitroom/backend/api/routes/affiliates.controller';
 import { ReviewsController } from '@gitroom/backend/api/routes/reviews.controller';
 import { PublicReviewsController } from '@gitroom/backend/api/routes/public.reviews.controller';
+import { ActivationController } from '@gitroom/backend/api/routes/activation.controller';
 import { AuthProviderManager } from '@gitroom/backend/services/auth/providers/providers.manager';
 import { GithubProvider } from '@gitroom/backend/services/auth/providers/github.provider';
 import { GoogleProvider } from '@gitroom/backend/services/auth/providers/google.provider';
@@ -83,6 +84,7 @@ const authenticatedController = [
   AdminController,
   AffiliatesController,
   ReviewsController,
+  ActivationController,
 ];
 @Module({
   imports: [UploadModule],

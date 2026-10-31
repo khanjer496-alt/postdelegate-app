@@ -1,33 +1,41 @@
 :root {
   .dark {
-    --new-back-drop: #000;
-    --new-settings: #242323;
-    --new-border: #252525;
-    --new-bgColor: #0e0e0e;
-    --new-bgColorInner: #1a1919;
-    --new-sep: #454444;
-    --new-bgLineColor: #212121;
-    --new-textItemFocused: #1a1919;
-    --new-textItemBlur: #999999;
-    --new-boxFocused: #fff;
-    --new-textColor: 255 255 255;
-    --new-blockSeparator: #272626;
-    --new-btn-simple: #313030;
-    --new-btn-text: #ffffff;
+    --new-back-drop: #030407;
+    --new-settings: #1a1e29;
+    --new-border: #262b37;
+    --new-bgColor: #080a0f;
+    --new-bgColorInner: #11141c;
+    --new-sep: #3b4150;
+    --new-bgLineColor: #222734;
+    --new-textItemFocused: #e4deff;
+    --new-textItemBlur: #9299aa;
+    --new-boxFocused: #2c2563;
+    --new-textColor: 247 247 242;
+    --new-blockSeparator: #232836;
+    --new-btn-simple: #232835;
+    --new-btn-text: #f7f7f2;
     --new-btn-primary: #7357ff;
+    --new-btn-cta: #c8ff4d;
+    --new-btn-cta-hover: #d8ff80;
+    --new-btn-cta-text: #0b0f05;
+    --new-btn-cta-edge: transparent;
+    --new-orbit-dot: #c8ff4d;
+    --new-orbit-ring: #080a0f;
+    --new-focus-ring: #c8ff4d;
     --new-ai-btn: #7357ff;
-    --new-box-hover: #201f1f;
-    --new-table-border: #2b2b2b;
-    --new-table-header: #1e1d1d;
-    --new-table-text: #9c9c9c;
+    --new-box-hover: #191d29;
+    --new-table-border: #2a2f3b;
+    --new-table-header: #171b26;
+    --new-table-text: #9299aa;
     --new-table-text-focused: #c8ff4d;
-    --new-small-strips: #191818;
-    --new-big-strips: #161515;
-    --new-col-color: #2c2b2b;
-    --new-menu-dots: #696868;
-    --new-menu-hover: #fff;
-    --menu-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.5);
-    --popup-color: rgba(65, 64, 66, 0.3);
+    --new-small-strips: #141822;
+    --new-big-strips: #0e1118;
+    --new-col-color: #2a2f3b;
+    --new-menu-dots: #6e7587;
+    --new-menu-hover: #f7f7f2;
+    --menu-shadow: 0 0 0 1px rgba(146, 153, 170, 0.08),
+      0 12px 32px 0 rgba(3, 4, 7, 0.6);
+    --popup-color: rgba(8, 10, 15, 0.55);
     --border-preview: transparent;
     --preview-box-shadow: none;
     --linkedin-border: #2e3438;
@@ -44,38 +52,43 @@
     --youtube-svg-border: #A0A0A0;
   }
   .light {
-    --new-back-drop: #2d1b57;
-    --new-settings: #eceef1;
-    --new-sep: #d5d9dd;
-    --new-border: #eaecee;
-    --new-bgColor: #f0f2f4;
+    --new-back-drop: #11141c;
+    --new-settings: #efefe8;
+    --new-sep: #d3d4cb;
+    --new-border: #e6e7e0;
+    --new-bgColor: #f7f7f2;
     --new-bgColorInner: #ffffff;
-    --new-bgLineColor: #e7e9eb;
-    --new-textItemFocused: #6545ed;
-    --new-textItemBlur: #777b7f;
-    --new-boxFocused: #ebe8ff;
-    --new-textColor: 14 14 14;
-    --new-blockSeparator: #f2f2f4;
-    --new-btn-simple: #eceef1;
-    --new-btn-text: #0e0e0e;
-    --new-btn-primary: #7357ff;
-    --new-ai-btn: #7357ff;
-    --new-box-hover: #f4f6f8;
-    --new-table-border: #e7e9eb;
-    --new-table-header: #f5f7f9;
-    --new-table-text: #777b7f;
+    --new-bgLineColor: #e4e5dd;
+    --new-textItemFocused: #5b3fe6;
+    --new-textItemBlur: #5b6172;
+    --new-boxFocused: #ece8ff;
+    --new-textColor: 17 20 28;
+    --new-blockSeparator: #efefe8;
+    --new-btn-simple: #efefe8;
+    --new-btn-text: #11141c;
+    --new-btn-primary: #5b3fe6;
+    --new-btn-cta: #c8ff4d;
+    --new-btn-cta-hover: #bcf53b;
+    --new-btn-cta-text: #0b0f05;
+    --new-btn-cta-edge: rgba(0, 0, 0, 0.2);
+    --new-orbit-dot: #c8ff4d;
+    --new-orbit-ring: #11141c;
+    --new-focus-ring: #5b3fe6;
+    --new-ai-btn: #5b3fe6;
+    --new-box-hover: #f3f3ee;
+    --new-table-border: #dadbd3;
+    --new-table-header: #f5f5f0;
+    --new-table-text: #5b6172;
     --new-table-text-focused: #6545ed;
     --new-small-strips: #191818;
-    --new-big-strips: #f5f7f9;
-    --new-col-color: #eff1f3;
-    --new-menu-dots: #696868;
-    --new-menu-hover: #000;
-    --menu-shadow: -22px 83px 24px 0 rgba(55, 52, 75, 0),
-      -14px 53px 22px 0 rgba(55, 52, 75, 0.01),
-      -8px 30px 19px 0 rgba(55, 52, 75, 0.05),
-      -3px 13px 14px 0 rgba(55, 52, 75, 0.09),
-      -1px 3px 8px 0 rgba(55, 52, 75, 0.1);
-    --popup-color: rgba(55, 37, 97, 0.2);
+    --new-big-strips: #f1f1eb;
+    --new-col-color: #efefe8;
+    --new-menu-dots: #6b7180;
+    --new-menu-hover: #11141c;
+    --menu-shadow: 0 0 0 1px rgba(17, 20, 28, 0.04),
+      -3px 13px 14px 0 rgba(17, 20, 28, 0.06),
+      -1px 3px 8px 0 rgba(17, 20, 28, 0.08);
+    --popup-color: rgba(17, 20, 28, 0.24);
     --border-preview: #f1f0f3;
     --preview-box-shadow: 0 386px 108px 0 rgba(38, 32, 64, 0),
       0 247px 99px 0 rgba(38, 32, 64, 0.01),
@@ -98,15 +111,15 @@
 
 :root {
   .dark {
-    --color-primary: #0e0e0e;
-    --color-secondary: #090b13;
-    --color-text: #ffffff;
-    --color-third: #080b13;
+    --color-primary: #080a0f;
+    --color-secondary: #0b0e15;
+    --color-text: #f7f7f2;
+    --color-third: #0a0d14;
     --color-forth: #7357ff;
     --color-fifth: var(--new-bgLineColor);
     --color-sixth: var(--new-table-header);
     --color-seventh: #6545ed;
-    --color-gray: #8c8c8c;
+    --color-gray: #9299aa;
     --color-input: var(--new-table-header);
     --color-input-text: #64748b;
     --color-table-border: var(--new-table-border);
@@ -168,18 +181,18 @@
     --color-modalCustom: #000000;
   }
   .light {
-    --color-primary: #f0f2f4;
+    --color-primary: #f7f7f2;
     --color-secondary: #fff;
-    --color-text: #000;
+    --color-text: #11141c;
     --color-third: white;
     --color-forth: #7357ff;
     --color-fifth: var(--new-bgLineColor);
     --color-sixth: var(--new-table-header);
     --color-seventh: #6545ed;
-    --color-gray: #8c8c8c;
+    --color-gray: #6b7180;
     --color-input: var(--new-table-header);
     --color-input-text: #64748b;
-    --color-table-border: #efefef;
+    --color-table-border: #e6e7e0;
     --color-custom1: #324264;
     --color-custom2: #f8f8f8;
     --color-custom3: #fff;

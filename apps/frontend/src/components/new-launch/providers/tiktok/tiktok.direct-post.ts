@@ -33,6 +33,31 @@ export function parseTikTokCreatorInfo(value: unknown): TikTokCreatorInfo | unde
   return info;
 }
 
+// TikTok's Content Sharing Guidelines wording, shown on the disabled actions.
+export const TIKTOK_COMMERCIAL_SELECTION_REQUIRED =
+  'You need to indicate if your content promotes yourself, a third party, or both.';
+export const TIKTOK_BRANDED_CONTENT_NOT_PRIVATE =
+  'Branded content visibility cannot be set to private.';
+
+// Why the video duration does not allow posting yet, or undefined when it does.
+export function getTikTokVideoDurationMessage(input: {
+  maxDurationSeconds: number;
+  videoDurationSeconds?: number;
+  videoMetadataFailed?: boolean;
+}): string | undefined {
+  const duration = input.videoDurationSeconds;
+  if (input.videoMetadataFailed || (duration !== undefined && (!Number.isFinite(duration) || duration <= 0))) {
+    return 'The video duration could not be read. Re-upload a playable MP4, MOV or WebM before posting.';
+  }
+  if (duration === undefined) {
+    return 'Checking video duration before publishing…';
+  }
+  if (duration > input.maxDurationSeconds) {
+    return `This video is too long for this TikTok account. Choose a video no longer than ${input.maxDurationSeconds} seconds.`;
+  }
+  return undefined;
+}
+
 export function isTikTokVideoPath(path: string): boolean {
   return /\.(mp4|mov|webm)(?:$|[?#])/i.test(path);
 }
@@ -67,6 +92,8 @@ export function getTikTokDirectPostState(input: {
     allowComment: !!info && !info.commentDisabled,
     allowDuet: !!info && input.mediaKind === 'video' && !info.duetDisabled,
     allowStitch: !!info && input.mediaKind === 'video' && !info.stitchDisabled,
+    commercialSelectionMissing:
+      input.disclose && !input.ownBrand && !input.brandedContent,
     commercialValid: !input.disclose || (
       (input.ownBrand || input.brandedContent) &&
       !(branded && input.privacyLevel === 'SELF_ONLY')
@@ -75,4 +102,47 @@ export function getTikTokDirectPostState(input: {
       ? 'Paid partnership'
       : input.ownBrand ? 'Promotional content' : undefined,
   };
+}
+
+// Why a legacy Direct Post cannot be published yet, or undefined when it can.
+// The composer shows it on the disabled Post now / Add to calendar actions.
+export function getTikTokPublishBlockedReason(input: {
+  state: ReturnType<typeof getTikTokDirectPostState>;
+  creatorInfo?: TikTokCreatorInfo;
+  creatorFailed: boolean;
+  mediaKind: 'video' | 'photo' | 'none';
+  videoDurationSeconds?: number;
+  videoMetadataFailed?: boolean;
+  musicUsageConsent: boolean;
+}): string | undefined {
+  const { state, creatorInfo } = input;
+  if (state.commercialSelectionMissing) {
+    return TIKTOK_COMMERCIAL_SELECTION_REQUIRED;
+  }
+  if (!state.creatorReady) {
+    if (input.creatorFailed) {
+      return 'TikTok cannot confirm that this account can post right now. Try again later.';
+    }
+    if (!creatorInfo) {
+      return 'Checking the latest TikTok account settings…';
+    }
+    if (input.mediaKind === 'none') {
+      return 'Add a photo or video to post to TikTok.';
+    }
+    return getTikTokVideoDurationMessage({
+      maxDurationSeconds: creatorInfo.maxDurationSeconds,
+      videoDurationSeconds: input.videoDurationSeconds,
+      videoMetadataFailed: input.videoMetadataFailed,
+    });
+  }
+  if (!state.commercialValid) {
+    return TIKTOK_BRANDED_CONTENT_NOT_PRIVATE;
+  }
+  if (!state.selectedPrivacyAllowed) {
+    return 'Choose who can see this TikTok post.';
+  }
+  if (!input.musicUsageConsent) {
+    return 'Confirm that PostDelegate can upload and publish this content to TikTok.';
+  }
+  return undefined;
 }

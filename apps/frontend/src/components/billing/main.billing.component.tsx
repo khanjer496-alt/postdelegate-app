@@ -143,7 +143,7 @@ const BillingCycle: FC<{
 
   return (
     <div className="flex items-center gap-[16px] rounded-[12px] border border-newTableBorder bg-newBgColorInner shadow-previewShadow px-[24px] py-[20px] mobile:flex-col mobile:items-stretch mobile:p-[16px]">
-      <div className="w-[48px] h-[48px] rounded-full bg-[#612bd3]/10 text-[#612bd3] flex items-center justify-center shrink-0 mobile:hidden">
+      <div className="w-[48px] h-[48px] rounded-full bg-[#7357ff]/10 text-btnPrimary flex items-center justify-center shrink-0 mobile:hidden">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -219,7 +219,7 @@ type PlanAction = {
 };
 
 const planButton = {
-  primary: 'bg-btnPrimary text-white hover:bg-[#5023b8]',
+  primary: 'bg-btnCta shadow-cta text-btnCtaText hover:bg-btnCtaHover',
   simple: 'bg-btnSimple text-btnText hover:opacity-80',
   current: 'bg-newBgLineColor text-textItemBlur',
   danger: 'bg-red-500 text-white hover:bg-red-600',
@@ -401,7 +401,7 @@ const Accept: FC<{ resolve: (res: boolean) => void }> = ({ resolve }) => {
         <Button loading={loading} onClick={apply}>
           Apply 50% discount for 3 months
         </Button>
-        <Button onClick={() => resolve(false)} className="!bg-red-800">
+        <Button onClick={() => resolve(false)} className="!bg-red-800 text-white">
           Cancel my subscription
         </Button>
       </div>
@@ -1013,7 +1013,7 @@ export const MainBillingComponent: FC<{
       )}
       {!!subscription?.id && (
         <div className="flex items-center gap-[16px] rounded-[12px] border border-newTableBorder bg-newBgColorInner shadow-previewShadow px-[24px] py-[20px] mobile:flex-col mobile:items-stretch mobile:p-[16px]">
-          <div className="w-[48px] h-[48px] rounded-full bg-[#612bd3]/10 text-[#612bd3] flex items-center justify-center shrink-0 mobile:hidden">
+          <div className="w-[48px] h-[48px] rounded-full bg-[#7357ff]/10 text-btnPrimary flex items-center justify-center shrink-0 mobile:hidden">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -1067,7 +1067,7 @@ export const MainBillingComponent: FC<{
               <button
                 type="button"
                 onClick={addPaymentMethod}
-                className="h-[44px] px-[16px] rounded-[8px] bg-btnPrimary text-white text-[14px] font-[500] hover:bg-[#5023b8] transition-colors"
+                className="h-[44px] px-[16px] rounded-[8px] bg-btnCta shadow-cta text-btnCtaText text-[14px] font-[600] hover:bg-btnCtaHover transition-colors"
               >
                 {t('add_a_card', 'Add a card')}
               </button>

@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
-import { Organization } from '@prisma/client';
+import { Organization, SignatureType } from '@prisma/client';
 import { ApiTags } from '@nestjs/swagger';
 import { SignatureService } from '@gitroom/nestjs-libraries/database/prisma/signatures/signature.service';
 import { SignatureDto } from '@gitroom/nestjs-libraries/dtos/signature/signature.dto';
@@ -13,6 +13,14 @@ export class SignatureController {
   @Get('/')
   async getSignatures(@GetOrgFromRequest() org: Organization) {
     return this._signatureService.getSignaturesByOrgId(org.id);
+  }
+
+  @Get('/templates')
+  async getTemplates(@GetOrgFromRequest() org: Organization) {
+    return this._signatureService.getSignaturesByOrgId(
+      org.id,
+      SignatureType.TEMPLATE
+    );
   }
 
   @Get('/default')

@@ -19,8 +19,12 @@ import { TikTokMusicSelector } from '@gitroom/frontend/components/new-launch/pro
 import { TikTokLocationSelector } from '@gitroom/frontend/components/new-launch/providers/tiktok/tiktok.location';
 import {
   getTikTokDirectPostState,
+  getTikTokPublishBlockedReason,
+  getTikTokVideoDurationMessage,
   isTikTokVideoPath,
   parseTikTokCreatorInfo,
+  TIKTOK_BRANDED_CONTENT_NOT_PRIVATE,
+  TIKTOK_COMMERCIAL_SELECTION_REQUIRED,
   TikTokCreatorInfo,
 } from './tiktok.direct-post';
 
@@ -51,12 +55,16 @@ const TikTokCheckbox: FC<{
   label: ReactNode;
   initialValue?: boolean;
   disabled?: boolean;
-}> = ({ name, label, initialValue = false, disabled = false }) => {
+  tooltip?: string;
+}> = ({ name, label, initialValue = false, disabled = false, tooltip }) => {
   const { register, watch, setValue, formState } = useSettings();
   const error = formState.errors[name]?.message;
   return (
     <div className="flex flex-col gap-[6px]">
-      <label className={`flex items-start gap-[10px] text-[14px] ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+      <label
+        className={`flex items-start gap-[10px] text-[14px] ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        {...(tooltip ? { 'data-tooltip-id': 'tooltip', 'data-tooltip-content': tooltip } : {})}
+      >
         <input
           type="checkbox"
           className="mt-[2px] h-[20px] w-[20px] shrink-0 accent-[#7357FF]"
@@ -117,14 +125,22 @@ const TikTokSettings: FC<{ values?: any }> = () => {
     brandedContent,
   });
 
+  const publishBlockedReason = isBusiness || isUploadMode
+    ? undefined
+    : getTikTokPublishBlockedReason({
+      state: directState,
+      creatorInfo,
+      creatorFailed: !!creatorError,
+      mediaKind: !hasMedia ? 'none' : isVideo ? 'video' : 'photo',
+      videoDurationSeconds,
+      videoMetadataFailed: metadataFailed,
+      musicUsageConsent,
+    });
+
   useEffect(() => {
     if (!integration?.id) return;
-    setPublishBlocked(integration.id, !isBusiness && !isUploadMode && (
-      !directState.creatorReady || !directState.selectedPrivacyAllowed ||
-      !directState.commercialValid || !musicUsageConsent
-    ));
-  }, [integration?.id, isBusiness, isUploadMode, directState.creatorReady,
-    directState.selectedPrivacyAllowed, directState.commercialValid, musicUsageConsent, setPublishBlocked]);
+    setPublishBlocked(integration.id, !!publishBlockedReason, publishBlockedReason);
+  }, [integration?.id, publishBlockedReason, setPublishBlocked]);
 
   useEffect(() => () => {
     if (integration?.id) setPublishBlocked(integration.id, false);
@@ -202,6 +218,10 @@ const TikTokSettings: FC<{ values?: any }> = () => {
     ? Object.keys(privacyLabels).map((entry) => ({ value: entry, disabled: false }))
     : directState.privacyOptions;
   const settingsDisabled = isUploadMode || (!isBusiness && !creatorInfo);
+  // TikTok: branded content can't be private, so each choice locks the other
+  const brandedPrivate = !isBusiness && disclose && brandedContent;
+  const privateBlocksBranded = !isBusiness && privacyLevel === 'SELF_ONLY';
+  const brandedContentPolicy = disclose && brandedContent;
 
   return (
     <div className="flex flex-col gap-[16px]">
@@ -237,9 +257,11 @@ const TikTokSettings: FC<{ values?: any }> = () => {
               ) : 'Checking the latest TikTok account settings…'}
               {isVideo && creatorInfo && !directState.validDuration && (
                 <div className="mt-[8px] text-red-400" role="alert">
-                  {metadataFailed ? 'The video duration could not be read. Re-upload a playable MP4, MOV or WebM before posting.'
-                    : videoDurationSeconds === undefined ? 'Checking video duration before publishing…'
-                    : `This video is too long for this TikTok account. Choose a video no longer than ${creatorInfo.maxDurationSeconds} seconds.`}
+                  {getTikTokVideoDurationMessage({
+                    maxDurationSeconds: creatorInfo.maxDurationSeconds,
+                    videoDurationSeconds,
+                    videoMetadataFailed: metadataFailed,
+                  })}
                 </div>
               )}
               {!hasMedia && <div className="mt-[8px]">Add a photo or video to prepare your TikTok post.</div>}
@@ -254,15 +276,21 @@ const TikTokSettings: FC<{ values?: any }> = () => {
           label={t('tiktok_who_can_see_post', 'Who can see this post?')}
           {...register('privacy_level', isBusiness ? { value: 'PUBLIC_TO_EVERYONE' } : {})}
           value={privacyLevel}
+          {...(brandedPrivate ? { 'data-tooltip-id': 'tooltip', 'data-tooltip-content': TIKTOK_BRANDED_CONTENT_NOT_PRIVATE } : {})}
         >
           <option value="">{t('tiktok_choose_privacy', 'Select visibility')}</option>
           {privacyOptions.map((item) => (
-            <option key={item.value} value={item.value} disabled={item.disabled}>
+            <option
+              key={item.value}
+              value={item.value}
+              disabled={item.disabled}
+              title={item.disabled && item.value === 'SELF_ONLY' ? TIKTOK_BRANDED_CONTENT_NOT_PRIVATE : undefined}
+            >
               {privacyLabels[item.value as keyof typeof privacyLabels] || item.value}
             </option>
           ))}
         </Select>
-        {disclose && brandedContent && <div className="text-[13px]">Branded content visibility cannot be set to private.</div>}
+        {brandedPrivate && <div className="text-[13px]">{TIKTOK_BRANDED_CONTENT_NOT_PRIVATE} “{privacyLabels.SELF_ONLY}” is unavailable while Branded content is selected.</div>}
         {(isPhoto || isBusiness) && (
           <>
             <Select
@@ -312,23 +340,34 @@ const TikTokSettings: FC<{ values?: any }> = () => {
         <div hidden={!disclose} className={!disclose ? 'hidden' : 'flex flex-col gap-[12px]'}>
           <TikTokCheckbox name="brand_organic_toggle" label={t('label_your_brand', 'Your brand')} disabled={settingsDisabled} />
           <p className="text-[13px]">You are promoting yourself or your own business.</p>
-          <TikTokCheckbox name="brand_content_toggle" label={t('label_branded_content', 'Branded content')} disabled={settingsDisabled || (!isBusiness && privacyLevel === 'SELF_ONLY')} />
+          <TikTokCheckbox
+            name="brand_content_toggle"
+            label={t('label_branded_content', 'Branded content')}
+            disabled={settingsDisabled || privateBlocksBranded}
+            tooltip={privateBlocksBranded ? TIKTOK_BRANDED_CONTENT_NOT_PRIVATE : undefined}
+          />
           <p className="text-[13px]">You are promoting another brand or a third party. Branded content cannot be private.</p>
-          {!isBusiness && !directState.commercialValid && <p className="text-red-400 text-[13px]" role="alert">You need to indicate if your content promotes yourself, a third party, or both.</p>}
-          {directState.disclosureLabel && <p className="bg-tableBorder rounded-[10px] p-[10px] text-[14px]">Your {isVideo ? 'video' : 'photo'} will be labeled “{directState.disclosureLabel}”. This cannot be changed once posted.</p>}
+          {privateBlocksBranded && (
+            <p className="text-[13px]" role="status">
+              Branded content is unavailable because this post is set to “{privacyLabels.SELF_ONLY}”. Choose another option under “Who can see this post?” to select it.
+            </p>
+          )}
+          {!isBusiness && directState.commercialSelectionMissing && <p className="text-red-400 text-[13px]" role="alert">{TIKTOK_COMMERCIAL_SELECTION_REQUIRED}</p>}
+          {directState.disclosureLabel && <p className="bg-tableBorder rounded-[10px] p-[10px] text-[14px]">{`Your ${isVideo ? 'video' : 'photo'} will be labeled as '${directState.disclosureLabel}'`}. This cannot be changed once posted.</p>}
         </div>
-        {!isBusiness ? (
+        {!isBusiness && (
           <TikTokCheckbox
             name="music_usage_consent"
             disabled={settingsDisabled}
-            label={<>
-              I authorize PostDelegate to upload and publish this content to the TikTok account shown above. By posting, you agree to TikTok’s{' '}
-              {disclose && brandedContent && <><a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/legal/page/global/bc-policy/en">Branded Content Policy</a> and </>}
-              <a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en">Music Usage Confirmation</a>.
-            </>}
+            label="I authorize PostDelegate to upload and publish this content to the TikTok account shown above."
           />
-        ) : disclose && (ownBrand || brandedContent) && (
-          <p className="text-[14px]">By posting, you agree to TikTok’s <a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en">Music Usage Confirmation</a>{brandedContent && <> and <a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/legal/page/global/bc-policy/en">Branded Content Policy</a></>}.</p>
+        )}
+        {(!isBusiness || (disclose && (ownBrand || brandedContent))) && (
+          <p className="text-[14px]" data-testid="tiktok-declaration">
+            {"By posting, you agree to TikTok's "}
+            {brandedContentPolicy && <><a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/legal/page/global/bc-policy/en">Branded Content Policy</a> and </>}
+            <a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en">Music Usage Confirmation</a>
+          </p>
         )}
       </fieldset>
       {!isBusiness && !isUploadMode && typeof formState.errors.creator_info_verified?.message === 'string' && <div role="alert" className="text-red-400 text-[12px]">{formState.errors.creator_info_verified.message}</div>}
@@ -344,4 +383,8 @@ export default withProvider({
   CustomPreviewComponent: TiktokPreview,
   dto: TikTokDto,
   maximumCharacters: 2000,
+  postSubmitMessage: (settings) =>
+    settings?.content_posting_method === 'UPLOAD'
+      ? 'It may take a few minutes for TikTok to process your upload before it appears in your TikTok inbox.'
+      : "It may take a few minutes for TikTok to process your post before it's visible on your profile.",
 });

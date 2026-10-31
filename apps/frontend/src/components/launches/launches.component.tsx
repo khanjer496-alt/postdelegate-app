@@ -33,6 +33,9 @@ import { ChannelsAfterPayment } from '@gitroom/frontend/components/layout/check.
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import { Input } from '@gitroom/react/form/input';
 import { Button } from '@gitroom/react/form/button';
+import { NeedsAttention } from '@gitroom/frontend/components/activation/needs.attention';
+import { FirstRunChecklist } from '@gitroom/frontend/components/activation/first.run.checklist';
+import { ChannelHealthBadge } from '@gitroom/frontend/components/activation/channel.health.badge';
 
 export const SVGLine = () => {
   return (
@@ -395,6 +398,10 @@ export const MenuComponent: FC<
             <div className="bg-primary/60 w-[39px] h-[46px] start-0 top-0 absolute rounded-full z-[199]" />
           </div>
         )}
+        <ChannelHealthBadge
+          integrationId={integration.id}
+          onReconnect={refreshChannel(integration)}
+        />
         <ImageWithFallback
           fallbackSrc={'/no-picture.jpg'}
           src={integration.picture || '/no-picture.jpg'}
@@ -789,6 +796,11 @@ export const LaunchesComponent = () => {
               </div>
             )}
           </div>
+          <NeedsAttention
+            refreshChannel={refreshChannel}
+            continueIntegration={continueIntegration}
+          />
+          <FirstRunChecklist />
           <Filters />
           <div className="flex-1 flex">
             <Calendar />

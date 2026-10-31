@@ -44,9 +44,15 @@ interface StoreState {
   comments: boolean | 'no-media';
   locked: boolean;
   publishBlocked: Record<string, boolean>;
+  // why a channel blocks publishing, shown on the disabled actions
+  publishBlockedReason: Record<string, string | undefined>;
   hide: boolean;
   setLocked: (locked: boolean) => void;
-  setPublishBlocked: (integrationId: string, blocked: boolean) => void;
+  setPublishBlocked: (
+    integrationId: string,
+    blocked: boolean,
+    reason?: string
+  ) => void;
   integrations: Integrations[];
   selectedIntegrations: SelectedIntegrations[];
   global: Values[];
@@ -159,6 +165,7 @@ const initialState = {
   current: 'global',
   locked: false,
   publishBlocked: {} as Record<string, boolean>,
+  publishBlockedReason: {} as Record<string, string | undefined>,
   hide: false,
   integrations: [] as Integrations[],
   selectedIntegrations: [] as SelectedIntegrations[],
@@ -536,17 +543,27 @@ export const useLaunchStore = create<StoreState>()((set) => ({
     set((state) => ({
       locked: locked,
     })),
-  setPublishBlocked: (integrationId: string, blocked: boolean) =>
-    set((state) =>
-      !!state.publishBlocked[integrationId] === blocked
+  setPublishBlocked: (
+    integrationId: string,
+    blocked: boolean,
+    reason?: string
+  ) =>
+    set((state) => {
+      const nextReason = blocked ? reason : undefined;
+      return !!state.publishBlocked[integrationId] === blocked &&
+        state.publishBlockedReason[integrationId] === nextReason
         ? state
         : {
             publishBlocked: {
               ...state.publishBlocked,
               [integrationId]: blocked,
             },
-          }
-    ),
+            publishBlockedReason: {
+              ...state.publishBlockedReason,
+              [integrationId]: nextReason,
+            },
+          };
+    }),
   setHide: (hide: boolean) =>
     set((state) => ({
       hide: hide,

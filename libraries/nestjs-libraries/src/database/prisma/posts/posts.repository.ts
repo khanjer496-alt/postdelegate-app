@@ -205,7 +205,8 @@ export class PostsRepository {
     }
   }
 
-  async getPosts(orgId: string, query: GetPostsDto) {
+  // withPreview adds the media of the posts, for the calendar preview
+  async getPosts(orgId: string, query: GetPostsDto, withPreview = false) {
     // Use the provided start and end dates directly
     const startDate = dayjs.utc(query.startDate).toDate();
     const endDate = dayjs.utc(query.endDate).toDate();
@@ -247,6 +248,7 @@ export class PostsRepository {
       select: {
         id: true,
         content: true,
+        image: withPreview,
         publishDate: true,
         releaseURL: true,
         releaseId: true,
@@ -373,6 +375,7 @@ export class PostsRepository {
         select: {
           id: true,
           content: true,
+          image: true,
           publishDate: true,
           releaseURL: true,
           releaseId: true,

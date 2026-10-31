@@ -23,9 +23,22 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/postdelegate.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/postdelegate-apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#080a0f" />
+        <meta name="apple-mobile-web-app-title" content="PostDelegate" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black"
+        />
       </head>
       <body
-        className={clsx(jakartaSans.className, 'dark text-primary !bg-primary')}
+        className={clsx(
+          jakartaSans.className,
+          jakartaSans.variable,
+          'dark text-primary !bg-primary'
+        )}
       >
         <VariableContextComponent
           language="en"

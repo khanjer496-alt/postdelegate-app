@@ -1,4 +1,12 @@
-import { IsBoolean, IsDefined, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsDefined,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { SignatureType } from '@prisma/client';
 
 export class SignatureDto {
   @IsString()
@@ -8,4 +16,14 @@ export class SignatureDto {
   @IsBoolean()
   @IsDefined()
   autoAdd: boolean;
+
+  // set on creation only, a signature stays a signature and a template a template
+  @IsEnum(SignatureType)
+  @IsOptional()
+  type?: SignatureType;
+
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  name?: string;
 }

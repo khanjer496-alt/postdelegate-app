@@ -9,12 +9,16 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
+  useRef,
+  useState,
 } from 'react';
 import { Button } from '@gitroom/react/form/button';
 import { useHotkeys } from 'react-hotkeys-hook';
 import clsx from 'clsx';
 import { EventEmitter } from 'events';
+import { useT } from '@gitroom/react/translation/get.transation.service.client';
 
 interface OpenModalInterface {
   title?: any;
@@ -67,7 +71,72 @@ const useModalStore = create<State>((set) => ({
   closeAll: () => set({ modalManager: [] }),
 }));
 
+// true while any modal is open
+export const useHasOpenModal = () =>
+  useModalStore((state) => state.modalManager.length > 0);
+
 const CurrentModalContext = createContext({ id: '' });
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+// Moves focus into a dialog when it opens, keeps Tab inside the top one and
+// gives focus back to whatever opened it when it closes
+export const useDialogFocus = (isLast = true) => {
+  const ref = useRef<HTMLDivElement>(null);
+  // read while rendering, before an autofocused child takes the focus
+  const [previous] = useState(() =>
+    typeof document === 'undefined'
+      ? null
+      : (document.activeElement as HTMLElement | null)
+  );
+
+  useEffect(() => {
+    const panel = ref.current;
+    // an autofocused field inside the dialog keeps its focus
+    if (panel && !panel.contains(document.activeElement)) {
+      panel.focus({ preventScroll: true });
+    }
+    return () => {
+      if (
+        previous?.isConnected &&
+        previous.getClientRects().length > 0 &&
+        typeof previous.focus === 'function'
+      ) {
+        previous.focus({ preventScroll: true });
+      }
+    };
+  }, []);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const panel = ref.current;
+      if (e.key !== 'Tab' || e.defaultPrevented || !isLast || !panel) {
+        return;
+      }
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE)
+      ).filter((el) => el.getClientRects().length > 0);
+      if (!focusable.length) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    },
+    [isLast]
+  );
+
+  return { ref, onKeyDown };
+};
 
 interface ModalManagerInterface extends ModalManagerStoreInterface {
   closeCurrent(): void;
@@ -103,6 +172,16 @@ export const Component: FC<{
   modal: { id: string } & OpenModalInterface;
 }> = memo(({ isLast, modal, closeModal, zIndex }) => {
   const decision = useDecisionModal();
+  const t = useT();
+  const titleId = useId();
+  const dialog = useDialogFocus(isLast);
+  const dialogProps = {
+    ref: dialog.ref,
+    onKeyDown: dialog.onKeyDown,
+    tabIndex: -1,
+    role: 'dialog',
+    'aria-modal': true,
+  } as const;
   const closeModalFunction = useCallback(async () => {
     if (modal.askClose) {
       const open = await decision.open();
@@ -156,6 +235,10 @@ export const Component: FC<{
             )}
           >
             <div
+              {...dialogProps}
+              {...(typeof modal.title === 'string' && !!modal.title
+                ? { 'aria-label': modal.title }
+                : {})}
               className={clsx(
                 modal.fullScreen
                   ? 'w-full h-full flex-1 mobile:min-w-0 mobile:h-auto'
@@ -203,10 +286,12 @@ export const Component: FC<{
             )}
           >
             <div
+              {...dialogProps}
+              {...(modal.title ? { 'aria-labelledby': titleId } : {})}
               className={clsx(
                 !modal.removeLayout &&
                   'gap-[40px] p-[32px] mobile:gap-[24px] mobile:p-[16px]',
-                'bg-newBgColorInner mx-auto flex flex-col w-fit rounded-[24px] mobile:rounded-[16px] relative mobile:!max-w-full',
+                'bg-newBgColorInner ring-1 ring-newBorder mx-auto flex flex-col w-fit rounded-[24px] mobile:rounded-[16px] relative mobile:!max-w-full',
                 modal.destructive && 'border-2 border-red-700',
                 modal.size ? '' : 'min-w-[600px] mobile:min-w-0 mobile:w-full',
                 modal.fullScreen && 'h-full'
@@ -221,18 +306,23 @@ export const Component: FC<{
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center">
-                <div className="text-[24px] mobile:text-[20px] mobile:pe-[28px] font-[600] flex-1">
+                <div
+                  id={titleId}
+                  className="text-[24px] mobile:text-[20px] mobile:pe-[36px] font-[600] flex-1"
+                >
                   {modal.title}
                 </div>
                 {typeof modal.withCloseButton === 'undefined' ||
                 modal.withCloseButton ? (
                   <div className="cursor-pointer">
                     <button
-                      className="outline-none absolute end-[20px] top-[20px] mobile:end-[12px] mobile:top-[12px] mantine-UnstyledButton-root mantine-ActionIcon-root hover:bg-tableBorder cursor-pointer mantine-Modal-close mantine-1dcetaa"
+                      className="outline-none absolute end-[20px] top-[20px] mobile:end-[4px] mobile:top-[4px] mobile:!w-[44px] mobile:!h-[44px] mobile:flex mobile:items-center mobile:justify-center mantine-UnstyledButton-root mantine-ActionIcon-root hover:bg-tableBorder cursor-pointer mantine-Modal-close mantine-1dcetaa"
                       type="button"
+                      aria-label={t('close', 'Close')}
                       onClick={closeModalFunction}
                     >
                       <svg
+                        aria-hidden="true"
                         viewBox="0 0 15 15"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -362,7 +452,7 @@ export const DecisionModal: FC<{
       <div className="max-w-[600px]">{description}</div>
       <div className="flex gap-[12px] mt-[16px]">
         <Button
-          className={destructive ? '!bg-red-800' : undefined}
+          className={destructive ? '!bg-red-800 text-white' : undefined}
           onClick={() => {
             resolution(true);
             closeCurrent();

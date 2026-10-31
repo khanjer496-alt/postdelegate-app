@@ -180,7 +180,7 @@ export const OAuthAuthorize: FC<{ logged: boolean }> = ({ logged }) => {
           <Logo />
         </div>
 
-        <div className="bg-[#1A1919] rounded-[16px] p-[32px] flex flex-col gap-[24px]">
+        <div className="bg-[#11141C] ring-1 ring-[#262B37] rounded-[16px] p-[32px] flex flex-col gap-[24px]">
           <div className="flex flex-col items-center gap-[16px]">
             {appInfo.app.picture?.path ? (
               <img

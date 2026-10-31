@@ -51,6 +51,8 @@ export const withProvider = function <T extends object>(params: {
   dto?: any;
   maximumCharacters?: number | ((settings: any) => number);
   inlineImages?: boolean | ((values: any) => boolean);
+  // shown once a post for this channel is sent to publish, from its settings
+  postSubmitMessage?: string | ((settings: any) => string | undefined);
 }) {
   const {
     postComment,
@@ -371,6 +373,7 @@ export const withProvider = function <T extends object>(params: {
     dto,
     postComment,
     maximumCharacters,
+    postSubmitMessage: params.postSubmitMessage,
   };
 
   return Wrapped;
@@ -385,6 +388,7 @@ export const getProviderSettingsMeta = (component: unknown) => {
         dto?: any;
         postComment: PostComment;
         maximumCharacters?: number | ((settings: any) => number);
+        postSubmitMessage?: string | ((settings: any) => string | undefined);
       }
     | undefined;
 };

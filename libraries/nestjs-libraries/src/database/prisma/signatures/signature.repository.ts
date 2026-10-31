@@ -2,20 +2,30 @@ import { PrismaRepository } from '@gitroom/nestjs-libraries/database/prisma/pris
 import { Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SignatureDto } from '@gitroom/nestjs-libraries/dtos/signature/signature.dto';
+import { SignatureType } from '@prisma/client';
 
 @Injectable()
 export class SignatureRepository {
   constructor(private _signatures: PrismaRepository<'signatures'>) {}
 
-  getSignaturesByOrgId(orgId: string) {
+  getSignaturesByOrgId(
+    orgId: string,
+    type: SignatureType = SignatureType.SIGNATURE
+  ) {
     return this._signatures.model.signatures.findMany({
-      where: { organizationId: orgId, deletedAt: null },
+      where: { organizationId: orgId, type, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
   getDefaultSignature(orgId: string) {
     return this._signatures.model.signatures.findFirst({
-      where: { organizationId: orgId, autoAdd: true, deletedAt: null },
+      where: {
+        organizationId: orgId,
+        type: SignatureType.SIGNATURE,
+        autoAdd: true,
+        deletedAt: null,
+      },
     });
   }
 
@@ -24,16 +34,26 @@ export class SignatureRepository {
     signature: SignatureDto,
     id?: string
   ) {
+    // the type is fixed on creation, an update keeps the stored one
+    const existing = id
+      ? await this._signatures.model.signatures.findFirst({
+          where: { id, organizationId: orgId },
+          select: { type: true },
+        })
+      : null;
+    const type = existing?.type || signature.type || SignatureType.SIGNATURE;
     const values = {
       organizationId: orgId,
       content: signature.content,
-      autoAdd: signature.autoAdd,
+      // templates are inserted on demand, only a signature can be auto added
+      autoAdd: type === SignatureType.SIGNATURE && signature.autoAdd,
+      ...(signature.name !== undefined ? { name: signature.name } : {}),
     };
 
     const { id: updatedId } = await this._signatures.model.signatures.upsert({
       where: { id: id || uuidv4(), organizationId: orgId },
       update: values,
-      create: values,
+      create: { ...values, type },
     });
 
     if (values.autoAdd) {

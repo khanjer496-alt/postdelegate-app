@@ -62,9 +62,9 @@ export const EmbeddedBilling: FC<{
           elementsOptions: {
             appearance: {
               variables: {
-                colorText: mode === 'dark' ? '#ffffff' : '#0e0e0e',
+                colorText: mode === 'dark' ? '#f7f7f2' : '#11141c',
                 borderRadius: '8px',
-                colorBackground: mode === 'dark' ? '#1E1E1E' : '#FFFFFF',
+                colorBackground: mode === 'dark' ? '#11141c' : '#FFFFFF',
               },
               rules: {
                 '.Label': {
@@ -74,7 +74,7 @@ export const EmbeddedBilling: FC<{
                 },
                 '.Input': {
                   height: '44px',
-                  backgroundColor: mode === 'dark' ? '#1E1E1E' : '#FFFFFF',
+                  backgroundColor: mode === 'dark' ? '#171b26' : '#FFFFFF',
                 },
               },
             },
@@ -572,7 +572,7 @@ export const CouponInput: FC<{ autoApplyCoupon?: string }> = ({
           placeholder={t('billing_enter_coupon_code', 'Enter coupon code')}
           disabled={isApplying}
           autoFocus
-          className="flex-1 h-[44px] px-[16px] rounded-[8px] border border-newColColor bg-newBgColor text-textColor placeholder:text-textColor/50 focus:outline-none focus:border-boxFocused disabled:opacity-50"
+          className="flex-1 h-[44px] px-[16px] rounded-[8px] border border-newColColor bg-newBgColor text-textColor placeholder:text-textColor/50 focus:outline-none focus:border-btnPrimary disabled:opacity-50"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();

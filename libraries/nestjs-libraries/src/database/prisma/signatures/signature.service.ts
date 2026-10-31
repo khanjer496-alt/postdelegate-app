@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { SignatureRepository } from '@gitroom/nestjs-libraries/database/prisma/signatures/signature.repository';
 import { SignatureDto } from '@gitroom/nestjs-libraries/dtos/signature/signature.dto';
+import { SignatureType } from '@prisma/client';
 
 @Injectable()
 export class SignatureService {
   constructor(private _signatureRepository: SignatureRepository) {}
 
-  getSignaturesByOrgId(orgId: string) {
-    return this._signatureRepository.getSignaturesByOrgId(orgId);
+  getSignaturesByOrgId(orgId: string, type?: SignatureType) {
+    return this._signatureRepository.getSignaturesByOrgId(orgId, type);
   }
 
   getDefaultSignature(orgId: string) {

@@ -66,9 +66,9 @@ export const FinishTrial: FC<{ close: () => void }> = (props) => {
   );
 
   return (
-    <div className="text-textColor fixed start-0 top-0 bg-primary/80 z-[300] w-full h-full p-[60px] animate-fade justify-center flex bg-black/50">
+    <div className="text-textColor fixed start-0 top-0 bg-primary/80 z-[300] w-full h-full p-[60px] mobile:p-[16px] animate-fade justify-center flex bg-black/50">
       <div>
-        <div className="flex gap-[10px] flex-col w-[500px] h-auto bg-sixth border-tableBorder border-2 rounded-xl pb-[20px] px-[20px] relative">
+        <div className="flex gap-[10px] flex-col w-[500px] max-w-full h-auto bg-sixth border-tableBorder border-2 rounded-xl pb-[20px] px-[20px] relative">
           <div className="flex">
             <div className="flex-1">
               <TopTitle title={'Finishing Trial'} />

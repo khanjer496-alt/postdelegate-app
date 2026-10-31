@@ -88,6 +88,9 @@ module.exports = {
         btnSimple: 'var(--new-btn-simple)',
         btnText: 'var(--new-btn-text)',
         btnPrimary: 'var(--new-btn-primary)',
+        btnCta: 'var(--new-btn-cta)',
+        btnCtaHover: 'var(--new-btn-cta-hover)',
+        btnCtaText: 'var(--new-btn-cta-text)',
         ai: 'var(--new-ai-btn)',
         boxHover: 'var(--new-box-hover)',
         newTableBorder: 'var(--new-table-border)',
@@ -122,7 +125,28 @@ module.exports = {
         loginBg: 'url(/auth/bg-login.png)',
       },
       fontFamily: {
-        sans: ['Helvetica Neue'],
+        sans: [
+          'var(--font-jakarta, ui-sans-serif)',
+          'ui-sans-serif',
+          'system-ui',
+          'sans-serif',
+        ],
+        mono: [
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Consolas',
+          'monospace',
+        ],
+      },
+      borderRadius: {
+        sm: '4px',
+        DEFAULT: '6px',
+        md: '8px',
+        lg: '10px',
+        xl: '14px',
+        '2xl': '18px',
+        '3xl': '24px',
       },
       animation: {
         fade: 'fadeOut 0.5s ease-in-out',
@@ -143,6 +167,7 @@ module.exports = {
         greenToast: '0px 0px 50px rgba(60, 124, 90, 0.3)',
         menu: 'var(--menu-shadow)',
         previewShadow: 'var(--preview-box-shadow)',
+        cta: 'inset 0 0 0 1px var(--new-btn-cta-edge)',
       },
       dropShadow: {
         glow: [

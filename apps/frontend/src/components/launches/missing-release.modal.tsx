@@ -95,7 +95,7 @@ export const MissingReleaseModal: FC<{
             onClick={() => setSelected(item.id)}
             className={`cursor-pointer rounded-[8px] overflow-hidden border-2 transition-all ${
               selected === item.id
-                ? 'border-[#612BD3] scale-[1.02]'
+                ? 'border-btnPrimary scale-[1.02]'
                 : 'border-transparent hover:border-textColor/20'
             }`}
           >
@@ -111,7 +111,7 @@ export const MissingReleaseModal: FC<{
         <Button
           type="button"
           onClick={() => modal.closeAll()}
-          className="bg-transparent border border-tableBorder text-textColor"
+          className="bg-transparent shadow-none border border-tableBorder text-textColor"
         >
           {t('cancel', 'Cancel')}
         </Button>

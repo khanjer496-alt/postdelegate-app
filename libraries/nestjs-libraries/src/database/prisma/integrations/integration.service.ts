@@ -449,7 +449,9 @@ export class IntegrationService {
     org: Organization,
     integration: string,
     date: string,
-    forceRefresh = false
+    forceRefresh = false,
+    // read-only callers (the analytics overview) never refresh or disconnect
+    allowRefresh = true
   ): Promise<AnalyticsData[]> {
     // Days to load, missing or invalid on some public API calls (same default as the app)
     const days = Number(date) > 0 ? Number(date) : 7;
@@ -471,6 +473,9 @@ export class IntegrationService {
       dayjs(getIntegration?.tokenExpiration).isBefore(dayjs()) ||
       forceRefresh
     ) {
+      if (!allowRefresh) {
+        return [];
+      }
       const data = await this._refreshIntegrationService.refresh(
         getIntegration
       );
@@ -518,7 +523,7 @@ export class IntegrationService {
         );
         return loadAnalytics;
       } catch (e) {
-        if (e instanceof RefreshToken) {
+        if (e instanceof RefreshToken && allowRefresh) {
           return this.checkAnalytics(org, integration, date, true);
         }
       }

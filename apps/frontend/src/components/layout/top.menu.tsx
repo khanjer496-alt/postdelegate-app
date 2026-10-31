@@ -167,6 +167,8 @@ export const useMenuItem = () => {
       ),
       path: '/affiliates',
       role: ['ADMIN', 'SUPERADMIN', 'USER'],
+      // lives in Settings now, kept here so the page keeps its title
+      hide: true,
     },
     {
       name: t('review_menu', 'Review'),
@@ -193,6 +195,8 @@ export const useMenuItem = () => {
       onClick: () =>
         openReviewModal(openModal, t('review_leave', 'Leave a review')),
       role: ['ADMIN', 'SUPERADMIN', 'USER'],
+      // opened from Settings now
+      hide: true,
     },
     {
       name: t('billing', 'Billing'),

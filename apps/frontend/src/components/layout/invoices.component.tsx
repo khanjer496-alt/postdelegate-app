@@ -26,13 +26,16 @@ export const InvoicesComponent: FC = () => {
   }
 
   return (
-    <div
-      className="hover:text-newTextColor cursor-pointer"
+    <button
+      type="button"
+      className="flex items-center justify-center shrink-0 mobile:w-[40px] mobile:h-[40px] rounded-[8px] hover:text-newTextColor mobile:hover:bg-boxFocused"
       data-tooltip-id="tooltip"
       data-tooltip-content={t('billing_history', 'Billing History')}
+      aria-label={t('billing_history', 'Billing History')}
       onClick={handleClick}
     >
       <svg
+        aria-hidden="true"
         xmlns="http://www.w3.org/2000/svg"
         width="22"
         height="22"
@@ -48,6 +51,6 @@ export const InvoicesComponent: FC = () => {
         <line x1="8" y1="13" x2="16" y2="13" />
         <line x1="8" y1="17" x2="16" y2="17" />
       </svg>
-    </div>
+    </button>
   );
 };

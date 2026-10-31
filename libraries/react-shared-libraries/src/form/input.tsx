@@ -6,6 +6,7 @@ import {
   InputHTMLAttributes,
   ReactNode,
   useEffect,
+  useId,
   useMemo,
 } from 'react';
 import { clsx } from 'clsx';
@@ -38,6 +39,9 @@ export const Input: FC<
     ...rest
   } = props;
   const form = useFormContext();
+  const generatedId = useId();
+  const inputId = rest.id || generatedId;
+  const errorId = `${inputId}-error`;
   const err = useMemo(() => {
     if (error) return error;
     if (!form || !form.formState.errors[props?.name!]) return;
@@ -52,13 +56,13 @@ export const Input: FC<
   return (
     <div className="flex flex-col gap-[6px]">
       {!!label && (
-        <div className={`text-[14px]`}>
+        <label htmlFor={inputId} className="text-[14px]">
           <TranslatedLabel
             label={label}
             translationKey={translationKey}
             translationParams={translationParams}
           />
-        </div>
+        </label>
       )}
       <div
         className={clsx(
@@ -73,11 +77,16 @@ export const Input: FC<
             icon ? 'pl-[8px] pe-[16px]' : 'px-[16px]'
           )}
           {...(disableForm ? {} : form.register(props.name))}
+          aria-invalid={err ? true : undefined}
+          aria-describedby={err && !removeError ? errorId : undefined}
           {...rest}
+          id={inputId}
         />
       </div>
       {!removeError && (
-        <div className="text-red-400 text-[12px]">{err || <>&nbsp;</>}</div>
+        <div id={errorId} className="text-red-400 text-[12px]">
+          {err || <>&nbsp;</>}
+        </div>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import {
   FC,
   forwardRef,
   SelectHTMLAttributes,
+  useId,
   useMemo,
 } from 'react';
 import { clsx } from 'clsx';
@@ -39,6 +40,9 @@ export const Select: FC<
     ...rest
   } = props;
   const form = useFormContext();
+  const generatedId = useId();
+  const selectId = rest.id || generatedId;
+  const errorId = `${selectId}-error`;
   const err = useMemo(() => {
     if (error) return error;
     if (!form || !form.formState.errors[props?.name!]) return;
@@ -46,13 +50,13 @@ export const Select: FC<
   }, [form?.formState?.errors?.[props?.name!]?.message, error]);
   return (
     <div className={clsx('flex flex-col', label ? 'gap-[6px]' : '')}>
-      <div className={`text-[14px]`}>
+      <label htmlFor={selectId} className="text-[14px]">
         <TranslatedLabel
           label={label}
           translationKey={translationKey}
           translationParams={translationParams}
         />
-      </div>
+      </label>
       <select
         ref={ref}
         {...(disableForm ? {} : form.register(props.name, extraForm))}
@@ -60,10 +64,15 @@ export const Select: FC<
           'h-[42px] bg-newBgColorInner px-[16px] outline-none border-newTableBorder border rounded-[8px] text-[14px]',
           className
         )}
+        aria-invalid={err ? true : undefined}
+        aria-describedby={err && !hideErrors ? errorId : undefined}
         {...rest}
+        id={selectId}
       />
       {!hideErrors && (
-        <div className="text-red-400 text-[12px]">{err || <>&nbsp;</>}</div>
+        <div id={errorId} className="text-red-400 text-[12px]">
+          {err || <>&nbsp;</>}
+        </div>
       )}
     </div>
   );

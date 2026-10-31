@@ -17,7 +17,7 @@ export interface MobileTopBarAction {
 }
 
 const actionColors = {
-  primary: 'bg-btnPrimary text-white',
+  primary: 'bg-btnCta shadow-cta text-btnCtaText',
   secondary: 'bg-[#D82D7E] text-white',
   tertiary: 'bg-btnSimple text-btnText',
 };
@@ -38,25 +38,28 @@ export const MobileTopBar: FC<{
 
   return (
     <div className="hidden mobile:flex sticky top-0 z-[450] h-[60px] items-center gap-[8px] px-[16px] bg-newBgColorInner select-none">
-      <div
+      <button
+        type="button"
         onClick={onBack}
-        className="w-[24px] h-[24px] flex justify-center items-center cursor-pointer text-[#A3A3A3]"
+        aria-label={t('back', 'Back')}
+        className="w-[44px] h-[44px] -ms-[10px] shrink-0 flex justify-center items-center cursor-pointer text-[#A3A3A3]"
       >
         <ChevronLeftIcon strokeWidth={1.5} className="rtl:rotate-180" />
-      </div>
+      </button>
       <div className="flex-1 min-w-0 flex">{children}</div>
       <div ref={ref} className="relative">
         <button
           disabled={disabled || (single && actions[0].disabled)}
           onClick={() => (single ? actions[0].onClick() : setOpen(!open))}
+          {...(!single && { 'aria-haspopup': 'menu' as const, 'aria-expanded': open })}
           className={clsx(
-            'relative min-w-[92px] h-[34px] rounded-[6px] flex justify-center items-center gap-[8px] text-[13px] font-[600] bg-btnPrimary text-white disabled:bg-btnSimple disabled:text-textItemBlur disabled:cursor-not-allowed',
+            'relative min-w-[92px] h-[40px] rounded-[8px] flex justify-center items-center gap-[8px] text-[13px] font-[600] bg-btnCta shadow-cta text-btnCtaText disabled:bg-btnSimple disabled:text-textItemBlur disabled:cursor-not-allowed',
             single ? 'px-[16px]' : 'ps-[24px] pe-[12px]'
           )}
         >
           {loading && (
             <div className="absolute left-[50%] top-[50%] -translate-y-[50%] -translate-x-[50%]">
-              <div className="animate-spin h-[20px] w-[20px] border-4 border-white border-t-transparent rounded-full" />
+              <div className="animate-spin h-[20px] w-[20px] border-4 border-btnCtaText border-t-transparent rounded-full" />
             </div>
           )}
           <div className={clsx(loading && 'invisible')}>
@@ -81,7 +84,7 @@ export const MobileTopBar: FC<{
                   action.onClick();
                 }}
                 className={clsx(
-                  'h-[34px] rounded-[6px] text-[13px] font-[600] disabled:opacity-50 disabled:cursor-not-allowed',
+                  'h-[40px] rounded-[8px] text-[13px] font-[600] disabled:opacity-50 disabled:cursor-not-allowed',
                   actionColors[action.variant]
                 )}
               >

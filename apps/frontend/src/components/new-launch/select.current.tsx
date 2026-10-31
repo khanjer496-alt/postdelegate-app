@@ -1,6 +1,14 @@
 'use client';
 
-import { FC, RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  FC,
+  RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   SelectedIntegrations,
   useLaunchStore,
@@ -16,6 +24,8 @@ import {
   useDecisionModal,
   useModals,
 } from '@gitroom/frontend/components/layout/new-modal';
+import { countLength } from '@gitroom/helpers/utils/count.length';
+import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 
 export function useHasScroll(ref: RefObject<HTMLElement | null>): boolean {
   const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
@@ -129,9 +139,22 @@ export const SelectCurrent: FC = () => {
                 setHide(true);
                 setCurrent(integration.id);
               }}
+              onKeyDown={(e) => {
+                if (
+                  e.target === e.currentTarget &&
+                  (e.key === 'Enter' || e.key === ' ')
+                ) {
+                  e.preventDefault();
+                  setHide(true);
+                  setCurrent(integration.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={current === integration.id}
               key={integration.id}
               className={clsx(
-                'border mobile:border-[1.5px] cursor-pointer relative flex gap-[8px] w-[40px] h-[40px] mobile:w-[44px] mobile:h-[44px] mobile:shrink-0 rounded-[8px] items-center bg-newBgLineColor mobile:bg-newSettings justify-center',
+                'border mobile:border-[1.5px] cursor-pointer relative flex gap-[4px] min-w-[40px] h-[40px] mobile:min-w-[44px] mobile:h-[44px] mobile:shrink-0 rounded-[8px] items-center bg-newBgLineColor mobile:bg-newSettings justify-center outline-none focus-visible:ring-2 focus-visible:ring-btnPrimary',
                 current === integration.id
                   ? 'border-[#FC69FF] text-[#FC69FF]'
                   : 'border-transparent'
@@ -155,13 +178,13 @@ export const SelectCurrent: FC = () => {
                   'data-tooltip-content': integration.name,
                 }}
                 className={clsx(
-                  'relative w-full h-full rounded-full flex justify-center items-center filter transition-all duration-500'
+                  'relative w-[38px] h-[38px] mobile:w-[42px] mobile:h-[42px] shrink-0 rounded-full flex justify-center items-center filter transition-all duration-500'
                 )}
               >
                 <SafeImage
                   src={integration.picture || '/no-picture.jpg'}
                   className="rounded-full min-w-[26px]"
-                  alt={integration.identifier}
+                  alt={integration.name}
                   width={26}
                   height={26}
                   onError={(e) => {
@@ -185,6 +208,7 @@ export const SelectCurrent: FC = () => {
                   />
                 )}
               </div>
+              <ChannelCharCount integration={integration} />
             </div>
           ))}
         </div>
@@ -217,5 +241,85 @@ export const IsGlobal: FC<{ id: string }> = ({ id }) => {
       )}
       className="w-[8px] h-[8px] bg-[#FC69FF] -top-[1px] -end-[3px] absolute rounded-full"
     />
+  );
+};
+
+// 3000 shows as 3k, so a long limit doesn't stretch the channel
+const shortLimit = (limit: number) =>
+  limit >= 10000
+    ? `${Math.round(limit / 1000)}k`
+    : limit >= 1000
+    ? `${Math.round(limit / 100) / 10}k`
+    : `${limit}`;
+
+// the characters of the longest post of the channel against the channel limit,
+// counted like the server does before it schedules
+export const ChannelCharCount: FC<{ integration: Integrations }> = ({
+  integration,
+}) => {
+  const t = useT();
+  const { values, limit } = useLaunchStore(
+    useShallow((state) => {
+      const custom = state.internal.find(
+        (p) => p.integration.id === integration.id
+      )?.integrationValue;
+      return {
+        // the same content the channel preview shows
+        values: custom?.length ? custom : state.global,
+        limit: state.chars[integration.id],
+      };
+    })
+  );
+
+  const count = useMemo(
+    () =>
+      Math.max(
+        0,
+        ...values.map((value) =>
+          countLength(
+            integration.identifier,
+            stripHtmlValidation('normal', value.content || '', true)
+          )
+        )
+      ),
+    [values, integration.identifier]
+  );
+
+  if (!limit || !count) {
+    return null;
+  }
+
+  const over = count > limit;
+  return (
+    <div
+      data-tooltip-id="tooltip"
+      data-tooltip-content={
+        over
+          ? t(
+              'channel_chars_over',
+              '{{count}} characters over the {{limit}} limit of {{name}}',
+              { count: count - limit, limit, name: integration.name }
+            )
+          : t(
+              'channel_chars_left',
+              '{{count}} characters left for {{name}}',
+              { count: limit - count, name: integration.name }
+            )
+      }
+      className={clsx(
+        'pe-[6px] text-[11px] font-[600] tabular-nums whitespace-nowrap',
+        over ? 'text-[#FF3F3F]' : 'text-newTextColor/60'
+      )}
+    >
+      <span aria-hidden="true">
+        {count}/{shortLimit(limit)}
+      </span>
+      <span className="sr-only">
+        {t('channel_chars_count', '{{count}} of {{limit}} characters', {
+          count,
+          limit,
+        })}
+      </span>
+    </div>
   );
 };

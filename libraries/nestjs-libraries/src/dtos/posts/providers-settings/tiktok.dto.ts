@@ -115,7 +115,8 @@ export class TikTokDto {
           value !== 'SELF_ONLY'
         );
       },
-      defaultMessage: () => 'Branded content cannot use private visibility.',
+      defaultMessage: () =>
+        'Branded content visibility cannot be set to private.',
     },
   })
   @IsIn([
@@ -201,7 +202,7 @@ export class TikTokDto {
         );
       },
       defaultMessage: () =>
-        'Select Your brand or Branded content when commercial disclosure is enabled.',
+        'You need to indicate if your content promotes yourself, a third party, or both.',
     },
   })
   @JSONSchema({

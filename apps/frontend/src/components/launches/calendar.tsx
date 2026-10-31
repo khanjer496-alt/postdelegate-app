@@ -5,9 +5,13 @@ import React, {
   Fragment,
   memo,
   useCallback,
+  useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarContext,
   Integrations,
@@ -62,6 +66,7 @@ import {
 } from '@gitroom/frontend/components/layout/set.timezone';
 import { Button } from '@gitroom/react/form/button';
 import { ChevronUpIcon } from '@gitroom/frontend/components/ui/icons';
+import { useMediaDirectory } from '@gitroom/react/helpers/use.media.directory';
 
 // Extend dayjs with necessary plugins
 extend(isSameOrAfter);
@@ -97,9 +102,10 @@ export const hours = Array.from(
   (_, i) => i
 );
 
-// The current time badge at the start of the now line
+// The current time badge at the start of the now line. White on the light
+// theme's violet, black on the dark theme's lime, so both pass AA
 const NowTime: FC<{ time: string }> = ({ time }) => (
-  <div className="rounded-[6px] bg-newTableTextFocused px-[6px] text-[12px] leading-[20px] font-[500] text-black whitespace-nowrap">
+  <div className="rounded-[6px] bg-newTableTextFocused px-[6px] text-[12px] leading-[20px] font-[500] text-white dark:text-black whitespace-nowrap">
     {time}
   </div>
 );
@@ -167,7 +173,7 @@ const DayNowLine: FC<{ now: dayjs.Dayjs; className?: string }> = ({
 );
 
 // Shared hook for post actions (edit, delete, statistics)
-const usePostActions = (onMutate?: () => void) => {
+export const usePostActions = (onMutate?: () => void) => {
   const t = useT();
   const fetch = useFetch();
   const modal = useModals();
@@ -1028,7 +1034,7 @@ export const CalendarColumn: FC<{
             className={clsx(
               'h-[24px] min-w-[24px] px-[5px] mobile:h-[20px] mobile:min-w-[20px] mobile:px-[4px] rounded-[6px] flex items-center justify-center',
               getDate.isSame(currentHour, 'day') &&
-                'bg-newTableTextFocused text-black font-[600]'
+                'bg-newTableTextFocused text-white dark:text-black font-[600]'
             )}
           >
             {getDate.date()}
@@ -1039,7 +1045,7 @@ export const CalendarColumn: FC<{
         className={clsx(
           'relative flex flex-col flex-1 text-white rounded-[8px] min-h-[70px]',
           display === 'month' && 'mobile:min-h-[44px]',
-          canDrop && 'border border-[#612BD3]'
+          canDrop && 'border border-btnPrimary'
         )}
       >
         <div
@@ -1253,6 +1259,62 @@ const CalendarItem: FC<{
     }),
     []
   );
+  // the card shows the first line of the post, the preview the full text
+  const text = useMemo(
+    () => stripHtmlValidation('normal', post.content || '', false, true).trim(),
+    [post.content]
+  );
+  const firstLine = useMemo(
+    () => text.split('\n').find((line) => line.trim()) || '',
+    [text]
+  );
+  const time = fromUtc(post.publishDate).format(
+    isUSCitizen() ? 'hh:mm A' : 'HH:mm'
+  );
+  const compact = display === 'month';
+
+  // hover (after a short delay) or keyboard focus opens the preview
+  const cardRef = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const openPreview = useCallback((delay: number) => {
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setPreviewOpen(true), delay);
+  }, []);
+  const closePreview = useCallback(() => {
+    clearTimeout(hoverTimer.current);
+    setPreviewOpen(false);
+  }, []);
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
+
+  const openEditor = useCallback(() => {
+    closePreview();
+    editPost();
+  }, [closePreview, editPost]);
+  const onCardKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Escape') {
+        closePreview();
+        return;
+      }
+      if (e.target !== e.currentTarget) {
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openEditor();
+      }
+    },
+    [closePreview, openEditor]
+  );
+
+  const actionClass = clsx(
+    'hidden group-hover:block group-focus-within:block hover:underline cursor-pointer rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-white',
+    post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
+  );
+
   return (
     <div
       // @ts-ignore
@@ -1266,30 +1328,12 @@ const CalendarItem: FC<{
       style={{
         opacity,
       }}
+      onMouseEnter={() => openPreview(450)}
+      onMouseLeave={closePreview}
+      onDragStart={closePreview}
+      // an action opens a modal, the preview doesn't follow it
+      onClickCapture={closePreview}
     >
-      {state === 'ERROR' && (
-        <div
-          className={clsx(
-            'absolute -top-[6px] -start-[6px] z-20 w-[18px] h-[18px] rounded-full bg-red-500 flex items-center justify-center text-white text-[11px] font-bold cursor-pointer',
-            display === 'month' && 'mobile:hidden'
-          )}
-          data-tooltip-id="tooltip"
-          data-tooltip-class-name="!max-w-[400px] break-words"
-          data-tooltip-content={post.error || 'An error occurred while publishing this post'}
-        >
-          !
-        </div>
-      )}
-      {state === 'PUBLISHED' && (
-        <div
-          className={clsx(
-            'absolute -top-[6px] -start-[6px] z-20 w-[18px] h-[18px] rounded-full bg-green-500 flex items-center justify-center text-white text-[11px] font-bold',
-            display === 'month' && 'mobile:hidden'
-          )}
-        >
-          ✓
-        </div>
-      )}
       {showCreationMethodBadge && (
         <div className="absolute -bottom-[4px] -right-[4px] z-10">
           <CreationMethodBadge
@@ -1310,133 +1354,393 @@ const CalendarItem: FC<{
         <div
           className={clsx(
             post?.tags?.[0]?.tag?.color ? 'text-shadow-tags' : '',
-            'group-hover:hidden cursor-pointer'
+            'group-hover:hidden group-focus-within:hidden cursor-pointer truncate'
           )}
         >
           {post.tags.map((p) => p.tag.name).join(', ')}
         </div>
         {copyDebugJson && (
-          <div
-            className={clsx(
-              'hidden group-hover:block hover:underline cursor-pointer',
-              post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
-            )}
+          <button
+            type="button"
+            aria-label={t('copy_debug_json', 'Copy Debug JSON')}
+            className={actionClass}
             onClick={copyDebugJson}
           >
             <CopyDebug />
-          </div>
+          </button>
         )}
         {(state === 'PUBLISHED' || state === 'ERROR') &&
           !post.intervalInDays &&
           post.releaseURL?.startsWith('http') && (
-            <div
+            <button
+              type="button"
+              aria-label={t('open_post', 'Open Post')}
               className={clsx(
-                'hidden group-hover:block hover:underline cursor-pointer',
+                actionClass,
                 post?.tags?.[0]?.tag?.color && 'mix-blend-difference'
               )}
               onClick={openPost}
             >
               <OpenPost />
-            </div>
+            </button>
           )}{' '}
-        {((post.integration.providerIdentifier === 'x' && disableXAnalytics) || !post.releaseId) ? (
+        {(post.integration.providerIdentifier === 'x' && disableXAnalytics) ||
+        !post.releaseId ? (
           <></>
         ) : post.releaseId === 'missing' && missingRelease ? (
-          <div
-            className={clsx(
-              'hidden group-hover:block hover:underline cursor-pointer',
-              post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
-            )}
+          <button
+            type="button"
+            aria-label={t('post_statistics', 'Post Statistics')}
+            className={actionClass}
             onClick={missingRelease}
           >
             <Statistics />
-          </div>
+          </button>
         ) : post.releaseId !== 'missing' ? (
-          <div
-            className={clsx(
-              'hidden group-hover:block hover:underline cursor-pointer',
-              post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
-            )}
+          <button
+            type="button"
+            aria-label={t('post_statistics', 'Post Statistics')}
+            className={actionClass}
             onClick={statistics}
           >
             <Statistics />
-          </div>
+          </button>
         ) : (
           <></>
         )}{' '}
-        <div
-          className={clsx(
-            'hidden group-hover:block hover:underline cursor-pointer',
-            post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
-          )}
+        <button
+          type="button"
+          aria-label={t('preview_post', 'Preview Post')}
+          className={actionClass}
           onClick={preview}
         >
           <Preview />
-        </div>
-        <div
-          className={clsx(
-            'hidden group-hover:block hover:underline cursor-pointer',
-            post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
-          )}
+        </button>
+        <button
+          type="button"
+          aria-label={t('duplicate_post', 'Duplicate Post')}
+          className={actionClass}
           onClick={duplicatePost}
         >
           <Duplicate />
-        </div>
-        <div
-          className={clsx(
-            'hidden group-hover:block hover:underline cursor-pointer text-red-500',
-            post?.tags?.[0]?.tag?.color && 'text-shadow-tags'
-          )}
+        </button>
+        <button
+          type="button"
+          aria-label={t('delete_post', 'Delete Post')}
+          className={clsx(actionClass, 'text-red-500')}
           onClick={deletePost}
         >
           <DeletePost />
-        </div>
+        </button>
       </div>
       <div
-        onClick={editPost}
+        ref={cardRef}
+        role="button"
+        tabIndex={0}
+        aria-label={`${post.integration.name}, ${statusLabel(
+          t,
+          state
+        )}, ${time}: ${firstLine || t('no_content', 'no content')}`}
+        onClick={openEditor}
+        onKeyDown={onCardKeyDown}
+        // a mouse click focuses the card too, the hover already covers it
+        onFocus={(e) => {
+          try {
+            if (e.currentTarget.matches(':focus-visible')) {
+              openPreview(0);
+            }
+          } catch (err) {
+            // browsers without :focus-visible open it on hover only
+          }
+        }}
+        onBlur={closePreview}
         className={clsx(
-          'gap-[5px] w-full flex h-full flex-1 rounded-br-[10px] rounded-bl-[10px] p-[8px] text-[14px] bg-newColColor',
+          'w-full flex h-full flex-1 rounded-br-[10px] rounded-bl-[10px] text-[14px] bg-newColColor outline-none focus-visible:ring-2 focus-visible:ring-btnPrimary',
           'relative',
+          compact
+            ? 'items-center gap-[6px] p-[6px]'
+            : 'flex-col gap-[4px] p-[8px]',
           display === 'month' &&
             'mobile:p-[4px] mobile:rounded-[10px] mobile:justify-center',
           isBeforeNow && '!grayscale'
         )}
       >
-        <div className={clsx('relative min-w-[20px]')}>
-          <img
-            className="w-[20px] h-[20px] rounded-[8px]"
-            src={post.integration.picture! || '/no-picture.jpg'}
+        <div
+          className={clsx(
+            'flex items-center gap-[6px] min-w-0',
+            !compact && 'w-full'
+          )}
+        >
+          <ChannelAvatar
+            picture={post.integration.picture}
+            identifier={post.integration.providerIdentifier}
+            size={20}
           />
-          <img
-            className="w-[12px] h-[12px] rounded-[8px] absolute z-10 top-[10px] end-0 border border-fifth"
-            src={`/icons/platforms/${post.integration?.providerIdentifier}.png`}
-          />
+          <div
+            className={clsx(
+              'flex-1 flex items-center gap-[6px] min-w-0',
+              compact && 'flex-none',
+              display === 'month' && 'mobile:hidden'
+            )}
+          >
+            <PostStatus state={state} error={post.error} compact={compact} />
+            {/* the day view slots already show their time */}
+            {!compact && (showTime || display === 'week') && (
+              <div className="ms-auto shrink-0 text-[11px] text-newTextColor/70 tabular-nums">
+                {time}
+              </div>
+            )}
+          </div>
         </div>
         <div
           className={clsx(
-            'w-full flex-1 flex flex-col min-h-[40px]',
-            display === 'month' && 'mobile:hidden'
+            'min-w-0 text-start break-words text-[13px] leading-[17px]',
+            compact
+              ? 'flex-1 line-clamp-1 mobile:hidden'
+              : display === 'week'
+              ? 'w-full line-clamp-1'
+              : 'w-full line-clamp-2'
           )}
         >
-          <div className="text-start">
-            {state === 'DRAFT' ? t('draft', 'Draft') + ': ' : ''}
-          </div>
-            <div className="w-full relative">
-              <div className="absolute top-0 start-0 w-full text-ellipsis break-words line-clamp-1 text-start">
-                {stripHtmlValidation('none', post.content, false, true, false) ||
-                  t('no_content', 'no content')}
-              </div>
-            </div>
+          {firstLine || (
+            <span className="text-newTextColor/50">
+              {t('no_content', 'no content')}
+            </span>
+          )}
         </div>
-        {showTime && (
-          <div className="text-textColor/50 text-[12px] whitespace-nowrap flex items-center">
-            {fromUtc(post.publishDate).format(isUSCitizen() ? 'hh:mm A' : 'HH:mm')}
-          </div>
-        )}
       </div>
+      {previewOpen && opacity !== 0 && (
+        <CalendarItemPreview
+          anchor={cardRef}
+          post={post}
+          text={text}
+          state={state}
+          time={fromUtc(post.publishDate).format(
+            isUSCitizen() ? 'ddd, MMM D, hh:mm A' : 'ddd, D MMM, HH:mm'
+          )}
+          onClose={closePreview}
+        />
+      )}
     </div>
   );
 });
+
+const statusLabel = (t: ReturnType<typeof useT>, state: State) =>
+  state === 'PUBLISHED'
+    ? t('status_published', 'Published')
+    : state === 'ERROR'
+    ? t('status_failed', 'Failed')
+    : state === 'DRAFT'
+    ? t('draft', 'Draft')
+    : t('status_scheduled', 'Scheduled');
+
+// the channel picture with the network icon in its corner
+const ChannelAvatar: FC<{
+  picture?: string | null;
+  identifier: string;
+  size: number;
+}> = ({ picture, identifier, size }) => (
+  <div
+    className="relative shrink-0"
+    style={{ width: size, height: size }}
+    aria-hidden="true"
+  >
+    <img
+      className="w-full h-full rounded-full object-cover"
+      src={picture || '/no-picture.jpg'}
+      alt=""
+      onError={(e) => {
+        e.currentTarget.src = '/no-picture.jpg';
+      }}
+    />
+    <img
+      className="absolute -bottom-[2px] -end-[3px] rounded-[3px] border border-newColColor"
+      style={{ width: size * 0.6, height: size * 0.6 }}
+      src={
+        identifier === 'youtube'
+          ? '/icons/platforms/youtube.svg'
+          : `/icons/platforms/${identifier}.png`
+      }
+      alt=""
+    />
+  </div>
+);
+
+// scheduled, published, failed or draft, read from the post state. A shape
+// per state, so it doesn't rely on the color alone
+const PostStatus: FC<{
+  state: State;
+  error?: string | null;
+  compact?: boolean;
+}> = ({ state, error, compact }) => {
+  const t = useT();
+  const label = statusLabel(t, state);
+  return (
+    <div
+      className="flex items-center gap-[4px] min-w-0"
+      {...(state === 'ERROR'
+        ? {
+            'data-tooltip-id': 'tooltip',
+            'data-tooltip-class-name': '!max-w-[400px] break-words',
+            'data-tooltip-content':
+              error ||
+              t(
+                'post_publish_error',
+                'An error occurred while publishing this post'
+              ),
+          }
+        : {})}
+    >
+      <span
+        aria-hidden="true"
+        className={clsx(
+          'shrink-0 w-[12px] h-[12px] rounded-full flex items-center justify-center text-[9px] leading-none font-bold text-white',
+          state === 'PUBLISHED' && 'bg-green-500',
+          state === 'ERROR' && 'bg-red-500',
+          state === 'DRAFT' &&
+            'border border-dashed border-newTextColor/60 bg-transparent',
+          state === 'QUEUE' && 'border-[3px] border-btnPrimary bg-transparent'
+        )}
+      >
+        {state === 'PUBLISHED' ? '✓' : state === 'ERROR' ? '!' : ''}
+      </span>
+      <span
+        className={clsx(
+          compact
+            ? 'sr-only'
+            : 'truncate text-[11px] font-[500] text-newTextColor/70 tablet:sr-only'
+        )}
+      >
+        {label}
+      </span>
+    </div>
+  );
+};
+
+// the first picture of a post, a video only when it has a thumbnail
+const firstPicture = (image?: string | null) => {
+  try {
+    const media = JSON.parse(image || '[]');
+    const first = Array.isArray(media) ? media[0] : undefined;
+    if (!first?.path) {
+      return undefined;
+    }
+    if (first.thumbnail) {
+      return first.thumbnail as string;
+    }
+    return /\.(mp4|mov|webm|m4v)(\?|$)/i.test(first.path)
+      ? undefined
+      : (first.path as string);
+  } catch {
+    return undefined;
+  }
+};
+
+const PREVIEW_WIDTH = 320;
+const PREVIEW_GAP = 8;
+
+// the full post next to its card, in a portal so the calendar scroll doesn't clip it
+const CalendarItemPreview: FC<{
+  anchor: React.RefObject<HTMLDivElement | null>;
+  post: Post & { integration: Integration };
+  text: string;
+  state: State;
+  time: string;
+  onClose: () => void;
+}> = ({ anchor, post, text, state, time, onClose }) => {
+  const t = useT();
+  const ref = useRef<HTMLDivElement>(null);
+  const mediaDirectory = useMediaDirectory();
+  const [position, setPosition] = useState<{ top: number; left: number }>();
+  const picture = useMemo(() => {
+    const path = firstPicture(post.image);
+    return path ? mediaDirectory.set(path) : undefined;
+  }, [post.image, mediaDirectory]);
+
+  useLayoutEffect(() => {
+    const card = anchor.current?.getBoundingClientRect();
+    const height = ref.current?.offsetHeight || 0;
+    if (!card) {
+      return;
+    }
+    const fitsEnd =
+      card.right + PREVIEW_GAP + PREVIEW_WIDTH <= window.innerWidth - 8;
+    const left = fitsEnd
+      ? card.right + PREVIEW_GAP
+      : Math.max(8, card.left - PREVIEW_GAP - PREVIEW_WIDTH);
+    const top = Math.min(
+      Math.max(8, card.top),
+      Math.max(8, window.innerHeight - height - 8)
+    );
+    setPosition({ top, left });
+  }, [anchor, picture]);
+
+  // the calendar scrolls under the card, the preview would stay behind
+  useEffect(() => {
+    window.addEventListener('scroll', onClose, true);
+    window.addEventListener('resize', onClose);
+    return () => {
+      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('resize', onClose);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="tooltip"
+      className="fixed z-[150] pointer-events-none flex flex-col gap-[10px] p-[12px] rounded-[12px] bg-newBgColorInner border border-newTableBorder text-textColor shadow-[0_8px_30px_rgba(0,0,0,0.35)] animate-fadeIn"
+      style={{
+        width: PREVIEW_WIDTH,
+        maxWidth: 'calc(100vw - 16px)',
+        top: position?.top ?? -9999,
+        left: position?.left ?? -9999,
+      }}
+    >
+      <div className="flex items-center gap-[8px] min-w-0">
+        <ChannelAvatar
+          picture={post.integration.picture}
+          identifier={post.integration.providerIdentifier}
+          size={28}
+        />
+        <div className="flex flex-col min-w-0 flex-1">
+          <div className="text-[14px] font-[600] truncate">
+            {post.integration.name}
+          </div>
+          <div className="text-[12px] text-newTextColor/70 truncate">
+            {time}
+          </div>
+        </div>
+        <div className="shrink-0">
+          <PostStatus state={state} error={post.error} />
+        </div>
+      </div>
+      {picture && (
+        <img
+          src={picture}
+          alt=""
+          className="w-full max-h-[160px] object-cover rounded-[8px] bg-newColColor"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      )}
+      <div className="text-[13px] leading-[19px] whitespace-pre-wrap break-words line-clamp-[10]">
+        {text || (
+          <span className="text-newTextColor/50">
+            {t('no_content', 'no content')}
+          </span>
+        )}
+      </div>
+      {state === 'ERROR' && !!post.error && (
+        <div className="text-[12px] text-red-500 break-words line-clamp-3">
+          {post.error}
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+};
 const DebugJsonModal: FC<{ post: any }> = ({ post }) => {
   const t = useT();
   const fetch = useFetch();

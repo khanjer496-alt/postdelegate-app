@@ -5,10 +5,12 @@ import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import useSWR from 'swr';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import clsx from 'clsx';
+import { useT } from '@gitroom/react/translation/get.transation.service.client';
 export const OrganizationSelector: FC<{ asOpenSelect?: boolean }> = ({
   asOpenSelect,
 }) => {
   const fetch = useFetch();
+  const t = useT();
   const user = useUser();
   const load = useCallback(async () => {
     return await (await fetch('/user/organizations')).json();
@@ -49,8 +51,14 @@ export const OrganizationSelector: FC<{ asOpenSelect?: boolean }> = ({
             <div className="bg-btnPrimary !flex !relative max-w-[500px] mx-auto py-[12px] px-[12px]">Select Organization</div>
           )}
           {!asOpenSelect && (
-            <div className="flex items-center gap-[6px]">
+            <button
+              type="button"
+              aria-haspopup="true"
+              aria-label={current?.name ? `${t('organization', 'Organization')}: ${current.name}` : t('organization', 'Organization')}
+              className="flex items-center gap-[6px] mobile:justify-center mobile:min-w-[40px] mobile:h-[40px]"
+            >
               <svg
+                aria-hidden="true"
                 className={user?.tier.current === 'FREE' ? 'animate-bounce drop-shadow-glow': ''}
                 width="24"
                 height="24"
@@ -66,12 +74,12 @@ export const OrganizationSelector: FC<{ asOpenSelect?: boolean }> = ({
               {!!current?.name && (
                 <div className="max-w-[240px] truncate mobile:hidden">{current?.name}</div>
               )}
-            </div>
+            </button>
           )}
           {data?.length > 1 && (
             <div
               className={clsx(
-                'hidden py-[12px] px-[12px] group-hover:flex absolute top-[100%] end-0 w-max max-w-[400px] bg-third border-tableBorder border gap-[12px] cursor-pointer flex-col',
+                'hidden py-[12px] px-[12px] group-hover:flex [html[data-keyboard]_.group:focus-within_&]:flex absolute top-[100%] end-0 w-max max-w-[400px] bg-third border-tableBorder border gap-[12px] cursor-pointer flex-col',
                 asOpenSelect ? '!flex !relative max-w-[500px] mx-auto mb-[10px]' : '',
               )}
             >
@@ -81,10 +89,11 @@ export const OrganizationSelector: FC<{ asOpenSelect?: boolean }> = ({
                   id: string;
                   users: { role: 'SUPERADMIN' | 'ADMIN' | 'USER' }[];
                 }) => (
-                  <div
+                  <button
+                    type="button"
                     key={org?.id}
                     onClick={changeOrg(org)}
-                    className="whitespace-nowrap truncate"
+                    className="whitespace-nowrap truncate text-start mobile:min-h-[36px]"
                   >
                     {org?.name}
                     {!!org?.users?.[0]?.role && (
@@ -99,7 +108,7 @@ export const OrganizationSelector: FC<{ asOpenSelect?: boolean }> = ({
                         )
                       </span>
                     )}
-                  </div>
+                  </button>
                 )
               )}
             </div>

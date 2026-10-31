@@ -30,8 +30,10 @@ export const FarcasterProvider = () => {
     });
   }, []);
   return (
-    <div
+    <button
+      type="button"
       onClick={open}
+      aria-label={t('farcaster', 'Farcaster')}
       className={`cursor-pointer bg-white h-[52px] flex-1 rounded-[10px] flex justify-center items-center text-[#0E0E0E] gap-[5px]`}
     >
     <svg
@@ -58,7 +60,7 @@ export const FarcasterProvider = () => {
       </defs>
     </svg>
       <div className="block xs:hidden">{t('farcaster', 'Farcaster')}</div>
-    </div>
+    </button>
   );
 };
 export const FarcasterApproval: FC<{

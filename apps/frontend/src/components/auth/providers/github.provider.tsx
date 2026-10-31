@@ -9,7 +9,8 @@ export const GithubProvider = () => {
     window.location.href = link;
   }, []);
   return (
-    <div
+    <button
+      type="button"
       onClick={gotoLogin}
       className={`cursor-pointer bg-white h-[44px] rounded-[4px] flex justify-center items-center text-customColor16 gap-[4px]`}
     >
@@ -28,6 +29,6 @@ export const GithubProvider = () => {
         </svg>
       </div>
       <div>{t('sign_in_with_github', 'Sign in with GitHub')}</div>
-    </div>
+    </button>
   );
 };

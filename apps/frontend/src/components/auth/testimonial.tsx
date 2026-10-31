@@ -8,7 +8,7 @@ export const Testimonial: FC<{
   content: any;
 }> = ({ content, description, name, picture }) => {
   return (
-    <div className="rounded-[16px] w-full flex flex-col gap-[16px] p-[20px] bg-[#1A1919] border border-[#2b2a2a]">
+    <div className="rounded-[16px] w-full flex flex-col gap-[16px] p-[20px] bg-[#11141C] border border-[#262B37]">
       {/* Header */}
       <div className="flex gap-[12px] min-w-0">
         <div className="w-[36px] h-[36px] rounded-full overflow-hidden shrink-0">

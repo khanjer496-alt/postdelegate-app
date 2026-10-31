@@ -32,11 +32,14 @@ export const StreakComponent: FC = () => {
 
   return (
     <div
-      className="flex items-center gap-[6px] text-orange-500 hover:text-orange-400 cursor-default"
+      role="img"
+      aria-label={tooltipContent}
+      className="flex items-center gap-[6px] text-orange-500 hover:text-orange-400 cursor-default mobile:px-[8px] mobile:h-[40px]"
       data-tooltip-id="tooltip"
       data-tooltip-content={tooltipContent}
     >
       <svg
+        aria-hidden="true"
         width="24"
         height="24"
         viewBox="0 0 22 27"

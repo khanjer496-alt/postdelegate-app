@@ -247,7 +247,7 @@ const ApplyCouponModal: FC<{ close: () => void }> = ({ close }) => {
                 <Button
                   onClick={handleCancelCoupon}
                   loading={cancelling}
-                  className="!bg-red-700 rounded-[4px] !h-[24px] !px-[10px] text-[12px]"
+                  className="!bg-red-700 text-white rounded-[4px] !h-[24px] !px-[10px] text-[12px]"
                 >
                   {t('cancel', 'Cancel')}
                 </Button>
@@ -311,7 +311,7 @@ const ApplyCouponModal: FC<{ close: () => void }> = ({ close }) => {
               <Button
                 onClick={handleApply}
                 loading={applying}
-                className="!bg-blue-700 rounded-[4px]"
+                className="!bg-blue-700 text-white rounded-[4px]"
               >
                 {t('apply', 'Apply')}
               </Button>
@@ -514,7 +514,7 @@ const ChargesModal: FC<{ close: () => void }> = ({ close }) => {
       <div className="flex gap-[12px] justify-end">
         <Button
           onClick={handleApplyCoupon}
-          className="!bg-blue-700 rounded-[4px]"
+          className="!bg-blue-700 text-white rounded-[4px]"
         >
           {t('apply_coupon', 'Apply Coupon')}
         </Button>
@@ -530,7 +530,7 @@ const ChargesModal: FC<{ close: () => void }> = ({ close }) => {
         <Button
           onClick={handleCancel}
           loading={cancelling}
-          className="!bg-red-700 rounded-[4px]"
+          className="!bg-red-700 text-white rounded-[4px]"
         >
           {t('cancel_subscription', 'Cancel Subscription')}
         </Button>

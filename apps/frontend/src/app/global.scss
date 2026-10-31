@@ -14,10 +14,105 @@
 body {
   background: var(--new-bgColor) !important;
   color: var(--new-btn-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+::selection {
+  color: #ffffff;
+  background: var(--new-btn-primary);
+}
+
+/* PostDelegate orbit loader (components/layout/loading.tsx and the shared Button) */
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes orbit-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.orbit-loader .orbit-loader-spin,
+.orbit-loader .orbit-loader-counter {
+  transform-origin: 24px 24px;
+}
+.orbit-loader .orbit-loader-spin {
+  animation: orbit-spin 1.15s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+}
+.orbit-loader .orbit-loader-counter {
+  animation: orbit-spin 3.2s linear infinite reverse;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit-loader .orbit-loader-spin,
+  .orbit-loader .orbit-loader-counter {
+    animation: orbit-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+/* active sidebar item: the lime signal dot from the logo */
+.menu-orbit-dot::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--new-orbit-dot);
+  box-shadow: 0 0 0 2px var(--new-orbit-ring);
+  pointer-events: none;
+}
+
+/* Keyboard focus: a brand ring on :focus-visible only, so mouse and touch
+   users see no outline (everything else keeps the old outline: none).
+   Text fields match :focus-visible on click too, so they get the ring only
+   while the keyboard is in use (html[data-keyboard], set by
+   components/layout/html.component.tsx). Elements that draw their own
+   focus ring (tailwind focus-visible:ring) keep it, elements clipped by an
+   overflow-hidden parent draw it inside (focus-visible:-outline-offset-2),
+   and containers focused from code (tabindex -1) stay plain. */
 body * {
   outline: none !important;
+}
+
+/* :where keeps this at (0,1,1) so the exceptions below win */
+body
+  *:focus-visible:where(
+    :not([class*='focus-visible:ring']):not(
+        [class*='focus-visible:outline-none']
+      )
+  ) {
+  outline: 2px solid var(--new-focus-ring) !important;
+  outline-offset: 2px !important;
+}
+
+body *:focus-visible[class*='focus-visible:-outline-offset'] {
+  outline-offset: -2px !important;
+}
+
+html:not([data-keyboard])
+  body
+  :is(
+    input:not([type='checkbox']):not([type='radio']):not([type='button']):not([type='submit']):not([type='reset']):not([type='range']):not([type='color']):not([type='file']),
+    textarea,
+    [contenteditable]
+  ):focus-visible,
+body [tabindex='-1']:focus-visible,
+body .mantine-Paper-root:focus-visible {
+  outline: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.orbit-loader-spin):not(.orbit-loader-counter):not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .box {
@@ -105,7 +200,7 @@ body * {
   font-size: 14px;
   background-color: var(--new-bgColorInner);
   height: 42px;
-  border-radius: 8px;
+  border-radius: 10px;
   /* shared font styles */
   line-height: 1.2;
   /* clicking anywhere will focus the input */
@@ -121,7 +216,7 @@ body * {
 }
 
 .react-tags.is-active {
-  @apply border-customColor51;
+  @apply border-btnPrimary;
 }
 
 .react-tags.is-disabled {
@@ -403,7 +498,7 @@ body * {
   -webkit-text-fill-color: white !important;
 }
 div div .set-font-family {
-  font-family: 'Helvetica Neue', Helvetica !important;
+  font-family: var(--font-jakarta, ui-sans-serif), system-ui, sans-serif !important;
   font-stretch: 100% !important;
   font-style: normal !important;
   font-weight: 400 !important;
@@ -467,7 +562,7 @@ div div .set-font-family {
   min-width: 150px;
   text-align: left;
   border-width: 1px;
-  border-radius: 8px;
+  border-radius: 10px;
   border-color: var(--new-table-border);
   font-size: 14px;
 }
@@ -595,7 +690,7 @@ html[dir='rtl'] [dir='ltr'] {
 //
 
 .ProseMirror {
-  font-family: Arial;
+  font-family: inherit;
 }
 
 .ProseMirror:focus {
@@ -702,10 +797,11 @@ html[dir='rtl'] [dir='ltr'] {
   padding: 0;
   @apply bg-newBgColorInner;
   border-radius: 24px;
+  box-shadow: 0 0 0 1px var(--new-border);
 }
 
 .mantine-Overlay-root {
-  background: rgba(65, 64, 66, 0.3) !important;
+  background: var(--popup-color) !important;
 }
 
 .dropdown-menu {
@@ -804,12 +900,12 @@ html[dir='rtl'] [dir='ltr'] {
 }
 
 .blackGradBottomBg {
-  background: linear-gradient(180deg, #0e0e0e 0%, rgba(14, 14, 14, 0) 100%);
+  background: linear-gradient(180deg, #080a0f 0%, rgba(8, 10, 15, 0) 100%);
   rotate: 180deg;
 }
 
 .blackGradTopBg {
-  background: linear-gradient(180deg, #0e0e0e 0%, rgba(14, 14, 14, 0) 100%);
+  background: linear-gradient(180deg, #080a0f 0%, rgba(8, 10, 15, 0) 100%);
 }
 
 .billing-form input {
@@ -869,4 +965,11 @@ html[dir='rtl'] [dir='ltr'] {
 /* Preview page: text that can be selected to leave an inline comment */
 .preview-comment-cursor {
   cursor: url("data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2228%22 height%3D%2228%22 viewBox%3D%220 0 28 28%22%3E%3Cg fill%3D%22none%22 stroke-linecap%3D%22round%22 stroke-linejoin%3D%22round%22%3E%3Cpath d%3D%22M3 4h6M3 24h6M6 4v20%22 stroke%3D%22%23fff%22 stroke-width%3D%224%22%2F%3E%3Cpath d%3D%22M3 4h6M3 24h6M6 4v20%22 stroke%3D%22%23000%22 stroke-width%3D%221.6%22%2F%3E%3Cpath d%3D%22M14 4h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6l-4 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z%22 fill%3D%22%23612bd3%22 stroke%3D%22%23fff%22 stroke-width%3D%221.5%22%2F%3E%3Cpath d%3D%22M17 8h6M17 11h4%22 stroke%3D%22%23fff%22 stroke-width%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 6 14, text;
+}
+
+/* auth: right-hand brand panel, orbit motif over a Void + violet glow */
+.auth-brand-panel {
+  background: url('/auth/orbit.svg') center 72% / min(620px, 92%) no-repeat,
+    radial-gradient(ellipse 65% 50% at 50% 72%, rgba(115, 87, 255, 0.22), transparent 70%),
+    linear-gradient(180deg, #11141c 0%, #080a0f 100%);
 }

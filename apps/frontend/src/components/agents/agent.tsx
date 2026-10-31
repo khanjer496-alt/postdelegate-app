@@ -252,7 +252,7 @@ const Threads: FC = () => {
         <div className="mb-[15px] mobile:mb-0 justify-center flex group-[.sidebar]:pb-[15px] mobile:shrink-0">
           <Link
             href={`/agents`}
-            className="text-white whitespace-nowrap flex-1 pt-[12px] pb-[14px] ps-[16px] pe-[20px] group-[.sidebar]:p-0 min-h-[44px] max-h-[44px] rounded-md bg-btnPrimary flex justify-center items-center gap-[5px] outline-none"
+            className="text-btnCtaText font-[600] whitespace-nowrap flex-1 pt-[12px] pb-[14px] ps-[16px] pe-[20px] group-[.sidebar]:p-0 min-h-[44px] max-h-[44px] rounded-[10px] bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors flex justify-center items-center gap-[5px] outline-none"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -264,7 +264,7 @@ const Threads: FC = () => {
             >
               <path
                 d="M10.5001 4.16699V15.8337M4.66675 10.0003H16.3334"
-                stroke="white"
+                stroke="currentColor"
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"

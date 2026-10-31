@@ -11,8 +11,10 @@ export const AppleProvider = () => {
     window.location.href = link;
   }, []);
   return (
-    <div
+    <button
+      type="button"
       onClick={gotoLogin}
+      aria-label={t('apple', 'Apple')}
       className={`cursor-pointer flex-1 bg-white h-[52px] rounded-[10px] flex justify-center items-center text-[#0E0E0E] gap-[5px]`}
     >
       <div>
@@ -29,6 +31,6 @@ export const AppleProvider = () => {
         </svg>
       </div>
       <div className="block xs:hidden">{t('apple', 'Apple')}</div>
-    </div>
+    </button>
   );
 };

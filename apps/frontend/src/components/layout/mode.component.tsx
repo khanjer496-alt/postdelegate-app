@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import useCookie from 'react-use-cookie';
 import EventEmitter from 'events';
+import { useT } from '@gitroom/react/translation/get.transation.service.client';
 
 export const modeEmitter = new EventEmitter();
+// lets other components (the quick menu) flip the theme through this toggle
+export const modeToggleEmitter = new EventEmitter();
 
 const ModeComponent = () => {
+  const t = useT();
   const [mode, setMode] = useCookie('mode', 'dark');
 
   const changeMode = useCallback(() => {
@@ -15,13 +19,30 @@ const ModeComponent = () => {
   }, [mode]);
 
   useEffect(() => {
+    modeToggleEmitter.on('toggle', changeMode);
+    return () => {
+      modeToggleEmitter.off('toggle', changeMode);
+    };
+  }, [changeMode]);
+
+  useEffect(() => {
     document.body.classList.remove('dark', 'light');
     document.body.classList.add(mode);
   }, [mode]);
   return (
-    <div onClick={changeMode} className="select-none cursor-pointer">
+    <button
+      type="button"
+      onClick={changeMode}
+      aria-label={
+        mode === 'dark'
+          ? t('switch_to_light_mode', 'Switch to light mode')
+          : t('switch_to_dark_mode', 'Switch to dark mode')
+      }
+      className="flex items-center justify-center shrink-0 select-none cursor-pointer mobile:w-[40px] mobile:h-[40px] rounded-[8px] mobile:hover:bg-boxFocused"
+    >
       {mode === 'dark' ? (
         <svg
+          aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           width="22"
           height="22"
@@ -38,6 +59,7 @@ const ModeComponent = () => {
         </svg>
       ) : (
         <svg
+          aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           width="24"
           height="24"
@@ -53,7 +75,7 @@ const ModeComponent = () => {
           />
         </svg>
       )}
-    </div>
+    </button>
   );
 };
 export default ModeComponent;

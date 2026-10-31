@@ -447,6 +447,21 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       )
     ).json();
 
+    // A spam_risk_* code means the creator can't make more posts at this
+    // moment: stop and ask to try again later (a ban keeps its own message).
+    // Rejected requests already get these messages from handleErrors.
+    const code = String(response?.error?.code || '');
+    if (code.indexOf('spam_risk') === 0) {
+      throw new BadBody(
+        'tiktok-creator-info',
+        JSON.stringify(response),
+        '{}',
+        code === 'spam_risk_user_banned_from_posting'
+          ? this.handleErrors(code)!.value
+          : "TikTok says this account can't make more posts right now. Try again later."
+      );
+    }
+
     const data = response?.data;
     if (
       response?.error?.code !== 'ok' ||
@@ -521,11 +536,11 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     const ownBrand = this.assetBoolean(settings.brand_organic_toggle);
     if (settings.disclose && !branded && !ownBrand) {
       invalid(
-        'Select at least one brand option when commercial content disclosure is enabled.'
+        'You need to indicate if your content promotes yourself, a third party, or both.'
       );
     }
     if (branded && settings.privacy_level === 'SELF_ONLY') {
-      invalid('Branded content cannot use private visibility.');
+      invalid('Branded content visibility cannot be set to private.');
     }
   }
 

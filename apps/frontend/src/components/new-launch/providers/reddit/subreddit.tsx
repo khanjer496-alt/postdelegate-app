@@ -41,7 +41,7 @@ export const RenderOptions: FC<{
     <div className="flex">
       {mapValues.map((p) => (
         <Button
-          className={clsx('flex-1', p.id !== value && 'bg-secondary')}
+          className={clsx('flex-1', p.id !== value && 'bg-secondary shadow-none text-textColor')}
           key={p.id}
           {...p}
         />

@@ -96,7 +96,7 @@ export const ReviewForm: FC<{
           {sent.lowRating && (
             <a
               href={REVIEW_SUPPORT_MAILTO}
-              className="rounded-[8px] h-[40px] px-[24px] flex items-center justify-center bg-forth text-white"
+              className="rounded-[8px] h-[40px] px-[24px] flex items-center justify-center bg-btnCta shadow-cta text-btnCtaText font-[600]"
             >
               {t('review_tell_support', 'Tell support')}
             </a>

@@ -489,7 +489,7 @@ export const MediaBox: FC<{
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('search_media_by_name', 'Search by file name')}
-              className="w-full h-[44px] px-[14px] rounded-[8px] bg-newBgColorInner border border-newColColor text-[14px] outline-none focus:border-[#612BD3]"
+              className="w-full h-[44px] px-[14px] rounded-[8px] bg-newBgColorInner border border-newColColor text-[14px] outline-none focus:border-btnPrimary"
             />
           </div>
           <input
@@ -629,13 +629,13 @@ export const MediaBox: FC<{
                     className={clsx(
                       'w-full h-full rounded-[6px] border-[4px] relative',
                       !!selected.find((p) => p.id === media.id)
-                        ? 'border-[#612BD3]'
+                        ? 'border-btnPrimary'
                         : 'border-transparent'
                     )}
                     onClick={addRemoveSelected(media)}
                   >
                     {!!selected.find((p: any) => p.id === media.id) ? (
-                      <div className="text-white flex z-[101] justify-center items-center text-[14px] font-[500] w-[24px] h-[24px] rounded-full bg-[#612BD3] absolute -bottom-[10px] -end-[10px]">
+                      <div className="text-white flex z-[101] justify-center items-center text-[14px] font-[500] w-[24px] h-[24px] rounded-full bg-btnPrimary absolute -bottom-[10px] -end-[10px]">
                         {selected.findIndex((z: any) => z.id === media.id) + 1}
                       </div>
                     ) : (
@@ -721,7 +721,7 @@ export const MediaBox: FC<{
               <button
                 onClick={standalone ? () => {} : addMedia}
                 disabled={selected.length === 0}
-                className="cursor-pointer text-white disabled:opacity-80 disabled:cursor-not-allowed h-[52px] px-[20px] items-center justify-center bg-[#612BD3] flex rounded-[10px] mobile:h-[44px] mobile:rounded-[8px] mobile:font-[600] mobile:disabled:opacity-100 mobile:disabled:bg-btnSimple mobile:disabled:text-textItemBlur"
+                className="cursor-pointer text-btnCtaText font-[600] disabled:opacity-80 disabled:cursor-not-allowed h-[52px] px-[20px] items-center justify-center bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors flex rounded-[10px] mobile:h-[44px] mobile:rounded-[8px] mobile:font-[600] mobile:disabled:opacity-100 mobile:disabled:bg-btnSimple mobile:disabled:text-textItemBlur"
               >
                 {t('add_selected_media', 'Add selected media')}
               </button>
@@ -1136,7 +1136,7 @@ export const MediaComponent: FC<{
         <Button onClick={showModal}>{t('select', 'Select')}</Button>
         <Button
           onClick={showDesignModal}
-          className="!bg-customColor45 mobile:hidden"
+          className="!bg-customColor45 text-white mobile:hidden"
         >
           {t('editor', 'Editor')}
         </Button>

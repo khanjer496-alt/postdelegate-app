@@ -93,11 +93,13 @@ export const ChangeLanguageComponent = () => {
 
   return (
     <div className="relative">
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 mobile:grid-cols-3 xs:grid-cols-2 gap-2">
         {availableLanguages.map((language) => (
-          <div
+          <button
+            type="button"
+            aria-pressed={language === currentLanguage}
             className={clsx(
-              'flex items-center flex-col bg-newTableHeader hover:bg-newTableBorder p-[20px] cursor-pointer gap-2',
+              'flex items-center flex-col bg-newTableHeader hover:bg-newTableBorder p-[20px] mobile:p-[12px] cursor-pointer gap-2',
               language === currentLanguage ? 'border border-textColor' : ''
             )}
             key={language}
@@ -115,7 +117,7 @@ export const ChangeLanguageComponent = () => {
             <Text weight={language === currentLanguage ? 'bold' : 'normal'}>
               {getLanguageName(language)}
             </Text>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -133,11 +135,15 @@ export const LanguageComponent = () => {
     });
   };
   return (
-    <div
+    <button
+      type="button"
       onClick={openModal}
-      className="rounded-full overflow-hidden h-[22px] w-[22px] relative cursor-pointer"
+      aria-label={t('change_language', 'Change Language')}
+      className="flex items-center justify-center shrink-0 mobile:w-[40px] mobile:h-[40px] rounded-[8px] mobile:hover:bg-boxFocused"
     >
+      <span className="block rounded-full overflow-hidden h-[22px] w-[22px] relative">
       <ReactCountryFlag
+        aria-hidden="true"
         countryCode={getCountryCodeForFlag(currentLanguage)}
         svg
         style={{
@@ -151,6 +157,7 @@ export const LanguageComponent = () => {
         }}
         title={currentLanguage}
       />
-    </div>
+      </span>
+    </button>
   );
 };

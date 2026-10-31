@@ -249,7 +249,7 @@ export const DeveloperComponent: FC = () => {
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="cursor-pointer px-[20px] h-[44px] bg-[#612BD3] hover:bg-[#5520CB] transition-colors text-white rounded-[8px] text-[15px] font-[600]"
+              className="cursor-pointer px-[20px] h-[44px] bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors text-btnCtaText rounded-[8px] text-[15px] font-[600]"
             >
               {t('create_oauth_app', 'Create OAuth App')}
             </button>
@@ -351,7 +351,7 @@ export const DeveloperComponent: FC = () => {
               <button
                 type="button"
                 onClick={createApp}
-                className="cursor-pointer px-[20px] h-[44px] bg-[#612BD3] hover:bg-[#5520CB] transition-colors text-white rounded-[8px] text-[15px] font-[600]"
+                className="cursor-pointer px-[20px] h-[44px] bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors text-btnCtaText rounded-[8px] text-[15px] font-[600]"
               >
                 {t('create', 'Create')}
               </button>
@@ -465,7 +465,7 @@ export const DeveloperComponent: FC = () => {
               <button
                 type="button"
                 onClick={updateApp}
-                className="cursor-pointer px-[20px] h-[44px] bg-[#612BD3] hover:bg-[#5520CB] transition-colors text-white rounded-[8px] text-[15px] font-[600]"
+                className="cursor-pointer px-[20px] h-[44px] bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors text-btnCtaText rounded-[8px] text-[15px] font-[600]"
               >
                 {t('save', 'Save')}
               </button>

@@ -144,7 +144,7 @@ const VoiceSelector: FC = () => {
               className={clsx(
                 'px-3 py-1 text-xs',
                 loadingVoice === voice.id && 'opacity-50 cursor-not-allowed',
-                currentlyPlaying === voice.id && 'bg-red-500 hover:bg-red-600'
+                currentlyPlaying === voice.id && 'bg-red-500 hover:bg-red-600 text-white'
               )}
               onClick={(e) => {
                 e.stopPropagation();

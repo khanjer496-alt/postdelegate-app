@@ -33,6 +33,7 @@ import {
   normalizeLanguage,
 } from '@gitroom/react/translation/i18n.config';
 import { HtmlComponent } from '@gitroom/frontend/components/layout/html.component';
+import { ServiceWorkerComponent } from '@gitroom/frontend/components/layout/service.worker.component';
 import Script from 'next/script';
 import { ChangeDirClient } from '@gitroom/frontend/components/new-layout/change.dir.client';
 
@@ -52,6 +53,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/postdelegate.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/postdelegate-apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#080a0f" />
+        <meta name="apple-mobile-web-app-title" content="PostDelegate" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black"
+        />
         {!!process.env.DATAFAST_WEBSITE_ID && (
           <Script
             data-website-id={process.env.DATAFAST_WEBSITE_ID}
@@ -63,7 +73,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </head>
       <ChangeDirClient />
       <body
-        className={clsx(jakartaSans.className, 'dark text-primary !bg-primary')}
+        className={clsx(
+          jakartaSans.className,
+          jakartaSans.variable,
+          'dark text-primary !bg-primary'
+        )}
       >
         <VariableContextComponent
           storageProvider={
@@ -119,6 +133,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         >
           <SentryComponent>
             <HtmlComponent />
+            <ServiceWorkerComponent />
             <DubAnalytics />
             <FacebookComponent />
             <GoogleTagManagerComponent gtmId={process.env.NEXT_PUBLIC_GTM_ID} />

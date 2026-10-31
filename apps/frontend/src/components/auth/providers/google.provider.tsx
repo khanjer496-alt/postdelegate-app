@@ -11,8 +11,10 @@ export const GoogleProvider = () => {
     window.location.href = link;
   }, []);
   return (
-    <div
+    <button
+      type="button"
       onClick={gotoLogin}
+      aria-label={t('google', 'Google')}
       className={`cursor-pointer flex-1 bg-white h-[52px] rounded-[10px] flex justify-center items-center text-[#0E0E0E] gap-[5px]`}
     >
       <div>
@@ -41,6 +43,6 @@ export const GoogleProvider = () => {
         </svg>
       </div>
       <div className="block xs:hidden">{t('google', 'Google')}</div>
-    </div>
+    </button>
   );
 };
