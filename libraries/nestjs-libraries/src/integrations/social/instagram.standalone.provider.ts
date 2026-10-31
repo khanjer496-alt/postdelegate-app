@@ -250,6 +250,10 @@ export class InstagramStandaloneProvider
     );
   }
 
+  async accountStats(id: string, accessToken: string) {
+    return instagramProvider.accountStats(id, accessToken, 'graph.instagram.com');
+  }
+
   async analytics(id: string, accessToken: string, date: number) {
     return instagramProvider.analytics(
       id,

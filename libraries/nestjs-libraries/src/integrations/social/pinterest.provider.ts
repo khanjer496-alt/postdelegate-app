@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -556,6 +557,32 @@ export class PinterestProvider
       // into the witnessing check
       pendingData = result.pendingData;
     }
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    const response = await fetch('https://api.pinterest.com/v5/user_account', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Pinterest user_account returned ${response.status}`);
+    }
+
+    const { follower_count, following_count, pin_count } =
+      await response.json();
+    return {
+      ...(typeof follower_count === 'number'
+        ? { followers: follower_count }
+        : {}),
+      ...(typeof following_count === 'number'
+        ? { following: following_count }
+        : {}),
+      ...(typeof pin_count === 'number' ? { posts: pin_count } : {}),
+    };
   }
 
   async analytics(

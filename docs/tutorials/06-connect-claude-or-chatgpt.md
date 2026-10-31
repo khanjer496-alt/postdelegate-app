@@ -13,7 +13,7 @@ Label citations: see "How to read the label citations" in the [README](README.md
 
 ## Before you record
 
-- PostDelegate does not provide an AI of its own and AI features inside the app are off. This video shows the assistant the viewer already has. Say that clearly and do not imply PostDelegate pays for or runs the AI.
+- PostDelegate does not provide an AI of its own: AI inside the app runs on the workspace's own OpenAI key, and PostDelegate never charges for AI. This video shows the assistant the viewer already has. Say that clearly and do not imply PostDelegate pays for or runs the AI.
 - Remove any earlier PostDelegate connector from Claude so you film a clean add (Claude: Settings, Connectors). Also revoke earlier approvals in PostDelegate under **Settings > Apps > Approved Apps**.
 - In Claude close old chats from the sidebar and hide your account name and email (blur the profile corner and the account menu).
 - Make sure the Bluesky demo channel exists and has a short name such as "Acme Cafe Demo" so Claude can find it.

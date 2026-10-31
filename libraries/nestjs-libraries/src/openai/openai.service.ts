@@ -1,19 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import OpenAI from 'openai';
 import { shuffle } from 'lodash';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-});
+import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 
 const PicturePrompt = z.object({
   prompt: z.string(),
-});
-
-const VoicePrompt = z.object({
-  voice: z.string(),
 });
 
 const ClipsPrompt = z.object({
@@ -31,14 +23,18 @@ const ClipsPrompt = z.object({
 
 @Injectable()
 export class OpenaiService {
+  constructor(private _aiCredentialService: AiCredentialService) {}
+
   // The model answers with line numbers and not times, so a clip can only
   // start and end where the transcript really has a boundary
   async pickClips(
+    orgId: string,
     title: string,
     language: string,
     segments: { start: number; end: number; text: string }[],
     maxClips: number
   ) {
+    const openai = await this._aiCredentialService.getOpenAiClient(orgId);
     const { clips } = (
       await openai.chat.completions.parse(
         {
@@ -75,7 +71,8 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     return clips;
   }
 
-  async generateImage(prompt: string, isVertical = false) {
+  async generateImage(orgId: string, prompt: string, isVertical = false) {
+    const openai = await this._aiCredentialService.getOpenAiClient(orgId);
     // gpt-image models always return base64 (b64_json) and do not accept the
     // `response_format` parameter, unlike the deprecated dall-e-3.
     const generate = (
@@ -89,7 +86,8 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     return generate.b64_json;
   }
 
-  async generatePromptForPicture(prompt: string) {
+  async generatePromptForPicture(orgId: string, prompt: string) {
+    const openai = await this._aiCredentialService.getOpenAiClient(orgId);
     return (
       (
         await openai.chat.completions.parse({
@@ -110,28 +108,8 @@ Clips must not overlap. Write the title and the post in this language, whatever 
     );
   }
 
-  async generateVoiceFromText(prompt: string) {
-    return (
-      (
-        await openai.chat.completions.parse({
-          model: 'gpt-4.1',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an assistant that takes a social media post and convert it to a normal human voice, to be later added to a character, when a person talk they don\'t use "-", and sometimes they add pause with "..." to make it sounds more natural, make sure you use a lot of pauses and make it sound like a real person`,
-            },
-            {
-              role: 'user',
-              content: `prompt: ${prompt}`,
-            },
-          ],
-          response_format: zodResponseFormat(VoicePrompt, 'voice'),
-        })
-      ).choices[0].message.parsed?.voice || ''
-    );
-  }
-
-  async generatePosts(content: string) {
+  async generatePosts(orgId: string, content: string) {
+    const openai = await this._aiCredentialService.getOpenAiClient(orgId);
     const posts = (
       await Promise.all([
         openai.chat.completions.create({
@@ -189,7 +167,9 @@ Clips must not overlap. Write the title and the post in this language, whatever 
       })
     );
   }
-  async extractWebsiteText(content: string) {
+
+  async extractWebsiteText(orgId: string, content: string) {
+    const openai = await this._aiCredentialService.getOpenAiClient(orgId);
     const websiteContent = await openai.chat.completions.create({
       messages: [
         {
@@ -207,10 +187,11 @@ Clips must not overlap. Write the title and the post in this language, whatever 
 
     const { content: articleContent } = websiteContent.choices[0].message;
 
-    return this.generatePosts(articleContent!);
+    return this.generatePosts(orgId, articleContent!);
   }
 
-  async separatePosts(content: string, len: number) {
+  async separatePosts(orgId: string, content: string, len: number) {
+    const openai = await this._aiCredentialService.getOpenAiClient(orgId);
     const SeparatePostsPrompt = z.object({
       posts: z.array(z.string()),
     });
@@ -282,48 +263,5 @@ Clips must not overlap. Write the title and the post in this language, whatever 
         })
       ),
     };
-  }
-
-  async generateSlidesFromText(text: string) {
-    for (let i = 0; i < 3; i++) {
-      try {
-        const message = `You are an assistant that takes a text and break it into slides, each slide should have an image prompt and voice text to be later used to generate a video and voice, image prompt should capture the essence of the slide and also have a back dark gradient on top, image prompt should not contain text in the picture, generate between 3-5 slides maximum`;
-        const parse =
-          (
-            await openai.chat.completions.parse({
-              model: 'gpt-4.1',
-              messages: [
-                {
-                  role: 'system',
-                  content: message,
-                },
-                {
-                  role: 'user',
-                  content: text,
-                },
-              ],
-              response_format: zodResponseFormat(
-                z.object({
-                  slides: z
-                    .array(
-                      z.object({
-                        imagePrompt: z.string(),
-                        voiceText: z.string(),
-                      })
-                    )
-                    .describe('an array of slides'),
-                }),
-                'slides'
-              ),
-            })
-          ).choices[0].message.parsed?.slides || [];
-
-        return parse;
-      } catch (err) {
-        console.log(err);
-      }
-    }
-
-    return [];
   }
 }

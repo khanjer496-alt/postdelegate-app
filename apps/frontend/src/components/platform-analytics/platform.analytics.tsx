@@ -17,6 +17,8 @@ import { useVariables } from '@gitroom/react/helpers/variable.context';
 import useCookie from 'react-use-cookie';
 import { SVGLine } from '@gitroom/frontend/components/launches/launches.component';
 import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
+import { Range } from '@gitroom/frontend/components/platform-analytics/analytics.ui';
+import { ChannelHistory } from '@gitroom/frontend/components/platform-analytics/analytics.trends';
 const allowedIntegrations = [
   'facebook',
   'instagram',
@@ -301,6 +303,12 @@ export const PlatformAnalytics = () => {
                 <RenderAnalytics integration={currentIntegration} date={keys} />
               )}
             </div>
+            {!!keys && !!currentIntegration && !refresh && (
+              <ChannelHistory
+                days={keys as Range}
+                integration={currentIntegration.id}
+              />
+            )}
           </div>
         )}
       </div>

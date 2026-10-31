@@ -483,6 +483,7 @@ export const areYouSure = ({
   approveLabel = 'Yes',
   cancelLabel = 'No',
   destructive = false,
+  onlyApprove = false,
 } = {}): Promise<boolean> => {
   return new Promise<boolean>((newRes) => {
     decisionModalEmitter.emit('open', {
@@ -491,6 +492,7 @@ export const areYouSure = ({
       approveLabel,
       cancelLabel,
       destructive,
+      onlyApprove,
       newRes,
     });
   });

@@ -251,6 +251,7 @@ export class OAuthRepository {
               clientId: true,
               dynamic: true,
               redirectUris: true,
+              name: true,
             },
           },
           organization: {

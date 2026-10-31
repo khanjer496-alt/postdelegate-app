@@ -94,6 +94,11 @@ export const CalendarContext = createContext({
   setSelectedChannels: (channels: string[] | null) => {
     /** empty **/
   },
+  // campaigns, pillars and tags shown, null for every post
+  selectedTags: null as string[] | null,
+  setSelectedTags: (tags: string[] | null) => {
+    /** empty **/
+  },
   currentHour: newDayjs().startOf('hour'),
 });
 
@@ -212,6 +217,12 @@ export const CalendarWeekProvider: FC<{
     setListPage(0);
   }, []);
 
+  const [selectedTags, setSelectedTagsRaw] = useState<string[] | null>(null);
+  const setSelectedTags = useCallback((next: string[] | null) => {
+    setSelectedTagsRaw(next);
+    setListPage(0);
+  }, []);
+
   const [filters, setFilters] = useState({
     startDate: initialRange.startDate,
     endDate: initialRange.endDate,
@@ -253,8 +264,9 @@ export const CalendarWeekProvider: FC<{
       customer: filters?.customer?.toString() || '',
       state: listState,
       ...(selectedChannels ? { integrations: selectedChannels.join(',') } : {}),
+      ...(selectedTags ? { tags: selectedTags.join(',') } : {}),
     }).toString();
-  }, [listPage, filters.customer, listState, selectedChannels]);
+  }, [listPage, filters.customer, listState, selectedChannels, selectedTags]);
 
   const loadListData = useCallback(async () => {
     const response = await fetch(`/posts/list?${listParams}`);
@@ -347,10 +359,15 @@ export const CalendarWeekProvider: FC<{
 
   const filterByChannels = useCallback(
     (list: any[]) =>
-      selectedChannels
+      (selectedChannels
         ? list.filter((p) => selectedChannels.includes(p.integration.id))
-        : list,
-    [selectedChannels]
+        : list
+      ).filter(
+        (p) =>
+          !selectedTags ||
+          (p.tags || []).some((t: any) => selectedTags.includes(t?.tag?.id))
+      ),
+    [selectedChannels, selectedTags]
   );
 
   const posts = useMemo(() => calendarData?.posts || [], [calendarData?.posts]);
@@ -430,6 +447,8 @@ export const CalendarWeekProvider: FC<{
         setListState,
         selectedChannels,
         setSelectedChannels,
+        selectedTags,
+        setSelectedTags,
         currentHour,
       }}
     >

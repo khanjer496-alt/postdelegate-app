@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Injectable } from '@nestjs/common';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { getSource } from '@gitroom/nestjs-libraries/chat/async.storage';
 
 @Injectable()
 export class PostSettingsTool implements AgentToolInterface {
@@ -76,7 +77,15 @@ If validation fails, the result contains output.errors describing what to fix; t
             organizationId,
             inputData.id,
             settings,
-            'MCP'
+            'MCP',
+            // a change to an approved or waiting post goes back to review
+            {
+              type: 'agent',
+              source:
+                (context?.requestContext as any)?.get('ui') === 'true'
+                  ? 'PostDelegate agent'
+                  : getSource() || 'MCP client',
+            }
           );
 
           return { output };

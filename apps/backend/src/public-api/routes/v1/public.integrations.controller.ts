@@ -19,6 +19,8 @@ import { ApiTags } from '@nestjs/swagger';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { GetIncludeDeletedFromRequest } from '@gitroom/nestjs-libraries/user/include.deleted.from.request';
 import { GetOAuthUserIdFromRequest } from '@gitroom/nestjs-libraries/user/oauth.user.id.from.request';
+import { GetOAuthAppNameFromRequest } from '@gitroom/nestjs-libraries/user/oauth.app.name.from.request';
+import { ApprovalActor } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
 import { Organization } from '@prisma/client';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
@@ -147,6 +149,7 @@ export class PublicIntegrationsController {
   @CheckPolicies([AuthorizationActions.Create, Sections.POSTS_PER_MONTH])
   async createPost(
     @GetOrgFromRequest() org: Organization,
+    @GetOAuthAppNameFromRequest() oauthAppName: string | undefined,
     @Body() rawBody: any
   ) {
     Sentry.metrics.count('public_api-request', 1);
@@ -163,7 +166,10 @@ export class PublicIntegrationsController {
       rawBody?.type === 'draft' || true,
       rawBody?.type
     );
-    body.type = rawBody.type;
+    // only the known types, anything else schedules like a missing type did
+    body.type = ['draft', 'schedule', 'now', 'update'].includes(rawBody?.type)
+      ? rawBody.type
+      : 'schedule';
 
     if (
       process.env.RESTRICT_UPLOAD_DOMAINS &&
@@ -229,7 +235,32 @@ export class PublicIntegrationsController {
       ? (rawBody.creationMethod as 'CLI' | 'API')
       : 'API';
 
-    return this._postsService.createPost(org.id, body, creationMethod);
+    return this._postsService.createPost(
+      org.id,
+      body,
+      creationMethod,
+      false,
+      this.agentActor(creationMethod, oauthAppName)
+    );
+  }
+
+  // Posts from the public API, the CLI or a connected app keep their source
+  // and the agent guardrails, but only wait for approval when the workspace
+  // also asks for API approval
+  private agentActor(
+    creationMethod: 'CLI' | 'API',
+    oauthAppName?: string
+  ): ApprovalActor {
+    return {
+      type: 'agent',
+      viaApi: true,
+      source:
+        creationMethod === 'CLI'
+          ? 'PostDelegate CLI'
+          : oauthAppName
+          ? `${oauthAppName} (API)`
+          : 'Public API key',
+    };
   }
 
   @Delete('/posts/:id')
@@ -627,6 +658,7 @@ export class PublicIntegrationsController {
   @Put('/posts/:id/settings')
   async updatePostSettings(
     @GetOrgFromRequest() org: Organization,
+    @GetOAuthAppNameFromRequest() oauthAppName: string | undefined,
     @Param('id') id: string,
     @Body() body: UpdatePostSettingsDto
   ) {
@@ -635,18 +667,25 @@ export class PublicIntegrationsController {
       org.id,
       id,
       body.settings,
-      'API'
+      'API',
+      this.agentActor('API', oauthAppName)
     );
   }
 
   @Put('/posts/:id/status')
   async changePostStatus(
     @GetOrgFromRequest() org: Organization,
+    @GetOAuthAppNameFromRequest() oauthAppName: string | undefined,
     @Param('id') id: string,
     @Body() body: ChangePostStatusDto
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._postsService.changePostStatus(org.id, id, body.status);
+    return this._postsService.changePostStatus(
+      org.id,
+      id,
+      body.status,
+      this.agentActor('API', oauthAppName)
+    );
   }
 
   @Put('/posts/:id/release-id')

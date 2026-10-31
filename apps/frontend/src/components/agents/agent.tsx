@@ -4,7 +4,6 @@ import React, {
   createContext,
   FC,
   useCallback,
-  useEffect,
   useMemo,
   useState,
   ReactNode,
@@ -203,19 +202,51 @@ export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
 };
 
 export const PropertiesContext = createContext({ properties: [] });
+
+const ConnectAiKey: FC = () => {
+  const t = useT();
+  const user = useUser();
+
+  return (
+    <div className="bg-newBgColorInner p-[20px] mobile:p-[12px] flex flex-1 flex-col gap-[16px] items-center justify-center text-center">
+      <h2 className="text-[20px] font-[500]">
+        {t('agent_connect_key_title', 'Connect your OpenAI key to start')}
+      </h2>
+      <div className="text-textItemBlur max-w-[440px]">
+        {t(
+          'agent_connect_key_description',
+          'The Agent runs on your own OpenAI account, so usage is billed to you by OpenAI, not by PostDelegate.'
+        )}
+      </div>
+      {user?.role !== 'USER' ? (
+        <Link
+          href="/settings?tab=ai"
+          className="text-btnCtaText font-[600] whitespace-nowrap pt-[12px] pb-[14px] ps-[16px] pe-[20px] min-h-[44px] rounded-[10px] bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors flex justify-center items-center outline-none"
+        >
+          {t('agent_connect_key_button', 'Add your OpenAI key')}
+        </Link>
+      ) : (
+        <div className="text-[14px]">
+          {t(
+            'agent_connect_key_ask_admin',
+            'Ask your workspace admin to add a key'
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const Agent: FC<{ children: ReactNode }> = ({ children }) => {
   const [properties, setProperties] = useState([]);
   const user = useUser();
-  const router = useRouter();
 
-  useEffect(() => {
-    if (user && !user.aiAvailable) {
-      router.replace('/launches');
-    }
-  }, [user?.aiAvailable]);
-
-  if (!user?.aiAvailable) {
+  if (!user) {
     return null;
+  }
+
+  if (!user.aiAvailable) {
+    return <ConnectAiKey />;
   }
 
   return (

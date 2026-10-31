@@ -25,6 +25,9 @@ export class OrganizationRepository {
         name: name ? `${name}###${id}` : `Unnamed User###${id}`,
         apiKey: AuthService.fixedEncryption(makeSecureId(20)),
         isTrailing: false,
+        approvalSettings: {
+          create: { requireAgentApproval: true },
+        },
         subscription: {
           create: {
             totalChannels: 1000000,
@@ -511,9 +514,16 @@ export class OrganizationRepository {
         apiKey: AuthService.fixedEncryption(makeSecureId(20)),
         allowTrial: true,
         isTrailing: true,
+        // new workspaces hold AI agent posts for review, older ones have no
+        // row and keep publishing them directly
+        approvalSettings: {
+          create: { requireAgentApproval: true },
+        },
         users: {
           create: {
             role: Role.SUPERADMIN,
+            // the admin of a new workspace gets the Monday summary
+            weeklySummaryEmails: true,
             user: {
               create: {
                 activated: body.provider !== 'LOCAL' || !hasEmail,

@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -60,6 +61,12 @@ export class TiktokBusinessProvider
   publishedLabel(settings: Partial<TikTokDto>) {
     return settings?.content_posting_method === 'UPLOAD'
       ? 'Sent to TikTok inbox'
+      : undefined;
+  }
+
+  publishedLinkLabel(settings: Partial<TikTokDto>) {
+    return settings?.content_posting_method === 'UPLOAD'
+      ? 'Open TikTok inbox'
       : undefined;
   }
 
@@ -982,6 +989,39 @@ export class TiktokBusinessProvider
     if (handleError?.type === 'disconnect') {
       throw new Disconnect('tiktok-business', asString, '{}', handleError.value);
     }
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    const body = await (
+      await this.fetch(
+        `${this.baseUrl}/business/get/?business_id=${encodeURIComponent(
+          id
+        )}&fields=${encodeURIComponent(
+          JSON.stringify(['followers_count', 'following_count', 'videos_count'])
+        )}`,
+        {
+          method: 'GET',
+          headers: {
+            'Access-Token': accessToken,
+          },
+        }
+      )
+    ).json();
+
+    this.throwIfTokenError(body);
+
+    const stats = body?.data || {};
+    return {
+      ...(typeof stats.followers_count === 'number'
+        ? { followers: stats.followers_count }
+        : {}),
+      ...(typeof stats.following_count === 'number'
+        ? { following: stats.following_count }
+        : {}),
+      ...(typeof stats.videos_count === 'number'
+        ? { posts: stats.videos_count }
+        : {}),
+    };
   }
 
   async analytics(

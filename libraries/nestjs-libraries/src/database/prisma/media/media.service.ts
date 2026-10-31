@@ -112,19 +112,12 @@ export class MediaService {
     generatePromptFirst?: boolean
   ) {
     try {
-      const generating = await this._subscriptionService.useCredit(
-        org,
-        'ai_images',
-        async () => {
-          if (generatePromptFirst) {
-            prompt = await this._openAi.generatePromptForPicture(prompt);
-            console.log('Prompt:', prompt);
-          }
-          return this._openAi.generateImage(prompt);
-        }
-      );
+      if (generatePromptFirst) {
+        prompt = await this._openAi.generatePromptForPicture(org.id, prompt);
+        console.log('Prompt:', prompt);
+      }
 
-      return generating;
+      return await this._openAi.generateImage(org.id, prompt);
     } catch (err) {
       throw generationError(err);
     }

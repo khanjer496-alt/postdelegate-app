@@ -4,13 +4,15 @@ import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import Link from 'next/link';
 
-export const MenuItem: FC<{ label: string; title?: string; icon: ReactNode; path: string; onClick?: () => void }> = ({
-  label,
-  title,
-  icon,
-  path,
-  onClick,
-}) => {
+export const MenuItem: FC<{
+  label: string;
+  title?: string;
+  icon: ReactNode;
+  path: string;
+  onClick?: () => void;
+  // a count shown on the icon, e.g. posts waiting for review
+  badge?: number;
+}> = ({ label, title, icon, path, onClick, badge }) => {
   const currentPath = usePathname();
   const isActive = currentPath.indexOf(path) === 0;
 
@@ -23,11 +25,20 @@ export const MenuItem: FC<{ label: string; title?: string; icon: ReactNode; path
 
   const inner = (
     <>
-      <div className="custom:scale-90 transition-transform" aria-hidden="true">
+      <div
+        className="relative custom:scale-90 transition-transform"
+        aria-hidden="true"
+      >
         {icon}
+        {!!badge && (
+          <span className="absolute -top-[6px] -end-[10px] min-w-[16px] h-[16px] px-[4px] rounded-full bg-btnCta text-btnCtaText text-[10px] leading-[16px] font-[700] text-center">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </div>
       <div className="custom:text-[9px] minCustom:text-[10px] leading-[1.1] text-center">
         {label}
+        {!!badge && <span className="sr-only"> ({badge})</span>}
       </div>
     </>
   );

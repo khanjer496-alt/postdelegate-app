@@ -17,10 +17,6 @@ jest.mock('@gitroom/nestjs-libraries/upload/custom.upload.validation', () => ({
 jest.mock('@gitroom/nestjs-libraries/database/prisma/media/media.service', () => ({
   MediaService: class {},
 }));
-jest.mock(
-  '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service',
-  () => ({ SubscriptionService: class {} })
-);
 jest.mock('@gitroom/nestjs-libraries/dtos/media/save.media.information.dto', () => ({
   SaveMediaInformationDto: class {},
 }));
@@ -36,7 +32,7 @@ import { MediaController } from '@gitroom/backend/api/routes/media.controller';
 describe('MediaController.saveMedia', () => {
   const org = { id: 'org-A' } as any;
   const mediaService = { saveBucketObject: jest.fn().mockResolvedValue({ id: 'm' }) };
-  const controller = new MediaController(mediaService as any, {} as any);
+  const controller = new MediaController(mediaService as any);
 
   beforeEach(() => {
     process.env.CLOUDFLARE_BUCKET_URL = 'https://cdn.example.com';

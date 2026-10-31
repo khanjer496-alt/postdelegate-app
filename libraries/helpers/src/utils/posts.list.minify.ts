@@ -28,6 +28,8 @@ const POST_ITEM_KEYS: Record<string, string> = {
   actualDate: 'ad',
   creationMethod: 'cm',
   publishedLabel: 'pl',
+  approvalStatus: 'as',
+  agentSource: 'ag',
 };
 
 const INTEGRATION_KEYS: Record<string, string> = {

@@ -91,7 +91,13 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
   Webhooks: { scope: 'org', note: 'deleted, the URL may identify a person' },
   AutoPost: { scope: 'org', note: 'deleted' },
   Sets: { scope: 'org', note: 'deleted' },
+  Idea: {
+    scope: 'org',
+    note: 'deleted before tags; createdById is a plain id with no relation, gone with the row',
+  },
+  PostImport: { scope: 'org', note: 'deleted, holds import results only' },
   ThirdParty: { scope: 'org', note: 'deleted, holds a third party API key' },
+  AiCredential: { scope: 'org', note: 'deleted, holds the workspace OpenAI key' },
   Errors: { scope: 'org', note: 'deleted, bodies can hold post content' },
   Mentions: { scope: 'none', note: 'global cache of public social handles' },
   mastra_messages: { scope: 'org', note: AI_MEMORY },
@@ -168,4 +174,23 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
     note: 'deleted (text, displayName, roleCompany)',
   },
   ReviewPrompt: { scope: 'user', note: 'deleted' },
+  ApprovalSettings: {
+    scope: 'org',
+    note: 'deleted; approverIds may name the person, the row goes with the organization',
+  },
+  ApprovalLink: {
+    scope: 'org+user',
+    note: 'deleted with the organization (token hash, post ids); in shared organizations createdById is cleared',
+  },
+  ActivityLog: {
+    scope: 'org+user',
+    note: 'deleted with the organization; in shared organizations the rows the person acted on keep the action but lose actorUserId and actorName. Client names and emails typed on a share link go with the organization',
+  },
+  AnalyticsAccountSnapshot: { scope: 'org', note: 'deleted, daily channel counts' },
+  AnalyticsPost: { scope: 'org', note: 'deleted, post titles, links and metrics' },
+  AnalyticsPostSnapshot: { scope: 'org', note: 'deleted, daily post metrics' },
+  AnalyticsReportSettings: {
+    scope: 'org',
+    note: 'deleted, recipient user ids and branding',
+  },
 };

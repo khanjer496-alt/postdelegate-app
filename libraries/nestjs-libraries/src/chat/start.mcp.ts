@@ -54,21 +54,34 @@ export const startMcp = async (app: INestApplication) => {
   const loadToolsService = app.get(LoadToolsService, { strict: false });
   const mcpRelayService = app.get(McpRelayService, { strict: false });
 
-  const resolveAuth = async (token: string) => {
+  // the organization of a token, and the MCP client it belongs to (the
+  // OAuth app name, or "API key"), which marks the posts the agent creates
+  const resolveAuthWithSource = async (token: string) => {
     if (token.startsWith('pos_')) {
       const authorization = await oauthService.getOrgByOAuthToken(token);
-      if (!authorization) return null;
-      return authorization.organization;
+      if (!authorization) return { auth: null, source: undefined };
+      return {
+        auth: authorization.organization,
+        source: authorization.oauthApp?.name
+          ? `${authorization.oauthApp.name} (MCP)`
+          : 'MCP client',
+      };
     }
-    return organizationService.getOrgByApiKey(token);
+    return {
+      auth: await organizationService.getOrgByApiKey(token),
+      source: 'MCP (API key)',
+    };
   };
+
+  const resolveAuth = async (token: string) =>
+    (await resolveAuthWithSource(token)).auth;
 
   // psh_ tokens: a self-hosted Postiz this server relays to (McpRelayService)
   const resolveSelfHosted = (token: string) =>
     oauthService.getSelfHostedByAccessToken(token);
 
   const mastra = await mastraService.mastra();
-  const agent = mastra.getAgent('postiz');
+  const agent = mastra.getAgent('postdelegate');
   const agentTools = await agent.listTools();
   const tools = {
     ...agentTools,
@@ -143,14 +156,14 @@ export const startMcp = async (app: INestApplication) => {
     name: 'PostDelegate MCP',
     version: '1.0.0',
     tools,
-    agents: { postiz: agent },
+    agents: { postdelegate: agent },
     appResources,
   };
 
   const server = new MCPServer({ ...serverConfig, protocolVersion: '2026-07-28' });
 
   // The directory-facing servers don't register the agent - it would be
-  // exposed as an annotation-less catch-all ask_postiz tool, which the
+  // exposed as an annotation-less catch-all ask_postdelegate tool, which the
   // ChatGPT and Claude directory reviews reject
   const oauthServer = new MCPServer({
     name: 'PostDelegate MCP',
@@ -370,7 +383,9 @@ export const startMcp = async (app: INestApplication) => {
     // a self-hosted connection has no organization here
     const selfHosted = token!.startsWith('psh_');
     const relay = selfHosted ? await resolveSelfHosted(token!) : undefined;
-    const auth = selfHosted ? undefined : await resolveAuth(token!);
+    const { auth, source } = selfHosted
+      ? { auth: undefined, source: undefined }
+      : await resolveAuthWithSource(token!);
     if (!auth && !(relay && selfHostedServer)) {
       res.status(401).json({ error: 'invalid_token', error_description: 'Could not resolve organization' });
       return;
@@ -378,7 +393,7 @@ export const startMcp = async (app: INestApplication) => {
 
     endListenStream(req, res);
     fixAcceptHeader(req);
-    await runWithContext({ requestId: token!, auth, relay: relay || undefined }, async () => {
+    await runWithContext({ requestId: token!, auth, relay: relay || undefined, source }, async () => {
       await (relay ? selfHostedServer! : mcpServer).startHTTP({
         url: url,
         httpPath: url.pathname,
@@ -415,8 +430,9 @@ export const startMcp = async (app: INestApplication) => {
       return;
     }
 
+    const resolved = await resolveAuthWithSource(token);
     // @ts-ignore
-    req.auth = await resolveAuth(token);
+    req.auth = resolved.auth;
     // @ts-ignore
     if (!req.auth) {
       res.status(401).send('Invalid API Key or OAuth token');
@@ -428,7 +444,7 @@ export const startMcp = async (app: INestApplication) => {
     endListenStream(req, res);
     fixAcceptHeader(req);
     // @ts-ignore
-    await runWithContext({ requestId: token, auth: req.auth }, async () => {
+    await runWithContext({ requestId: token, auth: req.auth, source: resolved.source }, async () => {
       await server.startHTTP({
         url,
         httpPath: url.pathname,
@@ -470,7 +486,7 @@ export const startMcp = async (app: INestApplication) => {
     fixAcceptHeader(req);
     await runWithContext(
       // @ts-ignore
-      { requestId: req.params.id, auth: req.auth },
+      { requestId: req.params.id, auth: req.auth, source: 'MCP (API key)' },
       async () => {
         await server.startHTTP({
           url,
@@ -509,7 +525,7 @@ export const startMcp = async (app: INestApplication) => {
 
     await runWithContext(
       // @ts-ignore
-      { requestId: req.params.id, auth: req.auth },
+      { requestId: req.params.id, auth: req.auth, source: 'MCP (API key)' },
       async () => {
         await new MCPServer(serverConfig).startSSE({
           url,

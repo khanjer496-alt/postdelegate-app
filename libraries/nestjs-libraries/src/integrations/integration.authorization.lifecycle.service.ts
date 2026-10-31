@@ -150,10 +150,11 @@ export class IntegrationAuthorizationLifecycleService {
   }
 
   private async digestHistorySettled(organizationId: string) {
-    // v1 runs may still exist next to the v2 digest, both must be settled
+    // v1 and v2 runs may still exist next to the v3 digest, all must be settled
     for (const workflowId of [
       `digest_email_workflow_${organizationId}`,
       `digest_email_workflow_v2_${organizationId}`,
+      `digest_email_workflow_v3_${organizationId}`,
     ]) {
       try {
         const description = await this._temporalService.client.getRawClient().workflow.getHandle(workflowId).describe();

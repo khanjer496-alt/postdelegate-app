@@ -315,3 +315,15 @@ describe('TiktokProvider.publishedLabel', () => {
     expect(instance.publishedLabel({})).toBeUndefined();
   });
 });
+
+describe('TiktokProvider.publishedLinkLabel', () => {
+  it('names the link to an inbox upload', () => {
+    const instance = new TiktokProvider();
+    expect(
+      instance.publishedLinkLabel({ content_posting_method: 'UPLOAD' })
+    ).toBe('Open TikTok inbox');
+    expect(
+      instance.publishedLinkLabel({ content_posting_method: 'DIRECT_POST' })
+    ).toBeUndefined();
+  });
+});

@@ -5,16 +5,12 @@ import { Injectable } from '@nestjs/common';
 import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
-import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 
 @Injectable()
 export class GenerateImageTool implements AgentToolInterface {
   private storage = UploadFactory.createStorage();
 
-  constructor(
-    private _mediaService: MediaService,
-    private _subscriptionService: SubscriptionService
-  ) {}
+  constructor(private _mediaService: MediaService) {}
   name = 'generateImageTool';
 
   run() {
@@ -47,15 +43,6 @@ export class GenerateImageTool implements AgentToolInterface {
         checkAuth(inputData, context);
         const org = JSON.parse((context?.requestContext as any)?.get('organization') as string);
         try {
-          // Same credit gate as the dashboard's /media/generate-image route -
-          // only enforced when billing is enabled (cloud), self-hosted is free
-          const total = await this._subscriptionService.checkCredits(org);
-          if (process.env.STRIPE_PUBLISHABLE_KEY && total.credits <= 0) {
-            return {
-              error: 'No AI image credits are available on this account.',
-            };
-          }
-
           const image = await this._mediaService.generateImage(
             inputData.prompt,
             org
@@ -74,7 +61,7 @@ export class GenerateImageTool implements AgentToolInterface {
           return {
             error: `Image generation failed: ${
               err instanceof Error ? err.message : String(err)
-            }. The user's image credit was not used.`,
+            }.`,
           };
         }
       },

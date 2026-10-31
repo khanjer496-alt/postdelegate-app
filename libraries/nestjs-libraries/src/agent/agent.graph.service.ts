@@ -6,8 +6,6 @@ import {
 } from '@langchain/core/messages';
 import { END, START, StateGraph } from '@langchain/langgraph';
 import { ChatOpenAI, DallEAPIWrapper } from '@langchain/openai';
-import { TavilySearch } from '@langchain/tavily';
-import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import dayjs from 'dayjs';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
@@ -16,22 +14,13 @@ import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/me
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { GeneratorDto } from '@gitroom/nestjs-libraries/dtos/generator/generator.dto';
 import { generationError } from '@gitroom/nestjs-libraries/openai/generation.error';
+import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 
-const tools = !process.env.TAVILY_API_KEY
-  ? []
-  : [new TavilySearch({ maxResults: 3 })];
-const toolNode = new ToolNode(tools);
-
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
-  temperature: 0.7,
-});
-
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'chatgpt-image-latest',
-});
+// built per run from the workspace's own key
+type GraphModels = {
+  model: ChatOpenAI;
+  dalle: DallEAPIWrapper;
+};
 
 interface WorkflowChannelsState {
   messages: BaseMessage[];
@@ -107,7 +96,8 @@ export class AgentGraphService {
   private storage = UploadFactory.createStorage();
   constructor(
     private _postsService: PostsService,
-    private _mediaService: MediaService
+    private _mediaService: MediaService,
+    private _aiCredentialService: AiCredentialService
   ) {}
   static state = () =>
     new StateGraph<WorkflowChannelsState>({
@@ -132,8 +122,10 @@ export class AgentGraphService {
       },
     });
 
-  async startCall(state: WorkflowChannelsState) {
-    const runTools = model.bindTools(tools);
+  // There is no web search step: it was Tavily, a search PostDelegate would
+  // pay for on every workspace's run. Without its tool results the research
+  // is empty, exactly as it was whenever TAVILY_API_KEY was not set
+  async startCall(state: WorkflowChannelsState, models: GraphModels) {
     const response = await ChatPromptTemplate.fromTemplate(
       `
     Today is ${dayjs().format()}, You are an assistant that gets a social media post or requests for a social media post.
@@ -142,7 +134,7 @@ export class AgentGraphService {
     {text}
     `
     )
-      .pipe(runTools)
+      .pipe(models.model)
       .invoke({
         text: state.messages[state.messages.length - 1].content,
       });
@@ -155,9 +147,9 @@ export class AgentGraphService {
     return { fresearch: content };
   }
 
-  async findCategories(state: WorkflowChannelsState) {
+  async findCategories(state: WorkflowChannelsState, models: GraphModels) {
     const allCategories = await this._postsService.findAllExistingCategories();
-    const structuredOutput = model.withStructuredOutput(category);
+    const structuredOutput = models.model.withStructuredOutput(category);
     const { category: outputCategory } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets a text that will be later summarized into a social media post
@@ -176,7 +168,7 @@ export class AgentGraphService {
     };
   }
 
-  async findTopic(state: WorkflowChannelsState) {
+  async findTopic(state: WorkflowChannelsState, models: GraphModels) {
     const allTopics = await this._postsService.findAllExistingTopicsOfCategory(
       state?.category!
     );
@@ -184,7 +176,7 @@ export class AgentGraphService {
       return { topic: null };
     }
 
-    const structuredOutput = model.withStructuredOutput(topic);
+    const structuredOutput = models.model.withStructuredOutput(topic);
     const { topic: outputTopic } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets a text that will be later summarized into a social media post
@@ -211,8 +203,8 @@ export class AgentGraphService {
     return { popularPosts };
   }
 
-  async generateHook(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(hook);
+  async generateHook(state: WorkflowChannelsState, models: GraphModels) {
+    const structuredOutput = models.model.withStructuredOutput(hook);
     const { hook: outputHook } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets content for a social media post, and generate only the hook.
@@ -253,8 +245,8 @@ export class AgentGraphService {
     };
   }
 
-  async generateContent(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(
+  async generateContent(state: WorkflowChannelsState, models: GraphModels) {
+    const structuredOutput = models.model.withStructuredOutput(
       contentZod(!!state.isPicture, state.format)
     );
     const { content: outputContent } = await ChatPromptTemplate.fromTemplate(
@@ -314,7 +306,7 @@ export class AgentGraphService {
     return {};
   }
 
-  async generatePictures(state: WorkflowChannelsState) {
+  async generatePictures(state: WorkflowChannelsState, models: GraphModels) {
     if (!state.isPicture) {
       return {};
     }
@@ -322,7 +314,7 @@ export class AgentGraphService {
     try {
       const newContent = await Promise.all(
         (state.content || []).map(async (p) => {
-          const image = await dalle.invoke(p.prompt!);
+          const image = await models.dalle.invoke(p.prompt!);
           return {
             ...p,
             image,
@@ -375,24 +367,40 @@ export class AgentGraphService {
     return { date: await this._postsService.findFreeDateTime(state.orgId) };
   }
 
-  start(orgId: string, body: GeneratorDto) {
+  async *start(orgId: string, body: GeneratorDto) {
+    // a workspace without a key stops here with the "add your key" error
+    const apiKey = await this._aiCredentialService.getOpenAiKey(orgId);
+    const models: GraphModels = {
+      model: new ChatOpenAI({
+        apiKey,
+        model: 'gpt-4.1',
+        temperature: 0.7,
+      }),
+      dalle: new DallEAPIWrapper({
+        apiKey,
+        model: 'chatgpt-image-latest',
+      }),
+    };
+
     const state = AgentGraphService.state();
     const workflow = state
-      .addNode('agent', this.startCall.bind(this))
-      .addNode('research', toolNode)
+      .addNode('agent', (state) => this.startCall(state, models))
       .addNode('save-research', this.saveResearch.bind(this))
-      .addNode('find-category', this.findCategories.bind(this))
-      .addNode('find-topic', this.findTopic.bind(this))
+      .addNode('find-category', (state) => this.findCategories(state, models))
+      .addNode('find-topic', (state) => this.findTopic(state, models))
       .addNode('find-popular-posts', this.findPopularPosts.bind(this))
-      .addNode('generate-hook', this.generateHook.bind(this))
-      .addNode('generate-content', this.generateContent.bind(this))
+      .addNode('generate-hook', (state) => this.generateHook(state, models))
+      .addNode('generate-content', (state) =>
+        this.generateContent(state, models)
+      )
       .addNode('generate-content-fix', this.fixArray.bind(this))
-      .addNode('generate-picture', this.generatePictures.bind(this))
+      .addNode('generate-picture', (state) =>
+        this.generatePictures(state, models)
+      )
       .addNode('upload-pictures', this.uploadPictures.bind(this))
       .addNode('post-time', this.postDateTime.bind(this))
       .addEdge(START, 'agent')
-      .addEdge('agent', 'research')
-      .addEdge('research', 'save-research')
+      .addEdge('agent', 'save-research')
       .addEdge('save-research', 'find-category')
       .addEdge('find-category', 'find-topic')
       .addEdge('find-topic', 'find-popular-posts')
@@ -409,7 +417,7 @@ export class AgentGraphService {
 
     const app = workflow.compile();
 
-    return app.streamEvents(
+    yield* app.streamEvents(
       {
         messages: [new HumanMessage(body.research)],
         isPicture: body.isPicture,

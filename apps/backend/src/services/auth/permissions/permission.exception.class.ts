@@ -12,6 +12,7 @@ export enum Sections {
   IMPORT_FROM_CHANNELS = 'import_from_channels',
   ADMIN = 'admin',
   WEBHOOKS = 'webhooks',
+  ANALYTICS_REPORTS = 'analytics_reports',
 }
 
 export enum AuthorizationActions {

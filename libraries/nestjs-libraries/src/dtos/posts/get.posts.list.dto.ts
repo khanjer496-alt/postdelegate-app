@@ -35,6 +35,13 @@ export class GetPostsListDto {
   @Transform(({ value }) => (value ? value.split(',') : []))
   integrations?: string[];
 
+  // campaigns, pillars or tags: posts with any of them
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => (value ? value.split(',') : []))
+  tags?: string[];
+
   @IsOptional()
   @IsIn(['all', 'scheduled', 'draft', 'published'])
   state?: PostListStateFilter = 'all';

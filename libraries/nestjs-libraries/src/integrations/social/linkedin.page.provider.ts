@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PostDetails,
   PostResponse,
@@ -317,6 +318,30 @@ export class LinkedinPageProvider
       integration,
       'company'
     );
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    const response = await fetch(
+      `https://api.linkedin.com/rest/networkSizes/${encodeURIComponent(
+        `urn:li:organization:${id}`
+      )}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'LinkedIn-Version': '202601',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`LinkedIn networkSizes returned ${response.status}`);
+    }
+
+    const { firstDegreeSize } = await response.json();
+    return typeof firstDegreeSize === 'number'
+      ? { followers: firstDegreeSize }
+      : {};
   }
 
   async analytics(

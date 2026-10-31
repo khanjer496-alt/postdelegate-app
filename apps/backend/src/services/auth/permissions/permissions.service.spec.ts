@@ -3,6 +3,7 @@ jest.mock('@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.
 jest.mock('@gitroom/nestjs-libraries/database/prisma/posts/posts.service', () => ({ PostsService: class {} }));
 jest.mock('@gitroom/nestjs-libraries/database/prisma/integrations/integration.service', () => ({ IntegrationService: class {} }));
 jest.mock('@gitroom/nestjs-libraries/database/prisma/webhooks/webhooks.service', () => ({ WebhooksService: class {} }));
+jest.mock('@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service', () => ({ AiCredentialService: class {} }));
 
 import { PermissionsService } from './permissions.service';
 import { AuthorizationActions, Sections } from './permission.exception.class';
@@ -21,7 +22,8 @@ const makeService = (tier?: string) => {
       getIntegrationsList: jest.fn().mockResolvedValue([]),
       getIntegrationByInternalId: jest.fn(),
     } as any,
-    { getTotal: jest.fn().mockResolvedValue(0) } as any
+    { getTotal: jest.fn().mockResolvedValue(0) } as any,
+    { hasCredential: jest.fn().mockResolvedValue(false) } as any
   );
 };
 

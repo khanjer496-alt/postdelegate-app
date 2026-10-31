@@ -81,6 +81,15 @@ export interface IAuthenticator {
     limit: number
   ): Promise<RecentPostStat[]>; // Latest posts of the channel with their stats, newest first. Throws when the platform call fails (an empty array means no posts)
   recentPostsEmptyHint?: string; // Shown when recentPosts returns nothing, e.g. which posts the platform lists
+  accountStats?(
+    id: string,
+    accessToken: string
+  ): Promise<AccountStats>; // Current follower / following / post counts for the daily analytics history. Throws when the platform call fails
+  postsStats?(
+    id: string,
+    accessToken: string,
+    postIds: string[]
+  ): Promise<Record<string, PostStats>>; // Stats of several posts in one call, used by the daily analytics history instead of one postAnalytics call per post. Throws when the platform call fails
   resolveReleaseId?(
     accessToken: string,
     releaseId: string,
@@ -134,6 +143,22 @@ export interface RecentPostStat {
   shares?: number;
 }
 
+
+// Normalised counts read by the daily analytics history. Counts the platform
+// does not report are left out rather than set to 0.
+export interface AccountStats {
+  followers?: number;
+  following?: number;
+  posts?: number;
+}
+
+export interface PostStats {
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  clicks?: number;
+}
 
 export type GenerateAuthUrlResponse = {
   url: string;
@@ -252,6 +277,9 @@ export interface SocialProvider
     credentials: ProviderAuthorizationCredentials
   ): Promise<ProviderAuthorizationGrant | undefined>;
   refreshWait?: boolean;
+  // how many posts per channel the daily analytics history may read (ids sent
+  // to postsStats, or postAnalytics calls), 25 when not set
+  analyticsHistoryPostLimit?: number;
   convertToJPEG?: boolean;
   stripLinks?: () => boolean;
   refreshCron?: boolean;
@@ -259,6 +287,8 @@ export interface SocialProvider
   // the calendar label of a published post when these settings did not make it
   // public, e.g. media sent to an inbox to finish in the app
   publishedLabel?(settings: any): string | undefined;
+  // the label of the link to such a post, e.g. in the digest email
+  publishedLinkLabel?(settings: any): string | undefined;
   dto?: any;
   maxLength: (additionalSettings?: any, settings?: any) => number;
   checkValidity(

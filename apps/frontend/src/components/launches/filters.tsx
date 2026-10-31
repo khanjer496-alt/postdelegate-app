@@ -6,6 +6,10 @@ import dayjs from 'dayjs';
 import { useCallback, useState } from 'react';
 import { SelectCustomer } from '@gitroom/frontend/components/launches/select.customer';
 import { SelectChannels } from '@gitroom/frontend/components/launches/select.channels';
+import {
+  SelectTags,
+  useWorkspaceTags,
+} from '@gitroom/frontend/components/launches/select.tags';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import i18next from 'i18next';
 import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
@@ -47,6 +51,9 @@ export const Filters = () => {
   const calendar = useCalendar();
   const t = useT();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const { data: workspaceTags } = useWorkspaceTags();
+  const hasTags = !!workspaceTags?.tags?.length;
+  const filtered = !!calendar.selectedChannels || !!calendar.selectedTags;
 
   // Set dayjs locale based on current language
   const currentLanguage = i18next.resolvedLanguage || 'en';
@@ -460,21 +467,22 @@ export const Filters = () => {
           integrations={calendar.integrations}
         />
         <SelectChannels />
+        <SelectTags />
       </div>
-      {calendar.integrations.length > 1 && (
+      {(calendar.integrations.length > 1 || hasTags) && (
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
           aria-label={t('filters', 'Filters')}
           className={clsx(
             'hidden mobile:flex mobile:order-2 relative w-[42px] h-[42px] rounded-[8px] border justify-center items-center cursor-pointer',
-            calendar.selectedChannels
+            filtered
               ? 'border-btnPrimary text-btnPrimary'
               : 'border-newTableBorder'
           )}
         >
           <FilterIcon />
-          {calendar.selectedChannels && (
+          {filtered && (
             <div className="absolute top-[6px] end-[6px] w-[6px] h-[6px] rounded-full bg-btnPrimary" />
           )}
         </button>
@@ -589,7 +597,11 @@ export const Filters = () => {
       </div>
       {filtersOpen && (
         <BottomSheet
-          title={t('select_channels', 'Select Channels')}
+          title={
+            hasTags
+              ? t('filters', 'Filters')
+              : t('select_channels', 'Select Channels')
+          }
           onClose={() => setFiltersOpen(false)}
           button={{
             label: t('done', 'Done'),
@@ -603,6 +615,7 @@ export const Filters = () => {
             integrations={calendar.integrations}
           />
           <SelectChannels list={true} />
+          <SelectTags list={true} />
         </BottomSheet>
       )}
     </div>

@@ -25,6 +25,19 @@ export const setSentryUserContext = (params: {
   }
 };
 
+// Requests to these paths post a secret (saving an AI key posts the
+// workspace's raw OpenAI key), so their body is never attached to an error or
+// a trace
+const secretBodyPaths = ['/ai-credentials'];
+
+export const dropSecretRequestBody = <T extends Sentry.Event>(event: T): T => {
+  const path = (event.request?.url || '').split(/[?#]/)[0] + '/';
+  if (event.request && secretBodyPaths.some((p) => path.includes(p + '/'))) {
+    delete event.request.data;
+  }
+  return event;
+};
+
 export const initializeSentry = (appName: string, allowLogs = false) => {
   if (!process.env.NEXT_PUBLIC_SENTRY_DSN) {
     return null;
@@ -80,6 +93,8 @@ export const initializeSentry = (appName: string, allowLogs = false) => {
         { op: 'middleware.express' },
       ],
       enableLogs: true,
+      beforeSend: dropSecretRequestBody,
+      beforeSendTransaction: dropSecretRequestBody,
 
       // Profiling
       profileSessionSampleRate: process.env.NODE_ENV === 'development' ? 1.0 : 0.4,

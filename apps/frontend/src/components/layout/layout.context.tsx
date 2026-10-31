@@ -3,8 +3,10 @@
 import { ReactNode, useCallback } from 'react';
 import { FetchWrapperComponent } from '@gitroom/helpers/utils/custom.fetch';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
+import { areYouSure } from '@gitroom/frontend/components/layout/new-modal';
 import { useReturnUrl } from '@gitroom/frontend/app/(app)/auth/return.url.component';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
+import { useT } from '@gitroom/react/translation/get.transation.service.client';
 export default function LayoutContext(params: { children: ReactNode }) {
   if (params?.children) {
     // eslint-disable-next-line react/no-children-prop
@@ -24,11 +26,14 @@ export function setCookie(cname: string, cvalue: string, exdays: number) {
 function LayoutContextInner(params: { children: ReactNode }) {
   const returnUrl = useReturnUrl();
   const { backendUrl, isGeneral, isSecured } = useVariables();
+  const t = useT();
   const afterRequest = useCallback(
     async (url: string, options: RequestInit, response: Response) => {
       if (
         typeof window !== 'undefined' &&
         (window.location.href.includes('/p/') ||
+          // client approval links are opened signed out, never redirect them
+          window.location.pathname.startsWith('/approve/') ||
           window.location.pathname.startsWith('/provider/'))
       ) {
         return true;
@@ -104,26 +109,42 @@ function LayoutContextInner(params: { children: ReactNode }) {
       }
 
       if (response.status === 402) {
+        // the backend sends where the fix is: billing for a plan limit,
+        // Settings for a missing AI key, or no link when only an admin can fix it
+        const body = await response
+          .clone()
+          .json()
+          .catch(() => ({ url: '/billing' }));
+
+        if (!body.url) {
+          await areYouSure({
+            title: t('action_required', 'Action required'),
+            description: body.message,
+            approveLabel: t('ok', 'OK'),
+            onlyApprove: true,
+          });
+          return true;
+        }
+
+        const { pathname, search } = new URL(body.url, window.location.origin);
+        const billing = pathname === '/billing';
         if (
           await deleteDialog(
-            (
-              await response
-                .clone()
-                .json()
-                .catch(() => ({}))
-            ).message,
-            'Move to billing',
-            'Payment Required'
+            body.message,
+            billing ? 'Move to billing' : t('open_settings', 'Open settings'),
+            billing
+              ? 'Payment Required'
+              : t('action_required', 'Action required')
           )
         ) {
-          window.open('/billing', '_blank');
+          window.open(pathname + search, '_blank');
           return false;
         }
         return true;
       }
       return true;
     },
-    []
+    [t]
   );
   return (
     <FetchWrapperComponent baseUrl={backendUrl} afterRequest={afterRequest}>

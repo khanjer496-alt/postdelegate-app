@@ -6,6 +6,7 @@ import useSWR from 'swr';
 import { Slider } from '@gitroom/react/form/slider';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+import { useUser } from '@gitroom/frontend/components/layout/user.context';
 
 interface EmailNotifications {
   sendSuccessEmails: boolean;
@@ -28,6 +29,70 @@ export const useEmailNotifications = () => {
     refreshWhenHidden: false,
     refreshWhenOffline: false,
   });
+};
+
+// the Monday summary of the current workspace, kept per workspace
+export const useWeeklySummary = () => {
+  const fetch = useFetch();
+  const user = useUser();
+
+  const load = useCallback(async () => {
+    return (await fetch('/weekly-summary')).json();
+  }, []);
+
+  return useSWR<{ enabled: boolean }>(`weekly-summary-${user?.orgId}`, load, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
+};
+
+const WeeklySummaryRow = () => {
+  const t = useT();
+  const fetch = useFetch();
+  const toaster = useToaster();
+  const { data, mutate } = useWeeklySummary();
+
+  const change = useCallback(
+    async (value: 'on' | 'off') => {
+      const enabled = value === 'on';
+      await mutate({ enabled }, { revalidate: false });
+      const response = await fetch('/weekly-summary', {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) {
+        await mutate();
+        toaster.show(
+          t('settings_update_failed', 'Could not update the setting'),
+          'warning'
+        );
+        return;
+      }
+      toaster.show(t('settings_updated', 'Settings updated'), 'success');
+    },
+    [mutate]
+  );
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex flex-col">
+        <div className="text-[14px]">
+          {t('weekly_summary_email', 'Weekly summary')}
+        </div>
+        <div className="text-[12px] text-newTextColor/70">
+          {t(
+            'weekly_summary_email_description',
+            "A Monday morning email with last week's results and this week's schedule for this workspace."
+          )}
+        </div>
+      </div>
+      <Slider
+        value={data?.enabled ? 'on' : 'off'}
+        onChange={change}
+        fill={true}
+      />
+    </div>
+  );
 };
 
 const EmailNotificationsComponent = () => {
@@ -165,6 +230,7 @@ const EmailNotificationsComponent = () => {
           fill={true}
         />
       </div>
+      <WeeklySummaryRow />
     </div>
   );
 };

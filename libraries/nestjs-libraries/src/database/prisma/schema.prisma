@@ -40,12 +40,18 @@ model Organization {
   subscription        Subscription?
   tags                Tags[]
   thirdParty          ThirdParty[]
+  aiCredential        AiCredential?
   usedCodes           UsedCodes[]
   users               UserOrganization[]
   webhooks            Webhooks[]
   oauthApp            OAuthApp[]
   oauthAuthorizations OAuthAuthorization[]
   reviews             Review[]
+  approvalSettings    ApprovalSettings?
+  approvalLinks       ApprovalLink[]
+  activityLogs        ActivityLog[]
+  ideas               Idea[]
+  postImports         PostImport[]
   // Affiliate attribution, set once at registration and never changed
   referredByAffiliateId String?
   referredByAffiliate   AffiliateProfile? @relation("AffiliateReferrals", fields: [referredByAffiliateId], references: [id])
@@ -65,12 +71,16 @@ model Tags {
   id           String       @id @default(uuid())
   name         String
   color        String
+  // a plain tag, a campaign or a content pillar; all of them label posts
+  kind         TagKind      @default(TAG)
+  description  String?
   orgId        String
   deletedAt    DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   organization Organization @relation(fields: [orgId], references: [id])
   posts        TagsPosts[]
+  ideas        Idea[]
 
   @@index([orgId])
   @@index([deletedAt])
@@ -159,6 +169,9 @@ model UserOrganization {
   role           Role         @default(USER)
   // When this member hid the getting started checklist of this workspace
   onboardingDismissedAt DateTime?
+  // Monday summary of this workspace, on for the admin who creates a workspace
+  weeklySummaryEmails Boolean  @default(false)
+  weeklySummarySentAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id])
@@ -167,6 +180,7 @@ model UserOrganization {
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@index([disabled])
+  @@index([weeklySummaryEmails])
 }
 
 model GitHub {
@@ -493,8 +507,18 @@ model Post {
   submittedForOrganizationId String?
   approvedSubmitForOrder     APPROVED_SUBMIT_FOR_ORDER @default(NO)
   creationMethod             CreationMethod            @default(UNKNOWN)
+  // Where the post is in the review flow, NONE when it never needed one
+  approvalStatus             ApprovalStatus            @default(NONE)
+  // Set when an AI agent created the post (MCP, public API, CLI, in-app
+  // agent): the MCP client, OAuth app or "API key" it came from
+  agentSource                String?
   lastMessageId              String?
   intervalInDays             Int?
+  // evergreen limits of a repeating post (intervalInDays): stop after this
+  // many re-shares or after this date, rotating the text through the variants
+  evergreenMaxShares         Int?
+  evergreenUntil             DateTime?
+  evergreenVariants          String?
   error                      String?
   createdAt                  DateTime                  @default(now())
   updatedAt                  DateTime                  @updatedAt
@@ -527,6 +551,41 @@ model Post {
   @@index([updatedAt])
   @@index([releaseURL])
   @@index([integrationId])
+}
+
+// An unscheduled post idea on the Ideas board
+model Idea {
+  id             String       @id @default(uuid())
+  organizationId String
+  title          String
+  notes          String?
+  media          String?
+  tagId          String?
+  status         IdeaStatus   @default(IDEA)
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tag            Tags?        @relation(fields: [tagId], references: [id])
+
+  @@index([organizationId, deletedAt])
+  @@index([tagId])
+}
+
+// One CSV import, keyed by the file contents so the same upload never
+// creates its posts twice
+model PostImport {
+  id             String       @id @default(uuid())
+  organizationId String
+  hash           String
+  status         String       @default("processing")
+  result         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, hash])
 }
 
 model Notifications {
@@ -1816,6 +1875,18 @@ enum Provider {
   GENERIC
 }
 
+enum TagKind {
+  TAG
+  CAMPAIGN
+  PILLAR
+}
+
+enum IdeaStatus {
+  IDEA
+  DRAFTING
+  USED
+}
+
 enum Role {
   SUPERADMIN
   ADMIN
@@ -1952,4 +2023,200 @@ model ReviewPrompt {
   reviewedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model AiCredential {
+  id             String       @id @default(uuid())
+  organizationId String       @unique
+  provider       String       @default("openai")
+  apiKey         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+enum ApprovalStatus {
+  NONE
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+// One row per workspace. A workspace without a row uses the defaults below,
+// so workspaces created before approvals keep publishing as they did. New
+// workspaces get a row with requireAgentApproval on.
+model ApprovalSettings {
+  id                         String       @id @default(uuid())
+  organizationId             String       @unique
+  organization               Organization @relation(fields: [organizationId], references: [id])
+  // Posts by members who can't approve wait for an approver
+  requireApproval            Boolean      @default(false)
+  // Members who can approve besides the admins
+  approverIds                String[]     @default([])
+  // Posts created by AI agents (MCP clients, the in-app agent) wait for an
+  // approver
+  requireAgentApproval       Boolean      @default(false)
+  // With requireAgentApproval, posts from the public API and the CLI wait too
+  requireApiApproval         Boolean      @default(false)
+  // Channels agents may post to, empty means every channel
+  agentIntegrationIds        String[]     @default([])
+  // Posts agents may create per day (UTC), null means no limit
+  agentMaxPostsPerDay        Int?
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+}
+
+// A share link a client opens without an account to approve posts. Only the
+// SHA-256 of the token is stored.
+model ApprovalLink {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tokenHash      String       @unique
+  // The main posts (not comments) the link shows
+  postIds        String[]
+  createdById    String?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  lastViewedAt   DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([expiresAt])
+}
+
+enum ActivityAction {
+  CREATED
+  SUBMITTED
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+  PUBLISHED
+  LINK_CREATED
+  LINK_REVOKED
+  LINK_VIEWED
+  GUARDRAIL_BLOCKED
+  SETTINGS_CHANGED
+}
+
+enum ActivityActor {
+  USER
+  AGENT
+  CLIENT
+  SYSTEM
+}
+
+// Append-only history of a workspace and its posts, rows are never updated
+model ActivityLog {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  postId         String?
+  action         ActivityAction
+  actorType      ActivityActor
+  actorUserId    String?
+  // The member's name, the agent source or the name a client entered
+  actorName      String?
+  // Only for clients, the email they entered
+  actorEmail     String?
+  comment        String?
+  linkId         String?
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([postId, createdAt])
+}
+
+// Daily analytics history, written once a day per channel by
+// analyticsSnapshotWorkflowV1. The tables carry no relations on purpose:
+// every query is scoped by organizationId, rows are removed by retention and
+// by the erasure steps, and adding them puts no lock or delete restriction on
+// Organization or Integration.
+model AnalyticsAccountSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String
+  integrationId  String
+  // UTC day of the snapshot, a re-run on the same day updates the row
+  date           DateTime @db.Date
+  followers      Int?
+  following      Int?
+  posts          Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([integrationId, date])
+  @@index([organizationId, date])
+  @@index([date])
+}
+
+// The latest metrics of one platform post, one row per channel and post
+model AnalyticsPost {
+  id             String   @id @default(cuid())
+  organizationId String
+  integrationId  String
+  // the id of the post on the platform
+  externalId     String
+  // the PostDelegate post it was published from, null when it was only read
+  // back from the platform's recent posts
+  postId         String?
+  publishedAt    DateTime
+  title          String?
+  url            String?
+  views          Int?
+  likes          Int?
+  comments       Int?
+  shares         Int?
+  clicks         Int?
+  lastSnapshotAt DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([integrationId, externalId])
+  @@index([organizationId, publishedAt])
+  @@index([publishedAt])
+}
+
+// The metrics of one platform post on one UTC day, kept for 90 days
+model AnalyticsPostSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String
+  integrationId  String
+  externalId     String
+  date           DateTime @db.Date
+  views          Int?
+  likes          Int?
+  comments       Int?
+  shares         Int?
+  clicks         Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([integrationId, externalId, date])
+  @@index([organizationId, date])
+  @@index([date])
+}
+
+enum AnalyticsReportFrequency {
+  OFF
+  WEEKLY
+  MONTHLY
+}
+
+// The scheduled analytics email and the white-label report of a workspace
+model AnalyticsReportSettings {
+  id             String                   @id @default(cuid())
+  organizationId String                   @unique
+  frequency      AnalyticsReportFrequency @default(OFF)
+  // user ids of the workspace members who receive the email
+  recipients     String[]                 @default([])
+  // shown on the report instead of the workspace name and the PostDelegate logo
+  brandName      String?
+  logoUrl        String?
+  lastSentAt     DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([frequency])
 }

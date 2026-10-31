@@ -90,7 +90,6 @@ services:
       # SENTRY_SPOTLIGHT: '1'
 
       # === Misc Settings
-      OPENAI_API_KEY: ''
       # Only this OAuth client can receive verified user email claims via OIDC.
       OPENAI_OAUTH_CLIENT_ID: ''
       NEXT_PUBLIC_DISCORD_SUPPORT: ''

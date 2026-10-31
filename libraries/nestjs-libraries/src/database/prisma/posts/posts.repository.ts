@@ -3,6 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Post as PostBody } from '@gitroom/nestjs-libraries/dtos/posts/create.post.dto';
 import {
   APPROVED_SUBMIT_FOR_ORDER,
+  ApprovalStatus,
   CreationMethod,
   Post,
   Prisma,
@@ -18,6 +19,7 @@ import utc from 'dayjs/plugin/utc';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateTagDto } from '@gitroom/nestjs-libraries/dtos/posts/create.tag.dto';
 import { decryptIntegrationOf } from '@gitroom/nestjs-libraries/database/prisma/integrations/token.encryption';
+import { evergreenOccurrences } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.evergreen.schedule';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -255,8 +257,12 @@ export class PostsRepository {
         state: true,
         error: true,
         intervalInDays: true,
+        evergreenMaxShares: true,
+        evergreenUntil: true,
         group: true,
         creationMethod: true,
+        approvalStatus: true,
+        agentSource: true,
         settings: true,
         tags: {
           where: {
@@ -286,19 +292,16 @@ export class PostsRepository {
         return [...all, post];
       }
 
-      const addMorePosts = [];
-      let startingDate = dayjs.utc(post.publishDate);
-      while (dayjs.utc(endDate).isSameOrAfter(startingDate)) {
-        if (dayjs(startingDate).isSameOrAfter(dayjs.utc(post.publishDate))) {
-          addMorePosts.push({
-            ...post,
-            publishDate: startingDate.toDate(),
-            actualDate: post.publishDate,
-          });
-        }
-
-        startingDate = startingDate.add(post.intervalInDays, 'days');
-      }
+      // an evergreen post stops after its last share
+      const addMorePosts = evergreenOccurrences(
+        post.publishDate,
+        post,
+        endDate
+      ).map((date) => ({
+        ...post,
+        publishDate: date,
+        actualDate: post.publishDate,
+      }));
 
       return [...all, ...addMorePosts];
     }, [] as any[]);
@@ -362,6 +365,16 @@ export class PostsRepository {
             }
           : {}),
       },
+      ...(query.tags?.length
+        ? {
+            tags: {
+              some: {
+                tagId: { in: query.tags },
+                tag: { orgId, deletedAt: null as Date | null },
+              },
+            },
+          }
+        : {}),
     };
 
     const [posts, total] = await Promise.all([
@@ -383,6 +396,8 @@ export class PostsRepository {
           intervalInDays: true,
           group: true,
           creationMethod: true,
+          approvalStatus: true,
+          agentSource: true,
           tags: {
             where: {
               tag: {
@@ -667,7 +682,10 @@ export class PostsRepository {
     keepGroup = false,
     // Shared by the posts saved together for several channels, so opening one
     // of them in the editor brings the others.
-    batchId?: string
+    batchId?: string,
+    // the review state to store (undefined keeps it) and, on create, the
+    // agent that created the post
+    approval: { approvalStatus?: ApprovalStatus; agentSource?: string } = {}
   ) {
     const posts: Post[] = [];
     const uuid = uuidv4();
@@ -743,6 +761,12 @@ export class PostsRepository {
         intervalInDays: inter ? +inter : null,
         approvedSubmitForOrder: APPROVED_SUBMIT_FOR_ORDER.NO,
         ...(type === 'create' ? { creationMethod } : {}),
+        ...(approval.approvalStatus
+          ? { approvalStatus: approval.approvalStatus }
+          : {}),
+        ...(type === 'create' && approval.agentSource
+          ? { agentSource: approval.agentSource }
+          : {}),
         ...(state === 'update'
           ? {}
           : {
@@ -868,6 +892,14 @@ export class PostsRepository {
     }
 
     return { previousPost, posts };
+  }
+
+  // Keeps a post and its comments as a draft until an approver approves it
+  holdForReview(orgId: string, group: string) {
+    return this._post.model.post.updateMany({
+      where: { organizationId: orgId, group, deletedAt: null },
+      data: { state: 'DRAFT', approvalStatus: 'IN_REVIEW' },
+    });
   }
 
   async submit(id: string, order: string, buyerOrganizationId: string) {
@@ -1157,6 +1189,10 @@ export class PostsRepository {
         orgId,
         name: body.name,
         color: body.color,
+        ...(body.kind ? { kind: body.kind } : {}),
+        ...(body.description !== undefined
+          ? { description: body.description }
+          : {}),
       },
     });
   }
@@ -1170,6 +1206,10 @@ export class PostsRepository {
       data: {
         name: body.name,
         color: body.color,
+        ...(body.kind ? { kind: body.kind } : {}),
+        ...(body.description !== undefined
+          ? { description: body.description }
+          : {}),
       },
     });
   }

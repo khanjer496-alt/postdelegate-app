@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -1176,6 +1177,31 @@ export class InstagramProvider
     }
 
     return '';
+  }
+
+  async accountStats(
+    id: string,
+    token: string,
+    type = 'graph.facebook.com'
+  ): Promise<AccountStats> {
+    const [accessToken] = token.split('___');
+    const { followers_count, follows_count, media_count, error } = await (
+      await fetch(
+        `https://${type}/${META_GRAPH_API_VERSION}/${id}?fields=followers_count,follows_count,media_count&access_token=${accessToken}`
+      )
+    ).json();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      ...(typeof followers_count === 'number'
+        ? { followers: followers_count }
+        : {}),
+      ...(typeof follows_count === 'number' ? { following: follows_count } : {}),
+      ...(typeof media_count === 'number' ? { posts: media_count } : {}),
+    };
   }
 
   async analytics(

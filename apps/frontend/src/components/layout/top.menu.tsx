@@ -7,6 +7,7 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { MenuItem } from '@gitroom/frontend/components/new-layout/menu-item';
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import { openReviewModal } from '@gitroom/frontend/components/reviews/review.form';
+import { useReviewCount } from '@gitroom/frontend/components/approvals/approvals.hooks';
 
 interface MenuItemInterface {
   name: string;
@@ -48,6 +49,49 @@ export const useMenuItem = () => {
       path: '/launches',
     },
     {
+      name: t('approval_menu', 'Approvals'),
+      title: t('approval_menu_title', 'Posts waiting for approval'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="21"
+          height="21"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/review',
+    },
+    {
+      name: t('ideas', 'Ideas'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="22"
+          viewBox="0 0 20 22"
+          fill="none"
+        >
+          <path
+            d="M7 17.5H13M8 20.5H12M10 1.5C6.41 1.5 3.5 4.41 3.5 8C3.5 10.4 4.8 12.5 6.74 13.62C7.2 13.89 7.5 14.37 7.5 14.9V15.5C7.5 16.05 7.95 16.5 8.5 16.5H11.5C12.05 16.5 12.5 16.05 12.5 15.5V14.9C12.5 14.37 12.8 13.89 13.26 13.62C15.2 12.5 16.5 10.4 16.5 8C16.5 4.41 13.59 1.5 10 1.5Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/ideas',
+    },
+    {
       name: 'Agent',
       icon: (
         <svg
@@ -64,7 +108,6 @@ export const useMenuItem = () => {
         </svg>
       ),
       path: '/agents',
-      requireAi: true,
     },
     {
       name: t('analytics', 'Analytics'),
@@ -262,6 +305,7 @@ export const useMenuItem = () => {
 export const TopMenu: FC = () => {
   const user = useUser();
   const { firstMenu, secondMenu } = useMenuItem();
+  const { data: reviewCount } = useReviewCount();
   const { isGeneral, billingEnabled } = useVariables();
   return (
     <>
@@ -298,6 +342,9 @@ export const TopMenu: FC = () => {
                   icon={item.icon}
                   key={item.name}
                   onClick={item.onClick}
+                  badge={
+                    item.path === '/review' ? reviewCount?.count : undefined
+                  }
                 />
               ))
         }

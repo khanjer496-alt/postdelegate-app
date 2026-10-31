@@ -16,6 +16,7 @@ import {
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization } from '@prisma/client';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
+import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 import { MastraAgent } from '@ag-ui/mastra';
 import { MastraService } from '@gitroom/nestjs-libraries/chat/mastra.service';
 import { Request, Response } from 'express';
@@ -43,24 +44,24 @@ const copilotCors = () => ({
 export class CopilotController {
   constructor(
     private _subscriptionService: SubscriptionService,
-    private _mastraService: MastraService
+    private _mastraService: MastraService,
+    private _aiCredentialService: AiCredentialService
   ) {}
   @Post('/chat')
   @CheckPolicies([AuthorizationActions.Create, Sections.AI])
-  chatAgent(@Req() req: Request, @Res() res: Response) {
-    if (
-      process.env.OPENAI_API_KEY === undefined ||
-      process.env.OPENAI_API_KEY === ''
-    ) {
-      Logger.warn('OpenAI API key not set, chat functionality will not work');
-      return;
-    }
-
+  async chatAgent(
+    @Req() req: Request,
+    @Res() res: Response,
+    @GetOrgFromRequest() organization: Organization
+  ) {
     const copilotRuntimeHandler = copilotRuntimeNodeHttpEndpoint({
       endpoint: '/copilot/chat',
       cors: copilotCors(),
       runtime: new CopilotRuntime(),
       serviceAdapter: new OpenAIAdapter({
+        openai: await this._aiCredentialService.getOpenAiClient(
+          organization.id
+        ),
         model: 'gpt-4.1',
       }),
     });
@@ -75,13 +76,6 @@ export class CopilotController {
     @Res() res: Response,
     @GetOrgFromRequest() organization: Organization
   ) {
-    if (
-      process.env.OPENAI_API_KEY === undefined ||
-      process.env.OPENAI_API_KEY === ''
-    ) {
-      Logger.warn('OpenAI API key not set, chat functionality will not work');
-      return;
-    }
     const mastra = await this._mastraService.mastra();
     const requestContext = new RequestContext<ChannelsContext>();
     requestContext.set(
@@ -97,6 +91,9 @@ export class CopilotController {
       mastra,
       requestContext: requestContext as any,
     });
+    // dashboard tabs still on the previous bundle ask for agent="postiz";
+    // remove this alias after the next release
+    agents.postiz = agents.postdelegate;
 
     const runtime = new CopilotRuntime({
       agents,
@@ -107,6 +104,9 @@ export class CopilotController {
       cors: copilotCors(),
       runtime,
       serviceAdapter: new OpenAIAdapter({
+        openai: await this._aiCredentialService.getOpenAiClient(
+          organization.id
+        ),
         model: 'gpt-4.1',
       }),
     });
@@ -133,7 +133,7 @@ export class CopilotController {
     @Param('thread') threadId: string
   ): Promise<any> {
     const mastra = await this._mastraService.mastra();
-    const memory = await mastra.getAgent('postiz').getMemory();
+    const memory = await mastra.getAgent('postdelegate').getMemory();
     try {
       return await memory.recall({
         resourceId: organization.id,
@@ -149,7 +149,7 @@ export class CopilotController {
   @CheckPolicies([AuthorizationActions.Create, Sections.AI])
   async getList(@GetOrgFromRequest() organization: Organization) {
     const mastra = await this._mastraService.mastra();
-    const memory = await mastra.getAgent('postiz').getMemory();
+    const memory = await mastra.getAgent('postdelegate').getMemory();
     const list = await memory.listThreads({
       filter: { resourceId: organization.id },
       perPage: 100000,

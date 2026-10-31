@@ -18,6 +18,59 @@ export const emailButton = (href: string, label: string) =>
     label
   )}</a></td></tr></table>`;
 
+// One status card per notification, e.g. in the digest email
+export type EmailCard = {
+  tone: 'success' | 'fail' | 'info';
+  status: string;
+  title?: string;
+  icon?: string;
+  time?: string;
+  message?: string;
+  link?: { href: string; label: string };
+};
+
+const cardTones = {
+  success: { card: 'pd-item', badge: 'pd-badge-ok', bg: '#f7f6fb', border: '#e7e5ef', badgeBg: '#e9f9cf', badgeColor: '#356b00' },
+  info: { card: 'pd-item', badge: 'pd-badge-info', bg: '#f7f6fb', border: '#e7e5ef', badgeBg: '#ece8ff', badgeColor: '#4b32c9' },
+  fail: { card: 'pd-item-fail', badge: 'pd-badge-fail', bg: '#fff5f5', border: '#f4c7c7', badgeBg: '#fde1e1', badgeColor: '#b42318' },
+};
+
+export const emailCard = (card: EmailCard) => {
+  const tone = cardTones[card.tone];
+  const icon = card.icon
+    ? `<td width="36" valign="top" style="width:36px;padding:16px 0 16px 16px"><img src="${escape(
+        card.icon
+      )}" width="36" height="36" alt="" style="display:block;width:36px;height:36px;border:0;border-radius:9px"></td>`
+    : '';
+  const title = card.title
+    ? `<div class="pd-text" style="font-family:${FONT};font-size:15px;font-weight:700;line-height:1.35;color:#0d0d0d">${escape(
+        card.title
+      )}</div>`
+    : '';
+  const time = card.time
+    ? `<div class="pd-muted" style="margin-top:2px;font-family:${FONT};font-size:12px;line-height:1.5;color:#7a7a88">${escape(
+        card.time
+      )}</div>`
+    : '';
+  const message = card.message
+    ? `<div class="pd-text" style="margin-top:8px;font-family:${FONT};font-size:14px;line-height:1.55;color:#2b2b33;word-break:break-word">${escape(
+        card.message
+      )}</div>`
+    : '';
+  const link = card.link
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px"><tr><td style="border-radius:999px;background:#7357ff;mso-padding-alt:9px 16px"><a class="pd-btn" href="${escape(
+        card.link.href
+      )}" target="_blank" style="display:inline-block;padding:9px 16px;font-family:${FONT};font-size:13px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:999px">${escape(
+        card.link.label
+      )}</a></td></tr></table>`
+    : '';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="${tone.card}" style="margin:0 0 12px;background:${tone.bg};border:1px solid ${tone.border};border-radius:14px;border-collapse:separate"><tr>${icon}<td valign="top" style="padding:16px">${title}${time}<div style="margin-top:${
+    card.title || card.time ? 8 : 0
+  }px"><span class="${tone.badge}" style="display:inline-block;padding:3px 10px;border-radius:999px;background:${tone.badgeBg};font-family:${FONT};font-size:12px;font-weight:600;line-height:1.5;color:${tone.badgeColor}">${escape(
+    card.status
+  )}</span></div>${message}${link}</td></tr></table>`;
+};
+
 // Every email shares one branded frame: table layout and inline styles for
 // email clients, with a dark mode for the clients that support it
 const emailLayout = (subject: string, html: string) => {
@@ -40,6 +93,11 @@ const emailLayout = (subject: string, html: string) => {
     .pd-muted, .pd-muted a { color: #9a9aa8 !important; }
     .pd-body a { color: #b9a8ff !important; }
     .pd-body a.pd-btn { color: #ffffff !important; }
+    .pd-item { background: #1f1f26 !important; border-color: #2e2e38 !important; }
+    .pd-item-fail { background: #2a1719 !important; border-color: #5a2a2f !important; }
+    .pd-badge-ok { background: #2c3d12 !important; color: #c8ff4d !important; }
+    .pd-badge-info { background: #2b2550 !important; color: #c9bdff !important; }
+    .pd-badge-fail { background: #4a1d22 !important; color: #ffb4b4 !important; }
   }
   @media (max-width: 620px) {
     .pd-card { padding: 28px 22px !important; }

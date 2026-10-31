@@ -1,13 +1,18 @@
 import { AgentToolInterface } from '@gitroom/nestjs-libraries/chat/agent.tool.interface';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { AllProvidersSettings } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/all.providers.settings';
 import { Integration } from '@prisma/client';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { getSource } from '@gitroom/nestjs-libraries/chat/async.storage';
+import {
+  ApprovalActor,
+  ApprovalPolicyService,
+} from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
 import {
   ValidUrlExtension,
   ValidUrlPath,
@@ -62,7 +67,8 @@ const toMedia = (
 export class IntegrationSchedulePostTool implements AgentToolInterface {
   constructor(
     private _postsService: PostsService,
-    private _integrationService: IntegrationService
+    private _integrationService: IntegrationService,
+    private _approvalPolicyService: ApprovalPolicyService
   ) {}
   name = 'integrationSchedulePostTool';
 
@@ -92,7 +98,8 @@ A single LinkedIn post with one comment
 
 Do not use this to update or delete existing posts.
 On success, each item in output contains a previewUrl the user can open to see the post.
-If validation fails, the result contains output.errors describing what to fix; the call can be retried with corrected parameters.
+When an item has approvalStatus "IN_REVIEW", the workspace requires approval for posts made by AI agents: tell the user the post is waiting in PostDelegate's Review inbox and will publish once a teammate approves it. Do not try to schedule it again.
+If validation fails, or the workspace limits what agents can do (allowed channels, posts per day), the result contains output.errors describing what to fix; share that message with the user.
 `,
       inputSchema: z.object({
         socialPost: z
@@ -166,6 +173,12 @@ If validation fails, the result contains output.errors describing what to fix; t
                 .describe(
                   'Public preview page of the created post, share it with the user'
                 ),
+              approvalStatus: z
+                .string()
+                .optional()
+                .describe(
+                  'IN_REVIEW when the post waits for a teammate to approve it before it publishes'
+                ),
             })
           )
           .or(z.object({ errors: z.string() })),
@@ -176,6 +189,14 @@ If validation fails, the result contains output.errors describing what to fix; t
           (context?.requestContext as any)?.get('organization') as string
         ).id;
         const finalOutput = [];
+        // the in-app agent runs with ui on, MCP clients carry their own name
+        const actor: ApprovalActor = {
+          type: 'agent',
+          source:
+            (context?.requestContext as any)?.get('ui') === 'true'
+              ? 'PostDelegate agent'
+              : getSource() || 'MCP client',
+        };
 
         const integrations = {} as Record<string, Integration>;
         for (const platform of inputData.socialPost) {
@@ -246,6 +267,21 @@ If validation fails, the result contains output.errors describing what to fix; t
           }
         }
 
+        // the workspace limits for agents apply to the whole request, so a
+        // batch is never half created
+        try {
+          await this._approvalPolicyService.assertAgentGuardrails(
+            organizationId,
+            actor,
+            inputData.socialPost.map((p: any) => p.integrationId)
+          );
+        } catch (err) {
+          if (err instanceof BadRequestException) {
+            return { output: { errors: err.message } };
+          }
+          throw err;
+        }
+
         for (const post of inputData.socialPost) {
           const integration = integrations[post.integrationId];
 
@@ -253,11 +289,11 @@ If validation fails, the result contains output.errors describing what to fix; t
             throw new Error('Integration not found');
           }
 
-          const output = await this._postsService.createPost(organizationId, {
+          const body = {
             date: post.date,
             type: post.type as 'draft' | 'schedule' | 'now',
             shortLink: post.shortLink,
-            tags: [],
+            tags: [] as { value: string; label: string }[],
             posts: [
               {
                 integration,
@@ -282,7 +318,23 @@ If validation fails, the result contains output.errors describing what to fix; t
                 })),
               },
             ],
-          }, 'MCP');
+          };
+
+          let output: Awaited<ReturnType<PostsService['createPost']>>;
+          try {
+            output = await this._postsService.createPost(
+              organizationId,
+              body as any,
+              'MCP',
+              false,
+              actor
+            );
+          } catch (err) {
+            if (err instanceof BadRequestException) {
+              return { output: { errors: err.message } };
+            }
+            throw err;
+          }
           // Same public preview page the calendar "Preview Post" button opens.
           finalOutput.push(
             ...output.map((p) => ({

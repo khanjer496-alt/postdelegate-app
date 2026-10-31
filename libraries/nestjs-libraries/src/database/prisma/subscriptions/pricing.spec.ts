@@ -1,7 +1,4 @@
-import {
-  isAiAvailable,
-  pricing,
-} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 
 describe('pricing', () => {
   const paid = ['STANDARD', 'TEAM', 'PRO', 'ULTIMATE'];
@@ -44,28 +41,5 @@ describe('pricing', () => {
       expect(tier.generate_videos).toBe(0);
       expect(tier.clipping_minutes).toBe(0);
     }
-  });
-});
-
-describe('isAiAvailable', () => {
-  const original = process.env.OPENAI_API_KEY;
-  afterEach(() => {
-    if (original === undefined) {
-      delete process.env.OPENAI_API_KEY;
-    } else {
-      process.env.OPENAI_API_KEY = original;
-    }
-  });
-
-  it('needs both the tier flag and a provider key', () => {
-    const withAi = { ...pricing.ULTIMATE, ai: true };
-
-    delete process.env.OPENAI_API_KEY;
-    expect(isAiAvailable(withAi)).toBe(false);
-
-    process.env.OPENAI_API_KEY = 'sk-test';
-    expect(isAiAvailable(withAi)).toBe(true);
-    expect(isAiAvailable(pricing.ULTIMATE)).toBe(false);
-    expect(isAiAvailable(undefined)).toBe(false);
   });
 });

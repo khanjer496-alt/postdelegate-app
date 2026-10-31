@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { InputGroup } from '@blueprintjs/core';
 import { Clean } from '@blueprintjs/icons';
@@ -8,38 +8,18 @@ import { SectionTab } from 'polotno/side-panel';
 import { getImageSize } from 'polotno/utils/image';
 import { ImagesGrid } from 'polotno/side-panel/images-grid';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
-import useSWR from 'swr';
 import { Button } from '@gitroom/react/form/button';
 import { useToaster } from '@gitroom/react/toaster/toaster';
-import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 const GenerateTab = observer(({ store }: any) => {
   const inputRef = React.useRef<any>(null);
   const [image, setImage] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
-  const { billingEnabled } = useVariables();
   const fetch = useFetch();
   const toast = useToaster();
-  const loadCredits = useCallback(async () => {
-    if (!billingEnabled) {
-      return {
-        credits: 1000,
-      };
-    }
-    return (
-      await fetch(`/copilot/credits`, {
-        method: 'GET',
-      })
-    ).json();
-  }, []);
-  const { data, mutate } = useSWR('copilot-credits', loadCredits);
   const t = useT();
 
   const handleGenerate = async () => {
-    if (data?.credits <= 0) {
-      window.open('/billing', '_blank');
-      return;
-    }
     if (!inputRef.current.value) {
       toast.show('Please type your prompt', 'warning');
       return;
@@ -57,7 +37,6 @@ const GenerateTab = observer(({ store }: any) => {
       alert('Something went wrong, please try again later...');
       return;
     }
-    mutate();
     const newData = await req.json();
     setImage(newData.output);
   };
@@ -70,7 +49,6 @@ const GenerateTab = observer(({ store }: any) => {
         }}
       >
         {t('generate_image_with_ai', 'Generate image with AI')}
-        {data?.credits ? `(${data?.credits} left)` : ``}
       </div>
       <InputGroup
         placeholder="Type your image generation prompt here..."
@@ -92,7 +70,7 @@ const GenerateTab = observer(({ store }: any) => {
           marginBottom: '40px',
         }}
       >
-        {data?.credits <= 0 ? 'Click to purchase more credits' : 'Generate'}
+        Generate
       </Button>
       {image && (
         <ImagesGrid

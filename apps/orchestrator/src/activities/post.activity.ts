@@ -10,6 +10,7 @@ import {
   NotificationType,
 } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { Integration, Post, State } from '@prisma/client';
+import { applyEvergreen } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.evergreen.schedule';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 import { AuthTokenDetails } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
@@ -227,9 +228,13 @@ export class PostActivity {
     }
 
     // only the root drives the pre-publish sleep and the repeat schedule,
-    // the rest are comments
+    // the rest are comments. An evergreen post rotates its text and drops the
+    // interval on its last share, so the workflow stops re-sharing it
     const [root, ...comments] = getPosts.map(slimPost);
-    return [reanchorInterval(root), ...comments];
+    return [
+      applyEvergreen(reanchorInterval(root), Date.now(), root.publishDate),
+      ...comments,
+    ];
   }
 
   @ActivityMethod()

@@ -137,6 +137,7 @@ const organizationSteps = (org: string): Step[] => [
     },
   },
   { table: 'Post', model: 'post', where: { organizationId: org } },
+  { table: 'Idea', model: 'idea', where: { organizationId: org } },
   { table: 'Tags', model: 'tags', where: { orgId: org } },
   {
     table: 'IntegrationsWebhooks',
@@ -181,6 +182,26 @@ const organizationSteps = (org: string): Step[] => [
   },
   { table: 'Webhooks', model: 'webhooks', where: { organizationId: org } },
   {
+    table: 'AnalyticsAccountSnapshot',
+    model: 'analyticsAccountSnapshot',
+    where: { organizationId: org },
+  },
+  {
+    table: 'AnalyticsPostSnapshot',
+    model: 'analyticsPostSnapshot',
+    where: { organizationId: org },
+  },
+  {
+    table: 'AnalyticsPost',
+    model: 'analyticsPost',
+    where: { organizationId: org },
+  },
+  {
+    table: 'AnalyticsReportSettings',
+    model: 'analyticsReportSettings',
+    where: { organizationId: org },
+  },
+  {
     table: 'Integration',
     model: 'integration',
     where: { organizationId: org },
@@ -188,8 +209,14 @@ const organizationSteps = (org: string): Step[] => [
   { table: 'Customer', model: 'customer', where: { orgId: org } },
   { table: 'Signatures', model: 'signatures', where: { organizationId: org } },
   { table: 'Sets', model: 'sets', where: { organizationId: org } },
+  { table: 'PostImport', model: 'postImport', where: { organizationId: org } },
   { table: 'AutoPost', model: 'autoPost', where: { organizationId: org } },
   { table: 'ThirdParty', model: 'thirdParty', where: { organizationId: org } },
+  {
+    table: 'AiCredential',
+    model: 'aiCredential',
+    where: { organizationId: org },
+  },
   {
     table: 'Notifications',
     model: 'notifications',
@@ -219,6 +246,21 @@ const organizationSteps = (org: string): Step[] => [
   { table: 'OAuthApp', model: 'oAuthApp', where: { organizationId: org } },
   { table: 'Review', model: 'review', where: { organizationId: org } },
   {
+    table: 'ActivityLog',
+    model: 'activityLog',
+    where: { organizationId: org },
+  },
+  {
+    table: 'ApprovalLink',
+    model: 'approvalLink',
+    where: { organizationId: org },
+  },
+  {
+    table: 'ApprovalSettings',
+    model: 'approvalSettings',
+    where: { organizationId: org },
+  },
+  {
     table: 'Subscription',
     model: 'subscription',
     where: { organizationId: org },
@@ -241,6 +283,18 @@ const sharedOrganizationSteps = (user: string, org: string): Step[] => [
     data: { userId: null, displayName: null },
   },
   {
+    table: 'ActivityLog.actorUserId',
+    model: 'activityLog',
+    where: { actorUserId: user, organizationId: org },
+    data: { actorUserId: null, actorName: null },
+  },
+  {
+    table: 'ApprovalLink.createdById',
+    model: 'approvalLink',
+    where: { createdById: user, organizationId: org },
+    data: { createdById: null },
+  },
+  {
     table: 'OAuthAuthorization',
     model: 'oAuthAuthorization',
     where: { userId: user, organizationId: org },
@@ -258,6 +312,18 @@ const userSteps = (user: string): Step[] => [
     model: 'comments',
     where: { userId: user },
     data: { userId: null, displayName: null },
+  },
+  {
+    table: 'ActivityLog.actorUserId',
+    model: 'activityLog',
+    where: { actorUserId: user },
+    data: { actorUserId: null, actorName: null },
+  },
+  {
+    table: 'ApprovalLink.createdById',
+    model: 'approvalLink',
+    where: { createdById: user },
+    data: { createdById: null },
   },
   {
     table: 'Post.lastMessageId',
@@ -451,9 +517,10 @@ export class ErasureRepository {
       })),
       extraWorkflowIds: [
         `streak_${org}`,
-        // v1 digests may still exist next to the v2 one
+        // v1 and v2 digests may still exist next to the v3 one
         `digest_email_workflow_${org}`,
         `digest_email_workflow_v2_${org}`,
+        `digest_email_workflow_v3_${org}`,
         ...autoposts.map(({ id }) => `autopost-${id}`),
         ...clippings.map(({ id }) => `clipping_${id}`),
         ...clips.map(({ id }) => `clipping_clip_${id}`),

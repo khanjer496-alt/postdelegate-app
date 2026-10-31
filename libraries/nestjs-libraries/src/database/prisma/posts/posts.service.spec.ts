@@ -35,6 +35,8 @@ const makeService = (integrationManager: any = {}) => {
     {} as any,
     {} as any,
     {} as any,
+    {} as any,
+    {} as any,
     {} as any
   );
   return { service, postRepository, mediaService };
@@ -176,5 +178,185 @@ describe('PostsService.getPostsMinified published label', () => {
       ['other', undefined],
     ]);
     expect(posts.some((post: any) => 'settings' in post)).toBe(false);
+  });
+});
+
+describe('PostsService approvals on save', () => {
+  const makeApprovalService = (decision: any) => {
+    const postRepository = {
+      getPostById: jest.fn().mockResolvedValue(null),
+      createOrUpdatePost: jest.fn().mockResolvedValue({
+        posts: [{ id: 'p-1', state: decision?.hold ? 'DRAFT' : 'QUEUE', content: 'hi' }],
+      }),
+      holdForReview: jest.fn().mockResolvedValue({ count: 1 }),
+      changeState: jest.fn().mockResolvedValue({}),
+    };
+    const policy = {
+      assertAgentGuardrails: jest.fn().mockResolvedValue(undefined),
+      decide: jest.fn().mockResolvedValue(decision),
+      afterSave: jest
+        .fn()
+        .mockResolvedValue({ submitted: !!decision?.hold }),
+      notifyApprovers: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new PostsService(
+      postRepository as any,
+      { getSocialIntegration: () => undefined } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      policy as any,
+      { recordPublished: jest.fn() } as any
+    );
+    jest.spyOn(service, 'startWorkflow').mockResolvedValue(undefined);
+    jest.spyOn(service, 'detachStaleAnchors').mockResolvedValue(undefined as any);
+    return { service, postRepository, policy };
+  };
+
+  const body = (type: 'schedule' | 'draft' | 'now' = 'schedule') =>
+    ({
+      type,
+      date: '2026-11-02T10:00:00',
+      shortLink: false,
+      tags: [],
+      posts: [
+        {
+          integration: { id: 'i-1', name: 'Brand X' },
+          group: 'g',
+          settings: { __type: 'linkedin' },
+          value: [{ id: 'v-1', content: 'hi', image: [] }],
+        },
+      ],
+    } as any);
+
+  const agent = { type: 'agent' as const, source: 'Claude (MCP)' };
+
+  it('checks the agent guardrails before saving anything', async () => {
+    const { service, postRepository, policy } = makeApprovalService({ hold: false });
+    policy.assertAgentGuardrails.mockRejectedValue(new Error('blocked'));
+    await expect(
+      service.createPost('org-1', body(), 'MCP', false, agent)
+    ).rejects.toThrow('blocked');
+    expect(policy.assertAgentGuardrails).toHaveBeenCalledWith('org-1', agent, ['i-1'], {
+      countsTowardLimit: true,
+    });
+    expect(postRepository.createOrUpdatePost).not.toHaveBeenCalled();
+  });
+
+  it('saves a held post as a draft in review, marked with its agent', async () => {
+    const decision = { hold: true, approvalStatus: 'IN_REVIEW' };
+    const { service, postRepository, policy } = makeApprovalService(decision);
+    const output = await service.createPost('org-1', body('now'), 'MCP', false, agent);
+
+    const call = postRepository.createOrUpdatePost.mock.calls[0];
+    expect(call[0]).toBe('draft');
+    expect(call[1]).toBe('org-1');
+    expect(call[call.length - 1]).toEqual({
+      approvalStatus: 'IN_REVIEW',
+      agentSource: 'Claude (MCP)',
+    });
+    // a draft never starts publishing, startWorkflow only stops old runs
+    expect(service.startWorkflow).toHaveBeenCalledWith('linkedin', 'p-1', 'org-1', 'DRAFT');
+    expect(policy.afterSave).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({ id: 'p-1' }),
+      agent,
+      { created: true, decision, notify: false }
+    );
+    // approvers hear about the whole save once
+    expect(policy.notifyApprovers).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({ id: 'p-1' }),
+      'Claude (MCP)',
+      1
+    );
+    expect(output[0]).toMatchObject({ postId: 'p-1', approvalStatus: 'IN_REVIEW' });
+  });
+
+  it('schedules a public API post that is not held, keeping its source and the guardrails', async () => {
+    const apiAgent = { type: 'agent' as const, source: 'Public API key', viaApi: true };
+    const { service, postRepository, policy } = makeApprovalService({ hold: false });
+    await service.createPost('org-1', body(), 'API', false, apiAgent);
+    expect(policy.assertAgentGuardrails).toHaveBeenCalledWith('org-1', apiAgent, ['i-1'], {
+      countsTowardLimit: true,
+    });
+    const call = postRepository.createOrUpdatePost.mock.calls[0];
+    expect(call[0]).toBe('schedule');
+    expect(call[call.length - 1]).toEqual({
+      approvalStatus: undefined,
+      agentSource: 'Public API key',
+    });
+  });
+
+  it('keeps the old behaviour when nobody is passed (auto post, internal callers)', async () => {
+    const { service, postRepository, policy } = makeApprovalService(undefined);
+    await service.createPost('org-1', body(), 'AUTOPOST');
+    expect(policy.decide).not.toHaveBeenCalled();
+    expect(policy.assertAgentGuardrails).not.toHaveBeenCalled();
+    const call = postRepository.createOrUpdatePost.mock.calls[0];
+    expect(call[0]).toBe('schedule');
+    expect(call[call.length - 1]).toEqual({
+      approvalStatus: undefined,
+      agentSource: undefined,
+    });
+  });
+
+  it('an agent update must point at an existing post', async () => {
+    const { service, postRepository } = makeApprovalService({ hold: false });
+    await expect(
+      service.createPost('org-1', body('update' as any), 'API', false, agent)
+    ).rejects.toThrow('This post was not found');
+    expect(postRepository.createOrUpdatePost).not.toHaveBeenCalled();
+  });
+
+  it('an agent update held for review stops the waiting workflow', async () => {
+    const decision = { hold: true, approvalStatus: 'IN_REVIEW', previous: 'APPROVED' };
+    const { service, postRepository } = makeApprovalService(decision);
+    postRepository.getPostById.mockResolvedValue({
+      id: 'v-1',
+      state: 'QUEUE',
+      approvalStatus: 'APPROVED',
+    });
+    await service.createPost('org-1', body('update' as any), 'API', true, agent);
+    expect(postRepository.createOrUpdatePost.mock.calls[0][0]).toBe('draft');
+    expect(service.startWorkflow).toHaveBeenCalledWith('linkedin', 'p-1', 'org-1', 'DRAFT');
+  });
+
+  it('an agent cannot hold a post that is already published', async () => {
+    const decision = { hold: true, approvalStatus: 'IN_REVIEW' };
+    const { service, postRepository } = makeApprovalService(decision);
+    postRepository.getPostById.mockResolvedValue({
+      id: 'p-1',
+      group: 'g-1',
+      state: 'PUBLISHED',
+      approvalStatus: 'NONE',
+      integrationId: 'i-1',
+      integration: { providerIdentifier: 'x' },
+    });
+    await expect(
+      service.changePostStatus('org-1', 'p-1', 'schedule', agent)
+    ).rejects.toThrow('already published');
+    expect(postRepository.holdForReview).not.toHaveBeenCalled();
+  });
+
+  it('an agent scheduling a draft through the API puts it in review instead', async () => {
+    const decision = { hold: true, approvalStatus: 'IN_REVIEW', previous: 'NONE' };
+    const { service, postRepository, policy } = makeApprovalService(decision);
+    postRepository.getPostById.mockResolvedValue({
+      id: 'p-1',
+      group: 'g-1',
+      state: 'DRAFT',
+      approvalStatus: 'NONE',
+      content: 'hi',
+      integration: { name: 'Brand X', providerIdentifier: 'x' },
+    });
+    const result = await service.changePostStatus('org-1', 'p-1', 'schedule', agent);
+    expect(postRepository.holdForReview).toHaveBeenCalledWith('org-1', 'g-1');
+    expect(postRepository.changeState).not.toHaveBeenCalled();
+    expect(policy.afterSave).toHaveBeenCalled();
+    expect(result).toMatchObject({ state: 'DRAFT', approvalStatus: 'IN_REVIEW' });
   });
 });

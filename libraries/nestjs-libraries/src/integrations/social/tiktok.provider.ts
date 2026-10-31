@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -45,7 +46,7 @@ type TikTokCreatorInfo = {
 )
 export class TiktokProvider extends SocialAbstract implements SocialProvider {
   identifier = 'tiktok';
-  name = 'Tiktok';
+  name = 'TikTok';
   isBetweenSteps = false;
   convertToJPEG = true;
   scopes = [
@@ -67,6 +68,12 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   publishedLabel(settings: Partial<TikTokDto>) {
     return settings?.content_posting_method === 'UPLOAD'
       ? 'Sent to TikTok inbox'
+      : undefined;
+  }
+
+  publishedLinkLabel(settings: Partial<TikTokDto>) {
+    return settings?.content_posting_method === 'UPLOAD'
+      ? 'Open TikTok inbox'
       : undefined;
   }
 
@@ -1054,6 +1061,37 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       Buffer.from(JSON.stringify({})),
       'TikTok refused to publish your post'
     );
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    const { data, error } = await (
+      await fetch(
+        'https://open.tiktokapis.com/v2/user/info/?fields=follower_count,following_count,video_count',
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      )
+    ).json();
+
+    if (error?.code && error.code !== 'ok') {
+      throw new Error(error.message || error.code);
+    }
+
+    const user = data?.user || {};
+    return {
+      ...(typeof user.follower_count === 'number'
+        ? { followers: user.follower_count }
+        : {}),
+      ...(typeof user.following_count === 'number'
+        ? { following: user.following_count }
+        : {}),
+      ...(typeof user.video_count === 'number'
+        ? { posts: user.video_count }
+        : {}),
+    };
   }
 
   async analytics(

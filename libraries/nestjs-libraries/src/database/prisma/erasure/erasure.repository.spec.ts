@@ -66,6 +66,9 @@ describe('ErasureRepository.eraseOrganization', () => {
     expect(at('plugs')).toBeLessThan(at('integration'));
     expect(at('integrationsWebhooks')).toBeLessThan(at('webhooks'));
     expect(at('integration')).toBeLessThan(at('customer'));
+    expect(at('aiCredential')).toBeGreaterThan(-1);
+    expect(at('aiCredential')).toBeLessThan(at('organization'));
+    expect(tables.AiCredential).toBe(1);
     expect(at('orderItems')).toBeLessThan(at('orders'));
     expect(at('orders')).toBeLessThan(at('messagesGroup'));
     expect(at('clippingClip')).toBeLessThan(at('clipping'));

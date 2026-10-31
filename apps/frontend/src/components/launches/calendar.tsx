@@ -56,6 +56,7 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import i18next from 'i18next';
 import { AddEditModal } from '@gitroom/frontend/components/new-launch/add.edit.modal';
 import { CreationMethodBadge } from '@gitroom/frontend/components/launches/creation.method.badge';
+import { ApprovalMark } from '@gitroom/frontend/components/approvals/approval.status.badge';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 import copy from 'copy-to-clipboard';
@@ -67,6 +68,10 @@ import {
 import { Button } from '@gitroom/react/form/button';
 import { ChevronUpIcon } from '@gitroom/frontend/components/ui/icons';
 import { useMediaDirectory } from '@gitroom/react/helpers/use.media.directory';
+import {
+  EvergreenAction,
+  EvergreenBadge,
+} from '@gitroom/frontend/components/launches/evergreen/evergreen.card';
 
 // Extend dayjs with necessary plugins
 extend(isSameOrAfter);
@@ -1425,6 +1430,7 @@ const CalendarItem: FC<{
         >
           <Duplicate />
         </button>
+        <EvergreenAction post={post} className={actionClass} />
         <button
           type="button"
           aria-label={t('delete_post', 'Delete Post')}
@@ -1441,7 +1447,8 @@ const CalendarItem: FC<{
         aria-label={`${post.integration.name}, ${statusLabel(
           t,
           state,
-          post.publishedLabel
+          post.publishedLabel,
+          post.approvalStatus
         )}, ${time}: ${firstLine || t('no_content', 'no content')}`}
         onClick={openEditor}
         onKeyDown={onCardKeyDown}
@@ -1489,8 +1496,10 @@ const CalendarItem: FC<{
               state={state}
               error={post.error}
               publishedLabel={post.publishedLabel}
+              approvalStatus={post.approvalStatus}
               compact={compact}
             />
+            <EvergreenBadge post={post} />
             {/* the day view slots already show their time */}
             {!compact && (showTime || display === 'week') && (
               <div className="ms-auto shrink-0 text-[11px] text-newTextColor/70 tabular-nums">
@@ -1536,9 +1545,19 @@ const CalendarItem: FC<{
 const statusLabel = (
   t: ReturnType<typeof useT>,
   state: State,
-  publishedLabel?: string
+  publishedLabel?: string,
+  approvalStatus?: string | null
 ) =>
-  state === 'PUBLISHED'
+  // a post in the review flow reads as its review status until it publishes
+  state === 'DRAFT' && approvalStatus === 'IN_REVIEW'
+    ? t('approval_status_in_review', 'In review')
+    : state === 'DRAFT' && approvalStatus === 'CHANGES_REQUESTED'
+    ? t('approval_status_changes_requested', 'Changes requested')
+    : state === 'DRAFT' && approvalStatus === 'REJECTED'
+    ? t('approval_status_rejected', 'Rejected')
+    : state === 'QUEUE' && approvalStatus === 'APPROVED'
+    ? t('approval_status_approved', 'Approved')
+    : state === 'PUBLISHED'
     ? publishedLabel || t('status_published', 'Published')
     : state === 'ERROR'
     ? t('status_failed', 'Failed')
@@ -1584,10 +1603,18 @@ const PostStatus: FC<{
   state: State;
   error?: string | null;
   publishedLabel?: string;
+  approvalStatus?: string | null;
   compact?: boolean;
-}> = ({ state, error, publishedLabel, compact }) => {
+}> = ({ state, error, publishedLabel, approvalStatus, compact }) => {
   const t = useT();
-  const label = statusLabel(t, state, publishedLabel);
+  const label = statusLabel(t, state, publishedLabel, approvalStatus);
+  // the review statuses have their own marks, see statusLabel
+  const reviewMark =
+    (state === 'DRAFT' &&
+      ['IN_REVIEW', 'CHANGES_REQUESTED', 'REJECTED'].includes(
+        approvalStatus || ''
+      )) ||
+    (state === 'QUEUE' && approvalStatus === 'APPROVED');
   return (
     <div
       className="flex items-center gap-[4px] min-w-0"
@@ -1604,19 +1631,23 @@ const PostStatus: FC<{
           }
         : {})}
     >
-      <span
-        aria-hidden="true"
-        className={clsx(
-          'shrink-0 w-[12px] h-[12px] rounded-full flex items-center justify-center text-[9px] leading-none font-bold text-white',
-          state === 'PUBLISHED' && 'bg-green-500',
-          state === 'ERROR' && 'bg-red-500',
-          state === 'DRAFT' &&
-            'border border-dashed border-newTextColor/60 bg-transparent',
-          state === 'QUEUE' && 'border-[3px] border-btnPrimary bg-transparent'
-        )}
-      >
-        {state === 'PUBLISHED' ? '✓' : state === 'ERROR' ? '!' : ''}
-      </span>
+      {reviewMark ? (
+        <ApprovalMark status={approvalStatus} />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={clsx(
+            'shrink-0 w-[12px] h-[12px] rounded-full flex items-center justify-center text-[9px] leading-none font-bold text-white',
+            state === 'PUBLISHED' && 'bg-green-500',
+            state === 'ERROR' && 'bg-red-500',
+            state === 'DRAFT' &&
+              'border border-dashed border-newTextColor/60 bg-transparent',
+            state === 'QUEUE' && 'border-[3px] border-btnPrimary bg-transparent'
+          )}
+        >
+          {state === 'PUBLISHED' ? '✓' : state === 'ERROR' ? '!' : ''}
+        </span>
+      )}
       <span
         className={clsx(
           compact
@@ -1729,6 +1760,7 @@ const CalendarItemPreview: FC<{
             state={state}
             error={post.error}
             publishedLabel={post.publishedLabel}
+            approvalStatus={post.approvalStatus}
           />
         </div>
       </div>

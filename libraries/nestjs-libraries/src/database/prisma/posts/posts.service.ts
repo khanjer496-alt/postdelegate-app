@@ -58,6 +58,12 @@ import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validatio
 import { postContentPlainText } from '@gitroom/helpers/utils/sanitize.post.content';
 import { CreatePublicCommentDto } from '@gitroom/nestjs-libraries/dtos/comments/add.comment.dto';
 import { countLength } from '@gitroom/helpers/utils/count.length';
+import {
+  ApprovalActor,
+  ApprovalPolicyService,
+  actorName,
+} from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
+import { ActivityLogService } from '@gitroom/nestjs-libraries/database/prisma/activity-log/activity.log.service';
 
 type PostWithConditionals = Post & {
   integration?: Integration;
@@ -75,15 +81,24 @@ export class PostsService {
     private _shortLinkService: ShortLinkService,
     private _openaiService: OpenaiService,
     private _temporalService: TemporalService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _approvalPolicyService: ApprovalPolicyService,
+    private _activityLogService: ActivityLogService
   ) {}
 
   searchForMissingThreeHoursPosts() {
     return this._postRepository.searchForMissingThreeHoursPosts();
   }
 
-  updatePost(id: string, postId: string, releaseURL: string) {
-    return this._postRepository.updatePost(id, postId, releaseURL);
+  async updatePost(id: string, postId: string, releaseURL: string) {
+    const updated = await this._postRepository.updatePost(
+      id,
+      postId,
+      releaseURL
+    );
+    // comments are skipped there, only the main post is in the history
+    await this._activityLogService.recordPublished(id);
+    return updated;
   }
 
   updateResolvedRelease(
@@ -1271,24 +1286,59 @@ export class PostsService {
     orgId: string,
     body: CreatePostDto,
     creationMethod: CreationMethod,
-    keepGroup = false
+    keepGroup = false,
+    // who saves the post, decides whether it waits for an approver. Internal
+    // callers (auto post, clipping, settings updates) pass nothing.
+    actor?: ApprovalActor
   ): Promise<any[]> {
+    if (actor?.type === 'agent') {
+      // an agent's in-place update must point at posts that exist, it can't
+      // be used to create posts around the guardrails
+      if (body.type === 'update') {
+        for (const post of body.posts) {
+          const id = post.value?.[0]?.id;
+          if (!id || !(await this._postRepository.getPostById(id, orgId))) {
+            throw new BadRequestException(
+              'This post was not found. To create a post, use the type "schedule", "now" or "draft".'
+            );
+          }
+        }
+      }
+      await this._approvalPolicyService.assertAgentGuardrails(
+        orgId,
+        actor,
+        body.posts.map((p) => p.integration.id),
+        { countsTowardLimit: body.type !== 'update' }
+      );
+    }
+
     const postList = [];
+    // posts sent for review in this save, the approvers hear about them once
+    const submitted: { id: string; content: string; integrationName?: string; provider?: string }[] = [];
     const batchId = uuidv4();
     for (const post of body.posts) {
       // Defensive boundary for internal callers that skip mapTypeToPost.
       post.settings = { ...post.settings };
       delete (post.settings as any).__validationOperation;
+      const existing =
+        post.value?.[0]?.id && (actor || body.type === 'schedule' || body.type === 'now')
+          ? await this._postRepository.getPostById(post.value[0].id, orgId)
+          : null;
       if (
         (body.type === 'schedule' || body.type === 'now') &&
         !body.republish &&
         post.value?.[0]?.id
       ) {
-        this.guardAgainstRepublish(
-          await this._postRepository.getPostById(post.value[0].id, orgId),
-          'createPost'
-        );
+        this.guardAgainstRepublish(existing, 'createPost');
       }
+      const decision = actor
+        ? await this._approvalPolicyService.decide(
+            orgId,
+            actor,
+            body.type,
+            existing
+          )
+        : undefined;
       const provider = this._integrationManager.getSocialIntegration(
         (post.settings as any)?.__type
       );
@@ -1310,7 +1360,8 @@ export class PostsService {
       }));
 
       const { posts } = await this._postRepository.createOrUpdatePost(
-        body.type,
+        // a post that waits for an approver is kept as a draft until approved
+        decision?.hold ? 'draft' : body.type,
         orgId,
         body.type === 'now'
           ? dayjs().format('YYYY-MM-DDTHH:mm:00')
@@ -1320,7 +1371,11 @@ export class PostsService {
         creationMethod,
         body.inter,
         keepGroup,
-        batchId
+        batchId,
+        {
+          approvalStatus: decision?.approvalStatus,
+          agentSource: actor?.type === 'agent' ? actor.source : undefined,
+        }
       );
 
       if (!posts?.length) {
@@ -1332,7 +1387,8 @@ export class PostsService {
         posts.filter((p) => existingIds.includes(p.id))
       );
 
-      if (body.type !== 'update') {
+      // an update held for review must stop the workflow already waiting
+      if (body.type !== 'update' || decision?.hold) {
         this.startWorkflow(
           post.settings.__type.split('-')[0].toLowerCase(),
           posts[0].id,
@@ -1341,11 +1397,41 @@ export class PostsService {
         ).catch((err) => {});
       }
 
+      if (actor) {
+        const saved = {
+          id: posts[0].id,
+          content: posts[0].content,
+          integrationName: (post.integration as any)?.name,
+          provider: (post.settings as any)?.__type,
+        };
+        const outcome = await this._approvalPolicyService.afterSave(
+          orgId,
+          saved,
+          actor,
+          { created: !existing, decision, notify: false }
+        );
+        if (outcome.submitted) {
+          submitted.push(saved);
+        }
+      }
+
       Sentry.metrics.count('post_created', 1);
       postList.push({
         postId: posts[0].id,
         integration: post.integration.id,
+        ...(decision?.approvalStatus === 'IN_REVIEW'
+          ? { approvalStatus: 'IN_REVIEW' }
+          : {}),
       });
+    }
+
+    if (actor && submitted.length) {
+      await this._approvalPolicyService.notifyApprovers(
+        orgId,
+        submitted[0],
+        actorName(actor),
+        submitted.length
+      );
     }
 
     return postList;
@@ -1360,7 +1446,9 @@ export class PostsService {
     orgId: string,
     postId: string,
     settings: Record<string, any>,
-    creationMethod: CreationMethod
+    creationMethod: CreationMethod,
+    // an agent's change to an approved or waiting post goes back to review
+    actor?: ApprovalActor
   ): Promise<{ postId: string; publishDate: string }> {
     // Ordered as post -> comments, root includes integration and tags.
     const ordered = await this.getPostsRecursively(postId, true, orgId, true);
@@ -1489,7 +1577,8 @@ export class PostsService {
       creationMethod,
       // Keep the group stable: a client may have the calendar open while the
       // settings are updated out of band, and the calendar links posts by group.
-      true
+      true,
+      actor
     );
 
     if (!output) {
@@ -1502,8 +1591,8 @@ export class PostsService {
     };
   }
 
-  async separatePosts(content: string, len: number) {
-    return this._openaiService.separatePosts(content, len);
+  async separatePosts(orgId: string, content: string, len: number) {
+    return this._openaiService.separatePosts(orgId, content, len);
   }
 
   async changeState(id: string, state: State, err?: any, body?: any) {
@@ -1513,11 +1602,78 @@ export class PostsService {
   async changePostStatus(
     orgId: string,
     id: string,
-    status: 'draft' | 'schedule'
+    status: 'draft' | 'schedule',
+    actor?: ApprovalActor
   ) {
     const getPostById = await this._postRepository.getPostById(id, orgId);
     if (!getPostById) {
       throw new BadRequestException('Post not found');
+    }
+
+    if (status === 'schedule' && actor?.type === 'agent') {
+      await this._approvalPolicyService.assertAgentGuardrails(
+        orgId,
+        actor,
+        [getPostById.integrationId],
+        { countsTowardLimit: false }
+      );
+    }
+
+    const decision =
+      status === 'schedule' && actor
+        ? await this._approvalPolicyService.decide(
+            orgId,
+            actor,
+            'schedule',
+            getPostById
+          )
+        : undefined;
+
+    if (decision?.hold) {
+      // a post that went out, or is going out now, can't be held anymore
+      if (getPostById.state === 'PUBLISHED') {
+        throw new BadRequestException('This post was already published.');
+      }
+      if (
+        getPostById.state === 'QUEUE' &&
+        dayjs(getPostById.publishDate).isBefore(dayjs())
+      ) {
+        throw new BadRequestException('This post is already being published.');
+      }
+      if (
+        getPostById.approvalStatus !== 'IN_REVIEW' ||
+        getPostById.state !== 'DRAFT'
+      ) {
+        await this._postRepository.holdForReview(orgId, getPostById.group);
+        // stops a publish workflow that may already be waiting
+        await this.startWorkflow(
+          getPostById.integration.providerIdentifier
+            .split('-')[0]
+            .toLowerCase(),
+          getPostById.id,
+          orgId,
+          'DRAFT'
+        );
+        await this._approvalPolicyService.afterSave(
+          orgId,
+          {
+            id: getPostById.id,
+            content: getPostById.content,
+            integrationName: getPostById.integration?.name,
+            provider: getPostById.integration?.providerIdentifier,
+          },
+          actor!,
+          { created: false, decision }
+        );
+      }
+      // it stays a draft until an approver approves it
+      return {
+        id,
+        state: 'DRAFT' as State,
+        approvalStatus: 'IN_REVIEW',
+        message:
+          'The post is waiting for approval in PostDelegate, it will be scheduled once a teammate approves it.',
+      };
     }
 
     const state: State = status === 'draft' ? 'DRAFT' : 'QUEUE';
@@ -1533,6 +1689,72 @@ export class PostsService {
     } catch (err) {}
 
     return { id, state };
+  }
+
+  // What would stop a stored post from publishing, checked again when it is
+  // approved: it may have been saved as a draft (unchecked) while it waited.
+  // Same checks and messages as updatePostSettings.
+  async getStoredPostProblem(
+    orgId: string,
+    postId: string
+  ): Promise<string | null> {
+    const ordered = await this.getPostsRecursively(postId, true, orgId, true);
+    const [root] = ordered;
+    const integration = (root as any)?.integration;
+    if (!root || !integration) {
+      return null;
+    }
+
+    let settings: Record<string, any>;
+    try {
+      settings = JSON.parse(root.settings || '{}');
+    } catch (err) {
+      settings = {};
+    }
+
+    const [validation] = await this.validatePosts(orgId, [
+      {
+        integration: { id: integration.id },
+        settings: { ...settings, __type: integration.providerIdentifier },
+        value: ordered.map((p) => {
+          let image = [];
+          try {
+            image = JSON.parse(p.image || '[]');
+          } catch (err) {}
+          return { content: p.content, image };
+        }),
+      },
+    ]);
+
+    if (!validation) {
+      return null;
+    }
+    if (validation.emptyContent) {
+      return 'it needs at least one character or one image';
+    }
+    if (!validation.valid) {
+      return validation.settingsError || 'its channel settings need fixing';
+    }
+    if (validation.errors !== true) {
+      return String(validation.errors);
+    }
+    if (validation.tooLong) {
+      return `it is longer than the ${validation.maximumCharacters} characters the channel allows`;
+    }
+    return null;
+  }
+
+  // Review feedback joins the post's comments, the preview page shows them
+  addReviewComment(
+    orgId: string,
+    postId: string,
+    content: string,
+    userId: string | null,
+    displayName?: string
+  ) {
+    return this._postRepository.createComment(orgId, userId, postId, content, {
+      displayName: userId ? undefined : displayName,
+    });
   }
 
   async changeDate(

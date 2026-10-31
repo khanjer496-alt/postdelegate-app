@@ -1,14 +1,12 @@
 import { Ability, AbilityBuilder, AbilityClass } from '@casl/ability';
 import { Injectable } from '@nestjs/common';
-import {
-  isAiAvailable,
-  pricing,
-} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import dayjs from 'dayjs';
 import { WebhooksService } from '@gitroom/nestjs-libraries/database/prisma/webhooks/webhooks.service';
+import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 import { AuthorizationActions, Sections } from './permission.exception.class';
 
 export type AppAbility = Ability<[AuthorizationActions, Sections]>;
@@ -19,7 +17,8 @@ export class PermissionsService {
     private _subscriptionService: SubscriptionService,
     private _postsService: PostsService,
     private _integrationService: IntegrationService,
-    private _webhooksService: WebhooksService
+    private _webhooksService: WebhooksService,
+    private _aiCredentialService: AiCredentialService
   ) {}
   async getPackageOptions(orgId: string) {
     const subscription =
@@ -39,6 +38,29 @@ export class PermissionsService {
     };
   }
 
+  // posts counted against the plan since the start of the billing month
+  private async postsThisMonth(orgId: string, created_at: Date) {
+    const createdAt =
+      (await this._subscriptionService.getSubscription(orgId))?.createdAt ||
+      created_at;
+    const totalMonthPast = Math.abs(dayjs(createdAt).diff(dayjs(), 'month'));
+    const checkFrom = dayjs(createdAt).add(totalMonthPast, 'month');
+    return this._postsService.countPostsFromDay(orgId, checkFrom.toDate());
+  }
+
+  // how many more posts the plan allows this month, null without billing;
+  // a bulk import creates many posts after a single policy check
+  async remainingPostsThisMonth(orgId: string, created_at: Date) {
+    if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+      return null;
+    }
+    const { options } = await this.getPackageOptions(orgId);
+    return Math.max(
+      0,
+      options.posts_per_month - (await this.postsThisMonth(orgId, created_at))
+    );
+  }
+
   async check(
     orgId: string,
     created_at: Date,
@@ -54,6 +76,13 @@ export class PermissionsService {
     // are decided the same way with or without billing
     const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(permission);
 
+    // AI is available when the workspace stored its own key, never because of the plan
+    const hasAiCredential = requestedPermission.some(
+      ([, section]) => section === Sections.AI
+    )
+      ? await this._aiCredentialService.hasCredential(orgId)
+      : false;
+
     if (
       requestedPermission.length === 0 ||
       !process.env.STRIPE_PUBLISHABLE_KEY
@@ -63,8 +92,7 @@ export class PermissionsService {
         if (section === Sections.ADMIN && !isAdmin) {
           continue;
         }
-        // without billing everyone gets the top tier, but AI still needs a provider key
-        if (section === Sections.AI && !isAiAvailable(pricing.ULTIMATE)) {
+        if (section === Sections.AI && !hasAiCredential) {
           continue;
         }
         can(action, section);
@@ -118,17 +146,7 @@ export class PermissionsService {
 
       // check for posts per month
       if (section === Sections.POSTS_PER_MONTH) {
-        const createdAt =
-          (await this._subscriptionService.getSubscription(orgId))?.createdAt ||
-          created_at;
-        const totalMonthPast = Math.abs(
-          dayjs(createdAt).diff(dayjs(), 'month')
-        );
-        const checkFrom = dayjs(createdAt).add(totalMonthPast, 'month');
-        const count = await this._postsService.countPostsFromDay(
-          orgId,
-          checkFrom.toDate()
-        );
+        const count = await this.postsThisMonth(orgId, created_at);
 
         if (count < options.posts_per_month) {
           can(action, section);
@@ -162,7 +180,15 @@ export class PermissionsService {
         continue;
       }
 
-      if (section === Sections.AI && isAiAvailable(options)) {
+      if (section === Sections.AI && hasAiCredential) {
+        can(action, section);
+        continue;
+      }
+
+      if (
+        section === Sections.ANALYTICS_REPORTS &&
+        options.analytics_reports
+      ) {
         can(action, section);
         continue;
       }

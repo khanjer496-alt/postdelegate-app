@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -1024,6 +1025,22 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
         status: 'success',
       },
     ];
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    const { followers_count, fan_count, error } = await (
+      await fetch(
+        `https://graph.facebook.com/${META_GRAPH_API_VERSION}/${id}?fields=followers_count,fan_count&access_token=${accessToken}`
+      )
+    ).json();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const followers =
+      typeof followers_count === 'number' ? followers_count : fan_count;
+    return typeof followers === 'number' ? { followers } : {};
   }
 
   async analytics(

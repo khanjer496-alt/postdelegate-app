@@ -5,9 +5,6 @@ jest.mock('@gitroom/nestjs-libraries/database/prisma/posts/posts.service', () =>
 jest.mock('@gitroom/nestjs-libraries/track/track.service', () => ({
   TrackService: class {},
 }));
-jest.mock('@gitroom/nestjs-libraries/agent/agent.graph.insert.service', () => ({
-  AgentGraphInsertService: class {},
-}));
 jest.mock(
   '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service',
   () => ({ SubscriptionService: class {} })
@@ -57,7 +54,6 @@ describe('PublicController.getPreview', () => {
       },
     ]);
     const controller = new PublicController(
-      {} as any,
       {} as any,
       { getPostsRecursively } as any,
       {} as any

@@ -13,6 +13,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import Parser from 'rss-parser';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
+import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { TemporalService } from 'nestjs-temporal-core';
 import { TypedSearchAttributes } from '@temporalio/common';
@@ -42,16 +43,11 @@ interface WorkflowChannelsState {
   };
 }
 
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
-  temperature: 0.7,
-});
-
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'chatgpt-image-latest',
-});
+// built per run from the workspace's own key, only when the run uses AI
+type AutopostModels = {
+  model: ChatOpenAI;
+  dalle: DallEAPIWrapper;
+};
 
 const generateContent = z.object({
   socialMediaPostContent: z
@@ -71,7 +67,8 @@ export class AutopostService {
     private _autopostsRepository: AutopostRepository,
     private _temporalService: TemporalService,
     private _integrationService: IntegrationService,
-    private _postsService: PostsService
+    private _postsService: PostsService,
+    private _aiCredentialService: AiCredentialService
   ) {}
 
   async stopAll(org: string) {
@@ -222,7 +219,10 @@ export class AutopostService {
     }
   }
 
-  async generateDescription(state: WorkflowChannelsState) {
+  async generateDescription(
+    state: WorkflowChannelsState,
+    models: AutopostModels
+  ) {
     if (!state.body.generateContent) {
       return {
         ...state,
@@ -239,7 +239,7 @@ export class AutopostService {
       };
     }
 
-    const structuredOutput = model.withStructuredOutput(generateContent);
+    const structuredOutput = models.model.withStructuredOutput(generateContent);
     const { socialMediaPostContent } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets raw 'description' of a content and generate a social media post content.
@@ -265,8 +265,8 @@ export class AutopostService {
     };
   }
 
-  async generatePicture(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(dallePrompt);
+  async generatePicture(state: WorkflowChannelsState, models: AutopostModels) {
+    const structuredOutput = models.model.withStructuredOutput(dallePrompt);
     const { generatedTextToBeSentToDallE } =
       await ChatPromptTemplate.fromTemplate(
         `
@@ -281,7 +281,7 @@ export class AutopostService {
           content: state.load.description || state.description,
         });
 
-    const image = await dalle.invoke(generatedTextToBeSentToDallE);
+    const image = await models.dalle.invoke(generatedTextToBeSentToDallE);
 
     return { ...state, image };
   }
@@ -334,6 +334,21 @@ export class AutopostService {
     await this._autopostsRepository.updateUrl(state.id, state.load.url);
   }
 
+  private async buildModels(orgId: string): Promise<AutopostModels> {
+    const apiKey = await this._aiCredentialService.getOpenAiKey(orgId);
+    return {
+      model: new ChatOpenAI({
+        apiKey,
+        model: 'gpt-4.1',
+        temperature: 0.7,
+      }),
+      dalle: new DallEAPIWrapper({
+        apiKey,
+        model: 'chatgpt-image-latest',
+      }),
+    };
+  }
+
   async startAutopost(id: string) {
     const getPost = await this._autopostsRepository.getAutopost(id);
     if (!getPost || !getPost.active) {
@@ -360,10 +375,35 @@ export class AutopostService {
       return;
     }
 
+    const needsAi = getPost.generateContent || getPost.addPicture;
+    if (
+      needsAi &&
+      !(await this._aiCredentialService.hasCredential(getPost.organizationId))
+    ) {
+      // ends like a run with nothing new: the last url is not stored, so the
+      // feed is picked up again once the workspace has a key
+      console.log(
+        `Autopost ${id} skipped: AI is on and the workspace has no OpenAI key`
+      );
+      return;
+    }
+
+    // built once per run, and only when the run uses AI. Without AI the post
+    // keeps the autopost's own content and the picture step is never reached
+    const models = needsAi
+      ? await this.buildModels(getPost.organizationId)
+      : undefined;
+
     const state = AutopostService.state();
     const workflow = state
-      .addNode('generate-description', this.generateDescription.bind(this))
-      .addNode('generate-picture', this.generatePicture.bind(this))
+      .addNode('generate-description', (state) =>
+        models
+          ? this.generateDescription(state, models)
+          : { ...state, description: state.body.content }
+      )
+      .addNode('generate-picture', (state) =>
+        models ? this.generatePicture(state, models) : state
+      )
       .addNode('schedule-post', this.schedulePost.bind(this))
       .addNode('update-url', this.updateUrl.bind(this))
       .addEdge(START, 'generate-description')

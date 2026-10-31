@@ -25,6 +25,7 @@ import { DNDProvider } from '@gitroom/frontend/components/launches/helpers/dnd.p
 import { GeneratorComponent } from './generator/generator';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { NewPost } from '@gitroom/frontend/components/launches/new.post';
+import { ImportPostsButton } from '@gitroom/frontend/components/launches/import/import.posts.button';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useIntegrationList } from '@gitroom/frontend/components/launches/helpers/use.integration.list';
 import useCookie from 'react-use-cookie';
@@ -708,6 +709,7 @@ export const LaunchesComponent = () => {
               <AddProviderButton update={() => update(true)} />
               <div className="flex gap-[8px] group-[.sidebar]:flex-col mobile:hidden">
                 {sortedIntegrations?.length > 0 && <NewPost />}
+                {sortedIntegrations?.length > 0 && <ImportPostsButton />}
                 {sortedIntegrations?.length > 0 &&
                   user?.aiAvailable &&
                   billingEnabled && <GeneratorComponent />}
@@ -788,6 +790,7 @@ export const LaunchesComponent = () => {
             {sortedIntegrations?.length > 0 ? (
               <>
                 <NewPost />
+                <ImportPostsButton />
                 {user?.aiAvailable && billingEnabled && <GeneratorComponent />}
               </>
             ) : (

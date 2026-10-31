@@ -10,6 +10,27 @@ const SAFETY_MESSAGE_REGEX =
   /safety system|safety_violations|content[ _]policy|rejected as a result of our safety|moderation/i;
 
 /**
+ * A workspace's own OpenAI key can pass the check on save and still be refused
+ * later (revoked, or an account with no API credit). Those are the customer's to
+ * fix, so they get their own message instead of the generic failure. Never
+ * includes the key or OpenAI's raw message.
+ */
+export function openAiKeyErrorMessage(err: any): string | undefined {
+  const status = err?.status;
+  const code = err?.code || err?.error?.code;
+
+  if (status === 401) {
+    return 'OpenAI rejected your key. Replace it in Settings → AI.';
+  }
+
+  if (status === 429 && code === 'insufficient_quota') {
+    return 'Your OpenAI account has no API credit. Add billing at platform.openai.com.';
+  }
+
+  return undefined;
+}
+
+/**
  * Normalizes errors thrown by AI generation providers (OpenAI image/chat,
  * LangChain DALL-E, Fal, Seedance, HeyGen, ElevenLabs, ...) into a clean
  * HttpException so a provider rejection (most notably an OpenAI safety
@@ -22,6 +43,11 @@ export function generationError(err: any): HttpException {
   // Preserve errors we already raised intentionally (e.g. SubscriptionException).
   if (err instanceof HttpException) {
     return err;
+  }
+
+  const keyMessage = openAiKeyErrorMessage(err);
+  if (keyMessage) {
+    return new HttpException(keyMessage, 400);
   }
 
   const message: string =

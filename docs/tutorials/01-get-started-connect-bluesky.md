@@ -276,7 +276,7 @@ Label citations: see "How to read the label citations" in the [README](README.md
 
 **Notes**
 
-- The **Billing** item only shows to admins when billing is enabled. The **Agent** item is hidden because AI features are off.
+- The **Billing** item only shows to admins when billing is enabled. The **Agent** item only shows once an admin has saved the workspace's own OpenAI key in **Settings → AI**.
 - If the small review card appears at the bottom left, dismiss it with **Not now** before recording (README has the checklist).
 
 ### Step 12 (2:24 to 2:30, 6 s): End card

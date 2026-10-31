@@ -1,4 +1,4 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
 import { Organization } from '@prisma/client';
 import { ApplicationFailure, TypedSearchAttributes } from '@temporalio/common';
 import { TemporalService } from 'nestjs-temporal-core';
@@ -17,6 +17,11 @@ import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/po
 import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
 import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
 import { DeepgramService } from '@gitroom/nestjs-libraries/deepgram/deepgram.service';
+import {
+  AiCredentialService,
+  MISSING_AI_KEY,
+} from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
+import { openAiKeyErrorMessage } from '@gitroom/nestjs-libraries/openai/generation.error';
 import { organizationId } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
 import { truncateForTemporal } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
@@ -77,7 +82,8 @@ export class ClippingService {
     private _mediaService: MediaService,
     private _openAi: OpenaiService,
     private _deepgram: DeepgramService,
-    private _temporalService: TemporalService
+    private _temporalService: TemporalService,
+    private _aiCredentialService: AiCredentialService
   ) {}
 
   // Every intermediate file is a flat key, because removeFile only keeps the
@@ -195,6 +201,12 @@ export class ClippingService {
         `Clipping is not available in trial mode. To use it now, open ${process.env.FRONTEND_URL}/billing and click "Finish trial" (this charges the plan immediately)`,
         406
       );
+    }
+
+    // checked before anything is paid for: without a key the clips can never
+    // be picked
+    if (!(await this._aiCredentialService.hasCredential(org.id))) {
+      throw new BadRequestException(MISSING_AI_KEY);
     }
 
     if ((await this.balance(org.id)) <= 0) {
@@ -565,6 +577,14 @@ export class ClippingService {
       return clipping.clips.map((clip) => clip.id);
     }
 
+    // the key was removed after the clipping started: retrying can't bring it
+    // back, so the clipping stops and the minutes are given back
+    if (
+      !(await this._aiCredentialService.hasCredential(clipping.organizationId))
+    ) {
+      throw new ClippingStop(MISSING_AI_KEY);
+    }
+
     await this._clippingRepository.updateClipping(
       clipping.organizationId,
       clippingId,
@@ -578,12 +598,24 @@ export class ClippingService {
       throw new ClippingStop('No speech was found in this video.');
     }
 
-    const picked = await this._openAi.pickClips(
-      clipping.title || '',
-      language,
-      segments,
-      clipping.maxClips
-    );
+    let picked: Awaited<ReturnType<OpenaiService['pickClips']>>;
+    try {
+      picked = await this._openAi.pickClips(
+        clipping.organizationId,
+        clipping.title || '',
+        language,
+        segments,
+        clipping.maxClips
+      );
+    } catch (err) {
+      // a refused key or an account with no API credit: retrying can't fix
+      // it, so the clipping stops and the minutes are given back
+      const keyMessage = openAiKeyErrorMessage(err);
+      if (keyMessage) {
+        throw new ClippingStop(keyMessage);
+      }
+      throw err;
+    }
 
     const clips = picked
       .filter(

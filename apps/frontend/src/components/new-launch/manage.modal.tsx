@@ -39,6 +39,9 @@ import { SelectCustomer } from '@gitroom/frontend/components/launches/select.cus
 import { CopilotPopup } from '@copilotkit/react-ui';
 import { DummyCodeComponent } from '@gitroom/frontend/components/new-launch/dummy.code.component';
 import { CreationMethodBadge } from '@gitroom/frontend/components/launches/creation.method.badge';
+import { ApprovalStatusBadge } from '@gitroom/frontend/components/approvals/approval.status.badge';
+import { PostReviewPanel } from '@gitroom/frontend/components/approvals/post.review.panel';
+import { useApprovalSettings } from '@gitroom/frontend/components/approvals/approvals.hooks';
 import {
   SettingsIcon,
   SettingsOutlineIcon,
@@ -97,6 +100,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
     setShowPostNow(false);
   });
   const { data: shortlinkPreferenceData } = useShortlinkPreference();
+  const { data: approvalSettings } = useApprovalSettings();
 
   const { addEditSets, mutate, customClose, dummy } = props;
 
@@ -845,6 +849,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           // every type of save is its own request, the drafts last, since a
           // draft save skips the checks the others still run
           let saved = false;
+          // the workspace can hold a save for an approver instead of scheduling it
+          let heldForReview = false;
           for (const requestType of ['update', 'schedule', 'now', 'draft']) {
             const request = {
               type: requestType,
@@ -879,6 +885,29 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               return;
             }
             saved = true;
+            const output = await response.json().catch(() => []);
+            if (
+              Array.isArray(output) &&
+              output.some((p: any) => p?.approvalStatus === 'IN_REVIEW')
+            ) {
+              heldForReview = true;
+            }
+          }
+          if (heldForReview) {
+            mutate();
+            toaster.show(
+              t(
+                'approval_sent_for_review_toast',
+                'Sent for review. It will publish once an approver approves it.'
+              )
+            );
+            if (customClose) {
+              setTimeout(() => {
+                customClose();
+              }, 2000);
+            }
+            modal.closeAll();
+            return;
           }
         }
 
@@ -979,8 +1008,28 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
     []
   );
 
+  // the review state decides what the main button does for this member
+  const existingApproval = existingData?.posts?.[0]?.approvalStatus;
+  const existingWaiting = ['IN_REVIEW', 'CHANGES_REQUESTED', 'REJECTED'].includes(
+    existingApproval
+  );
+  const existingPublished = existingData?.posts?.[0]?.state === 'PUBLISHED';
+  const savesForReview =
+    !dummy &&
+    !addEditSets &&
+    !existingPublished &&
+    !!approvalSettings &&
+    !approvalSettings.canApprove &&
+    (approvalSettings.requireApproval || existingWaiting);
+  const savesAsApproval =
+    !dummy && !!approvalSettings?.canApprove && existingWaiting;
+
   const scheduleLabel = dummy
     ? t('create_output', 'Create output')
+    : savesForReview
+    ? t('approval_submit_for_review', 'Submit for review')
+    : savesAsApproval
+    ? t('approval_approve_and_schedule', 'Approve and schedule')
     : !existingData?.integration
     ? t('add_to_calendar', 'Add to calendar')
     : existingData?.posts?.[0]?.state === 'DRAFT'
@@ -1099,6 +1148,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                 creationMethod={existingData?.posts?.[0]?.creationMethod}
                 size="sm"
               />
+              <ApprovalStatusBadge status={existingApproval} />
             </div>
             <div className="flex-1 flex flex-col gap-[16px]">
               <div
@@ -1138,6 +1188,10 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                               existingData?.posts?.[0]?.creationMethod
                             }
                             size="sm"
+                          />
+                          <ApprovalStatusBadge
+                            status={existingApproval}
+                            className="ms-[6px]"
                           />
                         </div>
                         {previewButton}
@@ -1291,6 +1345,15 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                 scrollClasses="!pe-[20px]"
                 className="absolute mobile:static top-0 p-[20px] pe-[8px] mobile:p-[16px] left-0 w-full h-full mobile:h-auto overflow-x-hidden overflow-y-scroll mobile:overflow-y-visible scrollbar scrollbar-thumb-newColColor scrollbar-track-newBgColorInner"
               >
+                {!dummy && !!existingData?.posts?.[0]?.id && (
+                  <PostReviewPanel
+                    postId={existingData.posts[0].id}
+                    state={existingData.posts[0].state}
+                    approvalStatus={existingApproval}
+                    publishDate={existingData.posts[0].publishDate}
+                    mutate={mutate}
+                  />
+                )}
                 <ShowAllProviders ref={ref} />
               </Scrollable>
             </div>

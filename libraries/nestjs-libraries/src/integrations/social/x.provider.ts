@@ -3,6 +3,8 @@ import { createHmac, randomBytes } from 'crypto';
 import { parseFragment } from 'parse5';
 import {
   AnalyticsData,
+  AccountStats,
+  PostStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -1538,6 +1540,70 @@ export class XProvider extends SocialAbstract implements SocialProvider {
         : []),
     ];
   };
+
+  // X bills every post read: the daily history reads the 20 newest posts in
+  // one batched lookup
+  analyticsHistoryPostLimit = 20;
+
+  private analyticsClient(accessToken: string) {
+    const [accessTokenSplit, accessSecretSplit] = accessToken.split(':');
+    return new TwitterApi({
+      appKey: process.env.X_API_KEY!,
+      appSecret: process.env.X_API_SECRET!,
+      accessToken: accessTokenSplit,
+      accessSecret: accessSecretSplit,
+    });
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    if (process.env.DISABLE_X_ANALYTICS) {
+      return {};
+    }
+
+    const { data } = await this.analyticsClient(accessToken).v2.me({
+      'user.fields': ['public_metrics'],
+    });
+    const metrics = data?.public_metrics;
+    return {
+      ...(typeof metrics?.followers_count === 'number'
+        ? { followers: metrics.followers_count }
+        : {}),
+      ...(typeof metrics?.following_count === 'number'
+        ? { following: metrics.following_count }
+        : {}),
+      ...(typeof metrics?.tweet_count === 'number'
+        ? { posts: metrics.tweet_count }
+        : {}),
+    };
+  }
+
+  async postsStats(
+    id: string,
+    accessToken: string,
+    postIds: string[]
+  ): Promise<Record<string, PostStats>> {
+    if (process.env.DISABLE_X_ANALYTICS || !postIds.length) {
+      return {};
+    }
+
+    const { data } = await this.analyticsClient(accessToken).v2.tweets(
+      postIds.slice(0, 100),
+      { 'tweet.fields': ['public_metrics'] }
+    );
+
+    return (data || []).reduce((all, tweet) => {
+      const metrics = tweet.public_metrics;
+      if (metrics) {
+        all[tweet.id] = {
+          views: metrics.impression_count,
+          likes: metrics.like_count,
+          comments: metrics.reply_count,
+          shares: (metrics.retweet_count || 0) + (metrics.quote_count || 0),
+        };
+      }
+      return all;
+    }, {} as Record<string, PostStats>);
+  }
 
   async analytics(
     id: string,

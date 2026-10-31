@@ -20,10 +20,8 @@ import { AuthService as AuthChecker } from '@gitroom/helpers/auth/auth.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { getAuthCookieOptions } from '@gitroom/helpers/subdomain/subdomain.management';
-import {
-  isAiAvailable,
-  pricing,
-} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
 import { UserDetailDto } from '@gitroom/nestjs-libraries/dtos/users/user.details.dto';
@@ -49,7 +47,8 @@ export class UsersController {
     private _authService: AuthService,
     private _orgService: OrganizationService,
     private _userService: UsersService,
-    private _trackService: TrackService
+    private _trackService: TrackService,
+    private _aiCredentialService: AiCredentialService
   ) {}
 
   @Get('/chatbase-token')
@@ -107,7 +106,9 @@ export class UsersController {
         : // @ts-ignore
           organization?.subscription?.totalChannels || pricing.FREE.channel,
       tier,
-      aiAvailable: isAiAvailable(pricing[tier]),
+      aiAvailable: await this._aiCredentialService.hasCredential(
+        organization.id
+      ),
       // @ts-ignore
       role: organization?.users[0]?.role,
       // @ts-ignore

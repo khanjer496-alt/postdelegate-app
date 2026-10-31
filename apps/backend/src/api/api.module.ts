@@ -36,6 +36,7 @@ import { WebhookController } from '@gitroom/backend/api/routes/webhooks.controll
 import { SignatureController } from '@gitroom/backend/api/routes/signature.controller';
 import { AutopostController } from '@gitroom/backend/api/routes/autopost.controller';
 import { SetsController } from '@gitroom/backend/api/routes/sets.controller';
+import { AiCredentialsController } from '@gitroom/backend/api/routes/ai.credentials.controller';
 import { ThirdPartyController } from '@gitroom/backend/api/routes/third-party.controller';
 import { MonitorController } from '@gitroom/backend/api/routes/monitor.controller';
 import { NoAuthIntegrationsController } from '@gitroom/backend/api/routes/no.auth.integrations.controller';
@@ -60,6 +61,12 @@ import { FarcasterProvider } from '@gitroom/backend/services/auth/providers/farc
 import { WalletProvider } from '@gitroom/backend/services/auth/providers/wallet.provider';
 import { OauthProvider } from '@gitroom/backend/services/auth/providers/oauth.provider';
 import { StripeController } from '@gitroom/backend/api/routes/stripe.controller';
+import { ApprovalsController } from '@gitroom/backend/api/routes/approvals.controller';
+import { PublicApprovalsController } from '@gitroom/backend/api/routes/public.approvals.controller';
+import { IdeasController } from '@gitroom/backend/api/routes/ideas.controller';
+import { EvergreenController } from '@gitroom/backend/api/routes/evergreen.controller';
+import { PostsImportController } from '@gitroom/backend/api/routes/posts.import.controller';
+import { WeeklySummaryController } from '@gitroom/backend/api/routes/weekly.summary.controller';
 
 const authenticatedController = [
   UsersController,
@@ -77,6 +84,7 @@ const authenticatedController = [
   AutopostController,
   SetsController,
   ThirdPartyController,
+  AiCredentialsController,
   OAuthAppController,
   ApprovedAppsController,
   OAuthAuthorizedController,
@@ -85,6 +93,11 @@ const authenticatedController = [
   AffiliatesController,
   ReviewsController,
   ActivationController,
+  ApprovalsController,
+  IdeasController,
+  EvergreenController,
+  PostsImportController,
+  WeeklySummaryController,
 ];
 @Module({
   imports: [UploadModule],
@@ -102,6 +115,7 @@ const authenticatedController = [
         AuthController,
         PublicController,
         PublicReviewsController,
+        PublicApprovalsController,
         MonitorController,
         EnterpriseController,
         NoAuthIntegrationsController,

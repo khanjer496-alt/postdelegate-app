@@ -19,7 +19,7 @@ export class NotificationsRepository {
     return this._posts.model.post.findFirst({
       where: { organizationId, id: postId },
       select: {
-        id: true, integrationId: true, deletedAt: true,
+        id: true, integrationId: true, deletedAt: true, settings: true,
         integration: { select: { providerIdentifier: true, deletedAt: true } },
       },
     });
@@ -121,6 +121,17 @@ export class NotificationsRepository {
         where: { organizationId, id: { in: ids } },
       }) : { count: 0 };
       return { deleted: removed.count, unattributed };
+    });
+  }
+
+  getUserTimezone(userId: string) {
+    return this._user.model.user.findFirst({
+      where: {
+        id: userId,
+      },
+      select: {
+        timezoneName: true,
+      },
     });
   }
 

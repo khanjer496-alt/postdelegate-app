@@ -1,5 +1,6 @@
 import {
   AnalyticsData,
+  AccountStats,
   AuthTokenDetails,
   PendingCheckResponse,
   PostDetails,
@@ -722,6 +723,23 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
         releaseURL: permalink,
       },
     ];
+  }
+
+  async accountStats(id: string, accessToken: string): Promise<AccountStats> {
+    const { data, error } = await (
+      await fetch(
+        `https://graph.threads.net/v1.0/${id}/threads_insights?metric=followers_count&access_token=${accessToken}`
+      )
+    ).json();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const followers = (data || []).find(
+      (metric: any) => metric?.name === 'followers_count'
+    )?.total_value?.value;
+    return typeof followers === 'number' ? { followers } : {};
   }
 
   async analytics(

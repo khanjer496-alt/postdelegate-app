@@ -59,9 +59,7 @@ export class UploadFactory {
       !!process.env.RUNPOD_API_KEY &&
       !!process.env.RUNPOD_INGEST_ENDPOINT_ID &&
       !!process.env.RUNPOD_CLIPPER_ENDPOINT_ID &&
-      !!process.env.DEEPGRAM_API_KEY &&
-      // the clips are picked by the model
-      !!process.env.OPENAI_API_KEY
+      !!process.env.DEEPGRAM_API_KEY
     );
   }
 

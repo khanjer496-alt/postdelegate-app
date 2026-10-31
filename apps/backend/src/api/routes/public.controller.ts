@@ -17,7 +17,6 @@ import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { Request, Response } from 'express';
 import { applyTrackCookies } from '@gitroom/nestjs-libraries/track/track.cookies';
-import { AgentGraphInsertService } from '@gitroom/nestjs-libraries/agent/agent.graph.insert.service';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
@@ -35,22 +34,9 @@ const pump = promisify(pipeline);
 export class PublicController {
   constructor(
     private _trackService: TrackService,
-    private _agentGraphInsertService: AgentGraphInsertService,
     private _postsService: PostsService,
     private _subscriptionService: SubscriptionService
   ) {}
-  @Post('/agent')
-  async createAgent(@Body() body: { text: string; apiKey: string }) {
-    if (
-      !body.apiKey ||
-      !process.env.AGENT_API_KEY ||
-      body.apiKey !== process.env.AGENT_API_KEY
-    ) {
-      return;
-    }
-    return this._agentGraphInsertService.newPost(body.text);
-  }
-
   @Get(`/posts/:id`)
   async getPreview(@Param('id') id: string) {
     // unauthenticated: expose only what the preview page renders, never the

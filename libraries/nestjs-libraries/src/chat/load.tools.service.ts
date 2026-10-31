@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
 import { pStore } from '@gitroom/nestjs-libraries/chat/mastra.store';
 import { array, object, string } from 'zod';
@@ -8,6 +8,11 @@ import { ModuleRef } from '@nestjs/core';
 import { toolList } from '@gitroom/nestjs-libraries/chat/tools/tool.list';
 import { AgentToolInterface } from '@gitroom/nestjs-libraries/chat/agent.tool.interface';
 import dayjs from 'dayjs';
+import {
+  AiCredentialService,
+  MISSING_AI_KEY,
+} from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
+import { getAuth } from '@gitroom/nestjs-libraries/chat/async.storage';
 
 export const AgentState = object({
   proverbs: array(string()).default([]),
@@ -20,7 +25,10 @@ const renderArray = (list: string[], show: boolean) => {
 
 @Injectable()
 export class LoadToolsService {
-  constructor(private _moduleRef: ModuleRef) {}
+  constructor(
+    private _moduleRef: ModuleRef,
+    private _aiCredentialService: AiCredentialService
+  ) {}
 
   async loadTools(mcpOnly = false) {
     return (
@@ -60,8 +68,8 @@ export class LoadToolsService {
   async agent() {
     const tools = await this.loadTools();
     return new Agent({
-      id: 'postiz',
-      name: 'postiz',
+      id: 'postdelegate',
+      name: 'postdelegate',
       description:
         'Agent that helps schedule and list social media posts for users',
       instructions: ({ requestContext }) => {
@@ -113,7 +121,23 @@ export class LoadToolsService {
       )}
 `;
       },
-      model: openai('gpt-5.2'),
+      // the workspace's own key, resolved per request: the org comes from the
+      // request context (dashboard chat) or the MCP auth (async storage)
+      model: async ({ requestContext }) => {
+        const organization = requestContext?.get('organization' as never) as
+          | string
+          | undefined;
+        const orgId =
+          (organization ? JSON.parse(organization)?.id : undefined) ||
+          getAuth()?.id;
+        if (!orgId) {
+          throw new BadRequestException(MISSING_AI_KEY);
+        }
+
+        return createOpenAI({
+          apiKey: await this._aiCredentialService.getOpenAiKey(orgId),
+        })('gpt-5.2');
+      },
       tools,
       memory: new Memory({
         storage: pStore,

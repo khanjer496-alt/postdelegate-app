@@ -34,8 +34,12 @@ import { GlobalSettings } from '@gitroom/frontend/components/settings/global.set
 import { AppsComponent } from '@gitroom/frontend/components/settings/apps.component';
 import { ThirdPartyComponent } from '@gitroom/frontend/components/third-parties/third-party.component';
 import { Plugs } from '@gitroom/frontend/components/plugs/plugs';
+import { AiSettings } from '@gitroom/frontend/components/settings/ai.settings.component';
 import { AffiliatesComponent } from '@gitroom/frontend/components/affiliates/affiliates.component';
 import { openReviewModal } from '@gitroom/frontend/components/reviews/review.form';
+import { ApprovalsSettings } from '@gitroom/frontend/components/approvals/approvals.settings';
+import { WorkspaceActivity } from '@gitroom/frontend/components/approvals/workspace.activity';
+import { useApprovalSettings } from '@gitroom/frontend/components/approvals/approvals.hooks';
 export const SettingsPopup: FC<{
   getRef?: Ref<any>;
 }> = (props) => {
@@ -45,6 +49,8 @@ export const SettingsPopup: FC<{
   const toast = useToaster();
   const swr = useSWRConfig();
   const user = useUser();
+  // the workspace history names clients, approvers only
+  const { data: approvalSettings } = useApprovalSettings();
   const resolver = useMemo(() => {
     return classValidatorResolver(UserDetailDto);
   }, []);
@@ -89,12 +95,21 @@ export const SettingsPopup: FC<{
   const list = useMemo(() => {
     const arr = [];
     arr.push({ tab: 'global_settings', label: t('global_settings', 'Global Settings') });
+    if (user?.role !== 'USER') {
+      arr.push({ tab: 'ai', label: t('ai_settings', 'AI') });
+    }
     // Populate tabs based on user permissions
     if (user?.tier?.public_api && isGeneral && showLogout) {
       arr.push({ tab: 'agents', label: t('agents_dev', 'Agents / Dev') });
     }
     if (user?.tier?.team_members && isGeneral && user?.role !== 'USER') {
       arr.push({ tab: 'teams', label: t('teams', 'Teams') });
+    }
+    if (user?.role !== 'USER') {
+      arr.push({ tab: 'approvals', label: t('approval_settings_title', 'Approvals') });
+    }
+    if (approvalSettings?.canApprove) {
+      arr.push({ tab: 'activity', label: t('activity_title', 'Activity') });
     }
     if (user?.tier?.webhooks) {
       arr.push({ tab: 'webhooks', label: t('webhooks_1', 'Webhooks') });
@@ -115,7 +130,7 @@ export const SettingsPopup: FC<{
     arr.push({ tab: 'affiliates', label: t('affiliates', 'Affiliates') });
 
     return arr;
-  }, [user, isGeneral, showLogout, t]);
+  }, [user, isGeneral, showLogout, t, approvalSettings?.canApprove]);
 
   const [tab, setTab] = useState(() => {
     const requested = url.get('tab');
@@ -207,6 +222,11 @@ export const SettingsPopup: FC<{
                   <GlobalSettings />
                 </div>
               )}
+              {tab === 'ai' && user?.role !== 'USER' && (
+                <div>
+                  <AiSettings />
+                </div>
+              )}
               {tab === 'teams' &&
                 !!user?.tier?.team_members &&
                 isGeneral &&
@@ -215,6 +235,18 @@ export const SettingsPopup: FC<{
                     <TeamsComponent />
                   </div>
                 )}
+
+              {tab === 'approvals' && user?.role !== 'USER' && (
+                <div>
+                  <ApprovalsSettings />
+                </div>
+              )}
+
+              {tab === 'activity' && !!approvalSettings?.canApprove && (
+                <div>
+                  <WorkspaceActivity />
+                </div>
+              )}
 
               {tab === 'webhooks' && !!user?.tier?.webhooks && (
                 <div>
