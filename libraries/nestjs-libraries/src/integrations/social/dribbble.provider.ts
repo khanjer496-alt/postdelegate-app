@@ -212,6 +212,9 @@ export class DribbbleProvider extends SocialAbstract implements SocialProvider {
 
     formData.append('title', postDetails[0].settings.title);
     formData.append('description', postDetails[0].message);
+    if (postDetails[0].settings.team) {
+      formData.append('team_id', String(postDetails[0].settings.team));
+    }
 
     let data2;
     try {

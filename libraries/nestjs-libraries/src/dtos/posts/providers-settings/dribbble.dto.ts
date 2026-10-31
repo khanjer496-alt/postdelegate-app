@@ -2,8 +2,9 @@ import {
   IsDefined,
   IsOptional,
   IsString,
-  IsUrl,
+  Matches,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class DribbbleDto {
@@ -14,8 +15,10 @@ export class DribbbleDto {
   })
   title: string;
 
-  @IsString()
+  // the Dribbble team id picked in the composer, empty for the user's own account
   @IsOptional()
-  @IsUrl()
-  team: string;
+  @IsString()
+  @ValidateIf((o) => !!o.team)
+  @Matches(/^\d+$/, { message: 'Choose a team from the list' })
+  team?: string;
 }
