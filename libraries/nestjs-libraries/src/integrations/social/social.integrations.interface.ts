@@ -80,6 +80,7 @@ export interface IAuthenticator {
     accessToken: string,
     limit: number
   ): Promise<RecentPostStat[]>; // Latest posts of the channel with their stats, newest first. Throws when the platform call fails (an empty array means no posts)
+  recentPostsEmptyHint?: string; // Shown when recentPosts returns nothing, e.g. which posts the platform lists
   resolveReleaseId?(
     accessToken: string,
     releaseId: string,

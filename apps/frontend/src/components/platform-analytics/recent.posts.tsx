@@ -21,6 +21,7 @@ interface RecentPost {
 interface RecentPostsData {
   supported: boolean;
   unavailable?: boolean;
+  emptyHint?: string;
   posts: RecentPost[];
 }
 
@@ -314,9 +315,36 @@ export const RecentPosts: FC<{ integrationId: string }> = ({
   if (!data.posts.length) {
     return (
       <Section>
-        <p className="text-[13px] text-newTableText">
-          {t('analytics_recent_posts_empty', 'No posts yet')}
-        </p>
+        <div className="flex flex-col gap-[10px]">
+          <div
+            aria-hidden="true"
+            className="flex items-center gap-[16px] px-[12px] text-[11px] uppercase tracking-[0.06em] text-newTableText mobile:hidden"
+          >
+            <span className="flex-1">
+              {t('analytics_recent_posts_post', 'Post')}
+            </span>
+            <span className="grid grid-cols-4 gap-[8px] shrink-0 w-[300px] xl:w-[360px]">
+              {METRICS.map((metric) => (
+                <span key={metric} className="flex items-center gap-[4px]">
+                  <MetricIcon metric={metric} />
+                  {t(
+                    `analytics_recent_posts_${metric}`,
+                    metric.charAt(0).toUpperCase() + metric.slice(1)
+                  )}
+                </span>
+              ))}
+            </span>
+            <span className="shrink-0 w-[78px]" />
+          </div>
+          <div className="rounded-[10px] border border-dashed border-newTableBorder p-[16px] flex flex-col gap-[4px]">
+            <p className="text-[14px] font-[500] text-newTextColor">
+              {t('analytics_recent_posts_empty', 'No posts yet')}
+            </p>
+            {!!data.emptyHint && (
+              <p className="text-[13px] text-newTableText">{data.emptyHint}</p>
+            )}
+          </div>
+        </div>
       </Section>
     );
   }

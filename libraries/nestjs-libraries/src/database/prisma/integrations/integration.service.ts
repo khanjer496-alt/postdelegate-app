@@ -40,7 +40,12 @@ const RECENT_POSTS_LIMIT = 20;
 // (expired token on a read-only call, platform error)
 export type RecentPostsResponse =
   | { supported: false; posts: [] }
-  | { supported: true; unavailable?: true; posts: RecentPostStat[] };
+  | {
+      supported: true;
+      unavailable?: true;
+      emptyHint?: string;
+      posts: RecentPostStat[];
+    };
 
 @Injectable()
 export class IntegrationService {
@@ -606,7 +611,11 @@ export class IntegrationService {
     const bypassCache = integrationProvider.authorizationPolicy?.bypassAnalyticsCache;
     const cached = bypassCache ? undefined : await ioRedis.get(cacheKey);
     if (cached) {
-      return { supported: true, posts: JSON.parse(cached) };
+      return {
+        supported: true,
+        emptyHint: integrationProvider.recentPostsEmptyHint,
+        posts: JSON.parse(cached),
+      };
     }
 
     try {
@@ -626,7 +635,11 @@ export class IntegrationService {
           ? 1
           : 3600
       );
-      return { supported: true, posts };
+      return {
+        supported: true,
+        emptyHint: integrationProvider.recentPostsEmptyHint,
+        posts,
+      };
     } catch (e) {
       if (e instanceof RefreshToken && allowRefresh && !forceRefresh) {
         return this.recentPosts(org, integration, true, true);

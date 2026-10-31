@@ -1197,6 +1197,10 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     }
   }
 
+  // TikTok's video list only returns public videos
+  recentPostsEmptyHint =
+    "TikTok only lists public videos here. Posts set to 'Only me' won't appear.";
+
   // Unlike analytics(), a failed call throws so the caller can tell an error
   // from an account without videos
   async recentPosts(
