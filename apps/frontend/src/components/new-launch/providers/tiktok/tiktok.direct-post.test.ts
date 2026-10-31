@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseTikTokCreatorInfo,
+  getTikTokCheckboxError,
   getTikTokDirectPostState,
+  getTikTokFieldsToValidate,
   getTikTokPublishBlockedReason,
   isTikTokVideoPath,
   TIKTOK_BRANDED_CONTENT_NOT_PRIVATE,
@@ -119,6 +121,20 @@ test('disclosure without a brand choice blocks with the TikTok wording', () => {
   assert.equal(blockedReason({ disclose: true }), TIKTOK_COMMERCIAL_SELECTION_REQUIRED);
   // the disclosure choice is asked first, even while other settings are missing
   assert.equal(blockedReason({ disclose: true, privacyLevel: '' }, { musicUsageConsent: false }), TIKTOK_COMMERCIAL_SELECTION_REQUIRED);
+});
+
+test('a brand choice re-validates the disclosure, so its error clears at once', () => {
+  const commercial = ['disclose', 'brand_organic_toggle', 'brand_content_toggle'];
+  assert.deepEqual(getTikTokFieldsToValidate('brand_organic_toggle'), commercial);
+  assert.deepEqual(getTikTokFieldsToValidate('brand_content_toggle'), commercial);
+  assert.deepEqual(getTikTokFieldsToValidate('disclose'), commercial);
+  assert.deepEqual(getTikTokFieldsToValidate('duet'), ['duet']);
+});
+
+test('the missing brand choice is shown once, not again under the checkbox', () => {
+  assert.equal(getTikTokCheckboxError(TIKTOK_COMMERCIAL_SELECTION_REQUIRED), undefined);
+  assert.equal(getTikTokCheckboxError('Accept TikTok Music Usage Confirmation before posting.'), 'Accept TikTok Music Usage Confirmation before posting.');
+  assert.equal(getTikTokCheckboxError(undefined), undefined);
 });
 
 test('private branded content blocks with the TikTok wording', () => {

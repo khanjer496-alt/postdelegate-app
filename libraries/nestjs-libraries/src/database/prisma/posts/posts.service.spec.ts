@@ -16,9 +16,10 @@ jest.mock('@gitroom/nestjs-libraries/upload/upload.factory', () => ({
 
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 
-const makeService = () => {
+const makeService = (integrationManager: any = {}) => {
   const postRepository = {
     getPost: jest.fn(),
+    getPosts: jest.fn(),
     createComment: jest.fn().mockResolvedValue({ id: 'c-1' }),
     updateImages: jest.fn(),
   };
@@ -28,7 +29,7 @@ const makeService = () => {
   };
   const service = new PostsService(
     postRepository as any,
-    {} as any,
+    integrationManager,
     {} as any,
     mediaService as any,
     {} as any,
@@ -128,5 +129,52 @@ describe('PostsService.updateMedia organization scoping', () => {
       'foreign-media'
     );
     expect(mediaService.getMediaById).not.toHaveBeenCalled();
+  });
+});
+
+describe('PostsService.getPostsMinified published label', () => {
+  const calendarPost = (overrides: Record<string, unknown>) => ({
+    id: 'p-1',
+    state: 'PUBLISHED',
+    image: null,
+    settings: JSON.stringify({ content_posting_method: 'UPLOAD' }),
+    integration: { providerIdentifier: 'tiktok' },
+    ...overrides,
+  });
+  const integrationManager = {
+    getSocialIntegration: (identifier: string) =>
+      identifier === 'tiktok'
+        ? {
+            publishedLabel: (settings: any) =>
+              settings.content_posting_method === 'UPLOAD'
+                ? 'Sent to TikTok inbox'
+                : undefined,
+          }
+        : {},
+  };
+
+  it('labels published posts from the provider and never sends the settings', async () => {
+    const { service, postRepository } = makeService(integrationManager);
+    postRepository.getPosts.mockResolvedValue([
+      calendarPost({ id: 'inbox' }),
+      calendarPost({ id: 'queued', state: 'QUEUE' }),
+      calendarPost({
+        id: 'direct',
+        settings: JSON.stringify({ content_posting_method: 'DIRECT_POST' }),
+      }),
+      calendarPost({ id: 'broken', settings: '{not json' }),
+      calendarPost({ id: 'other', integration: { providerIdentifier: 'x' } }),
+    ]);
+
+    const { p: posts } = await service.getPostsMinified('org-A', {} as any);
+
+    expect(posts.map((post: any) => [post.i, post.pl])).toEqual([
+      ['inbox', 'Sent to TikTok inbox'],
+      ['queued', undefined],
+      ['direct', undefined],
+      ['broken', undefined],
+      ['other', undefined],
+    ]);
+    expect(posts.some((post: any) => 'settings' in post)).toBe(false);
   });
 });

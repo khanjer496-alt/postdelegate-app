@@ -39,6 +39,21 @@ export const TIKTOK_COMMERCIAL_SELECTION_REQUIRED =
 export const TIKTOK_BRANDED_CONTENT_NOT_PRIVATE =
   'Branded content visibility cannot be set to private.';
 
+// The DTO reports a missing brand choice on `disclose`, so a change to any of
+// these fields re-validates all of them.
+const commercialFields = ['disclose', 'brand_organic_toggle', 'brand_content_toggle'];
+export function getTikTokFieldsToValidate(name: string): string[] {
+  return commercialFields.includes(name) ? commercialFields : [name];
+}
+
+// The composer shows the missing brand choice live under the brand options, so
+// the same field error is not repeated under a checkbox.
+export function getTikTokCheckboxError(error: unknown): string | undefined {
+  return typeof error === 'string' && error !== TIKTOK_COMMERCIAL_SELECTION_REQUIRED
+    ? error
+    : undefined;
+}
+
 // Why the video duration does not allow posting yet, or undefined when it does.
 export function getTikTokVideoDurationMessage(input: {
   maxDurationSeconds: number;

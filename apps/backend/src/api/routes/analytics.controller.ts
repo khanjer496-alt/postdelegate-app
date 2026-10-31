@@ -54,4 +54,15 @@ export class AnalyticsController {
   ) {
     return this._postsService.checkPostAnalytics(org.id, postId, +date);
   }
+
+  // read-only: the channel view loads this after /:integration, which already
+  // refreshed an expired token, so a failure here never refreshes or
+  // disconnects the channel
+  @Get('/:integration/recent-posts')
+  async getRecentPosts(
+    @GetOrgFromRequest() org: Organization,
+    @Param('integration') integration: string
+  ) {
+    return this._integrationService.recentPosts(org, integration, false);
+  }
 }

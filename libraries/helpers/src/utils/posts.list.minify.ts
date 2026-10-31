@@ -27,6 +27,7 @@ const POST_ITEM_KEYS: Record<string, string> = {
   intervalInDays: 'iv',
   actualDate: 'ad',
   creationMethod: 'cm',
+  publishedLabel: 'pl',
 };
 
 const INTEGRATION_KEYS: Record<string, string> = {

@@ -18,7 +18,9 @@ import { TiktokPreview } from '@gitroom/frontend/components/new-launch/providers
 import { TikTokMusicSelector } from '@gitroom/frontend/components/new-launch/providers/tiktok/tiktok.music';
 import { TikTokLocationSelector } from '@gitroom/frontend/components/new-launch/providers/tiktok/tiktok.location';
 import {
+  getTikTokCheckboxError,
   getTikTokDirectPostState,
+  getTikTokFieldsToValidate,
   getTikTokPublishBlockedReason,
   getTikTokVideoDurationMessage,
   isTikTokVideoPath,
@@ -57,8 +59,8 @@ const TikTokCheckbox: FC<{
   disabled?: boolean;
   tooltip?: string;
 }> = ({ name, label, initialValue = false, disabled = false, tooltip }) => {
-  const { register, watch, setValue, formState } = useSettings();
-  const error = formState.errors[name]?.message;
+  const { register, watch, setValue, trigger, formState } = useSettings();
+  const error = getTikTokCheckboxError(formState.errors[name]?.message);
   return (
     <div className="flex flex-col gap-[6px]">
       <label
@@ -71,14 +73,14 @@ const TikTokCheckbox: FC<{
           {...register(name, { value: initialValue })}
           checked={watch(name) === true}
           disabled={disabled}
-          onChange={(event) => setValue(name, event.target.checked, {
-            shouldDirty: true,
-            shouldValidate: true,
-          })}
+          onChange={(event) => {
+            setValue(name, event.target.checked, { shouldDirty: true });
+            trigger(getTikTokFieldsToValidate(name));
+          }}
         />
         <span>{label}</span>
       </label>
-      {typeof error === 'string' && <div role="alert" className="text-red-400 text-[12px]">{error}</div>}
+      {error && <div role="alert" className="text-red-400 text-[12px]">{error}</div>}
     </div>
   );
 };

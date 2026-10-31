@@ -542,12 +542,38 @@ export class PostsService {
     return this._postRepository.getPosts(orgId, query);
   }
 
+  // the calendar gets a label per published post instead of its settings
   async getPostsMinified(orgId: string, query: GetPostsDto) {
     return minifyPosts({
       posts: this.firstMediaOnly(
         await this._postRepository.getPosts(orgId, query, true)
-      ),
+      ).map(({ settings, ...post }) => {
+        const publishedLabel = this.publishedLabel(post, settings);
+        return publishedLabel ? { ...post, publishedLabel } : post;
+      }),
     });
+  }
+
+  // a provider can name the published state for some settings, like media
+  // that was only sent to an inbox
+  private publishedLabel(
+    post: { state: State; integration?: { providerIdentifier: string } },
+    settings?: string | null
+  ) {
+    if (post.state !== State.PUBLISHED || !post.integration) {
+      return undefined;
+    }
+    const provider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+    if (!provider?.publishedLabel) {
+      return undefined;
+    }
+    try {
+      return provider.publishedLabel(JSON.parse(settings || '{}') || {});
+    } catch (err) {
+      return undefined;
+    }
   }
 
   async getPostsList(orgId: string, query: GetPostsListDto) {

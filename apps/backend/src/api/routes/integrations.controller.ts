@@ -140,6 +140,7 @@ export class IntegrationsController {
             time: JSON.parse(p.postingTimes),
             changeProfilePicture: !!findIntegration?.changeProfilePicture,
             changeNickName: !!findIntegration?.changeNickname,
+            recentPosts: !!findIntegration?.recentPosts,
             customer: p.customer,
             additionalSettings: p.additionalSettings || '[]',
           };

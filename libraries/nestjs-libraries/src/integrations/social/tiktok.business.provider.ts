@@ -56,6 +56,13 @@ export class TiktokBusinessProvider
     return 2200;
   }
 
+  // UPLOAD only saves the media as a draft in the creator's TikTok inbox
+  publishedLabel(settings: Partial<TikTokDto>) {
+    return settings?.content_posting_method === 'UPLOAD'
+      ? 'Sent to TikTok inbox'
+      : undefined;
+  }
+
   private baseUrl = 'https://business-api.tiktok.com/open_api/v1.3';
 
   // The TikTok developer portal only accepts redirect URLs that end with "/"

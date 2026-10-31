@@ -113,6 +113,7 @@ export interface Integrations {
   changeProfilePicture: boolean;
   additionalSettings: string;
   changeNickName: boolean;
+  recentPosts?: boolean;
   time: {
     time: number;
   }[];

@@ -1215,6 +1215,7 @@ const CalendarItem: FC<{
   showTime?: boolean;
   post: Post & {
     integration: Integration;
+    publishedLabel?: string;
     tags: {
       tag: Tags;
     }[];
@@ -1439,7 +1440,8 @@ const CalendarItem: FC<{
         tabIndex={0}
         aria-label={`${post.integration.name}, ${statusLabel(
           t,
-          state
+          state,
+          post.publishedLabel
         )}, ${time}: ${firstLine || t('no_content', 'no content')}`}
         onClick={openEditor}
         onKeyDown={onCardKeyDown}
@@ -1483,7 +1485,12 @@ const CalendarItem: FC<{
               display === 'month' && 'mobile:hidden'
             )}
           >
-            <PostStatus state={state} error={post.error} compact={compact} />
+            <PostStatus
+              state={state}
+              error={post.error}
+              publishedLabel={post.publishedLabel}
+              compact={compact}
+            />
             {/* the day view slots already show their time */}
             {!compact && (showTime || display === 'week') && (
               <div className="ms-auto shrink-0 text-[11px] text-newTextColor/70 tabular-nums">
@@ -1525,9 +1532,14 @@ const CalendarItem: FC<{
   );
 });
 
-const statusLabel = (t: ReturnType<typeof useT>, state: State) =>
+// a provider can name the published state, like media sent to an inbox
+const statusLabel = (
+  t: ReturnType<typeof useT>,
+  state: State,
+  publishedLabel?: string
+) =>
   state === 'PUBLISHED'
-    ? t('status_published', 'Published')
+    ? publishedLabel || t('status_published', 'Published')
     : state === 'ERROR'
     ? t('status_failed', 'Failed')
     : state === 'DRAFT'
@@ -1571,10 +1583,11 @@ const ChannelAvatar: FC<{
 const PostStatus: FC<{
   state: State;
   error?: string | null;
+  publishedLabel?: string;
   compact?: boolean;
-}> = ({ state, error, compact }) => {
+}> = ({ state, error, publishedLabel, compact }) => {
   const t = useT();
-  const label = statusLabel(t, state);
+  const label = statusLabel(t, state, publishedLabel);
   return (
     <div
       className="flex items-center gap-[4px] min-w-0"
@@ -1642,7 +1655,7 @@ const PREVIEW_GAP = 8;
 // the full post next to its card, in a portal so the calendar scroll doesn't clip it
 const CalendarItemPreview: FC<{
   anchor: React.RefObject<HTMLDivElement | null>;
-  post: Post & { integration: Integration };
+  post: Post & { integration: Integration; publishedLabel?: string };
   text: string;
   state: State;
   time: string;
@@ -1712,7 +1725,11 @@ const CalendarItemPreview: FC<{
           </div>
         </div>
         <div className="shrink-0">
-          <PostStatus state={state} error={post.error} />
+          <PostStatus
+            state={state}
+            error={post.error}
+            publishedLabel={post.publishedLabel}
+          />
         </div>
       </div>
       {picture && (

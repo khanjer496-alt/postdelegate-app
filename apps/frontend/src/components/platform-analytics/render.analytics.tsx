@@ -5,6 +5,7 @@ import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { ChartSocial } from '@gitroom/frontend/components/analytics/chart-social';
 import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+import { RecentPosts } from '@gitroom/frontend/components/platform-analytics/recent.posts';
 
 interface AnalyticsDataItem {
   label: string;
@@ -168,7 +169,8 @@ const EmptyState: FC<{ onRefresh: () => void }> = ({ onRefresh }) => {
 };
 
 export const RenderAnalytics: FC<{
-  integration: Integration;
+  // recentPosts: the provider can list its recent posts (from /integrations/list)
+  integration: Integration & { recentPosts?: boolean };
   date: number;
 }> = (props) => {
   const { integration, date } = props;
@@ -237,18 +239,25 @@ export const RenderAnalytics: FC<{
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[16px]">
-      {data?.length === 0 && (
-        <EmptyState onRefresh={refreshChannel(integration as any)} />
+    <div className="flex flex-col gap-[16px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[16px]">
+        {data?.length === 0 && (
+          <EmptyState onRefresh={refreshChannel(integration as any)} />
+        )}
+        {data?.map((item: AnalyticsDataItem, index: number) => (
+          <AnalyticsCard
+            key={`analytics-${index}`}
+            item={item}
+            total={totals[index]}
+            index={index}
+          />
+        ))}
+      </div>
+      {/* loaded after the totals: their request refreshes an expired token,
+          the recent posts request is read-only */}
+      {!!integration.recentPosts && (
+        <RecentPosts integrationId={integration.id} />
       )}
-      {data?.map((item: AnalyticsDataItem, index: number) => (
-        <AnalyticsCard
-          key={`analytics-${index}`}
-          item={item}
-          total={totals[index]}
-          index={index}
-        />
-      ))}
     </div>
   );
 };

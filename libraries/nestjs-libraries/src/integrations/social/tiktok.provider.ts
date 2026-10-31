@@ -4,6 +4,7 @@ import {
   PendingCheckResponse,
   PostDetails,
   PostResponse,
+  RecentPostStat,
   SocialProvider,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import dayjs from 'dayjs';
@@ -60,6 +61,13 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   editor = 'normal' as const;
   maxLength() {
     return 2000;
+  }
+
+  // UPLOAD only drops the media into the creator's TikTok inbox
+  publishedLabel(settings: Partial<TikTokDto>) {
+    return settings?.content_posting_method === 'UPLOAD'
+      ? 'Sent to TikTok inbox'
+      : undefined;
   }
 
   private isVideo(path: string) {
@@ -1187,6 +1195,67 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       console.error('Error fetching TikTok analytics:', err);
       return [];
     }
+  }
+
+  // Unlike analytics(), a failed call throws so the caller can tell an error
+  // from an account without videos
+  async recentPosts(
+    id: string,
+    accessToken: string,
+    limit: number
+  ): Promise<RecentPostStat[]> {
+    const data = await (
+      await this.fetch(
+        'https://open.tiktokapis.com/v2/video/list/?fields=id,title,video_description,cover_image_url,share_url,create_time,view_count,like_count,comment_count,share_count',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          // TikTok returns at most 20 videos per page
+          body: JSON.stringify({ max_count: Math.min(Math.max(limit, 1), 20) }),
+        }
+      )
+    ).json();
+
+    if (data?.error?.code && data.error.code !== 'ok') {
+      throw new BadBody(
+        'tiktok-recent-posts',
+        JSON.stringify(data.error),
+        Buffer.from('{}'),
+        'Could not load the TikTok videos'
+      );
+    }
+
+    const count = (value: unknown) =>
+      typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+    return ((data?.data?.videos || []) as any[])
+      .filter((video) => video?.id)
+      .map((video) => ({
+        id: String(video.id),
+        title: String(video.title || video.video_description || '').trim(),
+        thumbnailUrl:
+          typeof video.cover_image_url === 'string' &&
+          video.cover_image_url.startsWith('https://')
+            ? video.cover_image_url
+            : undefined,
+        // share_url carries tracking params (the app's client key among them)
+        url:
+          typeof video.share_url === 'string' &&
+          video.share_url.startsWith('https://')
+            ? video.share_url.split('?')[0]
+            : undefined,
+        publishedAt:
+          Number(video.create_time) > 0
+            ? dayjs.unix(Number(video.create_time)).toISOString()
+            : '',
+        views: count(video.view_count),
+        likes: count(video.like_count),
+        comments: count(video.comment_count),
+        shares: count(video.share_count),
+      }));
   }
 
   async missing(

@@ -75,6 +75,11 @@ export interface IAuthenticator {
     postId: string,
     fromDate: number,
   ): Promise<AnalyticsData[]>;
+  recentPosts?(
+    integrationId: string,
+    accessToken: string,
+    limit: number
+  ): Promise<RecentPostStat[]>; // Latest posts of the channel with their stats, newest first. Throws when the platform call fails (an empty array means no posts)
   resolveReleaseId?(
     accessToken: string,
     releaseId: string,
@@ -112,6 +117,20 @@ export interface AnalyticsData {
   label: string;
   data: Array<{ total: string; date: string }>;
   percentageChange: number;
+}
+
+// A post read back from the platform for the channel analytics view. Counts
+// the platform does not report are left out rather than set to 0.
+export interface RecentPostStat {
+  id: string;
+  title: string;
+  thumbnailUrl?: string;
+  url?: string;
+  publishedAt: string; // ISO 8601, empty when the platform does not say
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
 }
 
 
@@ -236,6 +255,9 @@ export interface SocialProvider
   stripLinks?: () => boolean;
   refreshCron?: boolean;
   refreshErrorMessage?(err: any): string | undefined;
+  // the calendar label of a published post when these settings did not make it
+  // public, e.g. media sent to an inbox to finish in the app
+  publishedLabel?(settings: any): string | undefined;
   dto?: any;
   maxLength: (additionalSettings?: any, settings?: any) => number;
   checkValidity(
