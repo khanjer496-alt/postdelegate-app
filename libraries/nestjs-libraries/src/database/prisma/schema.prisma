@@ -52,6 +52,7 @@ model Organization {
   activityLogs        ActivityLog[]
   ideas               Idea[]
   postImports         PostImport[]
+  trialOnboardingEmails TrialOnboardingEmail[]
   // Affiliate attribution, set once at registration and never changed
   referredByAffiliateId String?
   referredByAffiliate   AffiliateProfile? @relation("AffiliateReferrals", fields: [referredByAffiliateId], references: [id])
@@ -136,6 +137,8 @@ model User {
   sendSuccessEmails     Boolean              @default(true)
   sendFailureEmails     Boolean              @default(true)
   sendStreakEmails      Boolean              @default(true)
+  // the getting started emails sent during a free trial
+  sendOnboardingEmails  Boolean              @default(true)
   oauthAuthorizations   OAuthAuthorization[]
   affiliateProfile      AffiliateProfile?
   review                Review?
@@ -586,6 +589,19 @@ model PostImport {
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, hash])
+}
+
+// The trial onboarding emails a workspace got, one row per step: the unique
+// (organization, step) row is claimed before sending, so a retried or a
+// concurrent run never sends a step twice
+model TrialOnboardingEmail {
+  id             String       @id @default(uuid())
+  organizationId String
+  step           String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, step])
 }
 
 model Notifications {

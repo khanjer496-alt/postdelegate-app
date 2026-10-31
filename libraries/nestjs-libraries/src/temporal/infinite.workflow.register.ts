@@ -26,6 +26,16 @@ export class InfiniteWorkflowRegister implements OnModuleInit {
             taskQueue: 'main',
           });
       } catch (err) {}
+      // the getting started emails of new trials; the activity does nothing
+      // without an email provider or with TRIAL_ONBOARDING_EMAILS_DISABLED=true
+      try {
+        await this._temporalService.client
+          ?.getRawClient()
+          ?.workflow?.start('trialOnboardingWorkflowV1', {
+            workflowId: 'trial-onboarding-workflow-v1',
+            taskQueue: 'main',
+          });
+      } catch (err) {}
     }
     if (process.env.INTEGRATION_AUTHORIZATION_LIFECYCLE_ENABLED === 'true') {
       try {

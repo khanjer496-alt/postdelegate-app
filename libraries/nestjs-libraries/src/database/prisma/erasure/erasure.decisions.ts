@@ -96,6 +96,10 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
     note: 'deleted before tags; createdById is a plain id with no relation, gone with the row',
   },
   PostImport: { scope: 'org', note: 'deleted, holds import results only' },
+  TrialOnboardingEmail: {
+    scope: 'org',
+    note: 'deleted, which trial emails were sent',
+  },
   ThirdParty: { scope: 'org', note: 'deleted, holds a third party API key' },
   AiCredential: { scope: 'org', note: 'deleted, holds the workspace OpenAI key' },
   Errors: { scope: 'org', note: 'deleted, bodies can hold post content' },

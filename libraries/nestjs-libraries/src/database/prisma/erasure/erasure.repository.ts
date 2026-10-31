@@ -210,6 +210,11 @@ const organizationSteps = (org: string): Step[] => [
   { table: 'Signatures', model: 'signatures', where: { organizationId: org } },
   { table: 'Sets', model: 'sets', where: { organizationId: org } },
   { table: 'PostImport', model: 'postImport', where: { organizationId: org } },
+  {
+    table: 'TrialOnboardingEmail',
+    model: 'trialOnboardingEmail',
+    where: { organizationId: org },
+  },
   { table: 'AutoPost', model: 'autoPost', where: { organizationId: org } },
   { table: 'ThirdParty', model: 'thirdParty', where: { organizationId: org } },
   {

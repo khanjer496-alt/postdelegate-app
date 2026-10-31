@@ -353,6 +353,7 @@ export class UsersRepository {
         sendSuccessEmails: true,
         sendFailureEmails: true,
         sendStreakEmails: true,
+        sendOnboardingEmails: true,
       },
     });
   }
@@ -366,6 +367,7 @@ export class UsersRepository {
         sendSuccessEmails: body.sendSuccessEmails,
         sendFailureEmails: body.sendFailureEmails,
         sendStreakEmails: body.sendStreakEmails,
+        sendOnboardingEmails: body.sendOnboardingEmails,
       },
     });
   }

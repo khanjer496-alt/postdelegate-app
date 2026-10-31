@@ -13,6 +13,7 @@ import { HealthController } from '@gitroom/orchestrator/health.controller';
 import { IntegrationAuthorizationMaintenanceActivity } from '@gitroom/orchestrator/activities/integration.authorization.maintenance.activity';
 import { AnalyticsHistoryActivity } from '@gitroom/orchestrator/activities/analytics.history.activity';
 import { WeeklySummaryActivity } from '@gitroom/orchestrator/activities/weekly.summary.activity';
+import { TrialOnboardingActivity } from '@gitroom/orchestrator/activities/trial.onboarding.activity';
 
 const activities = [
   PostActivity,
@@ -25,6 +26,7 @@ const activities = [
   IntegrationAuthorizationMaintenanceActivity,
   AnalyticsHistoryActivity,
   WeeklySummaryActivity,
+  TrialOnboardingActivity,
 ];
 @Module({
   imports: [

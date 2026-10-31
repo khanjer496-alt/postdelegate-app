@@ -12,6 +12,7 @@ interface EmailNotifications {
   sendSuccessEmails: boolean;
   sendFailureEmails: boolean;
   sendStreakEmails: boolean;
+  sendOnboardingEmails: boolean;
 }
 
 export const useEmailNotifications = () => {
@@ -105,6 +106,7 @@ const EmailNotificationsComponent = () => {
     sendSuccessEmails: true,
     sendFailureEmails: true,
     sendStreakEmails: true,
+    sendOnboardingEmails: true,
   });
 
   // Keep a ref to always have the latest state
@@ -157,6 +159,13 @@ const EmailNotificationsComponent = () => {
   const handleStreakEmailsChange = useCallback(
     (value: 'on' | 'off') => {
       updateSetting('sendStreakEmails', value === 'on');
+    },
+    [updateSetting]
+  );
+
+  const handleOnboardingEmailsChange = useCallback(
+    (value: 'on' | 'off') => {
+      updateSetting('sendOnboardingEmails', value === 'on');
     },
     [updateSetting]
   );
@@ -227,6 +236,24 @@ const EmailNotificationsComponent = () => {
         <Slider
           value={localSettings.sendStreakEmails ? 'on' : 'off'}
           onChange={handleStreakEmailsChange}
+          fill={true}
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <div className="text-[14px]">
+            {t('onboarding_emails', 'Getting started emails')}
+          </div>
+          <div className="text-[12px] text-newTextColor/70">
+            {t(
+              'onboarding_emails_description',
+              'A few short tips during your free trial, such as connecting a channel and drafting posts with AI.'
+            )}
+          </div>
+        </div>
+        <Slider
+          value={localSettings.sendOnboardingEmails ? 'on' : 'off'}
+          onChange={handleOnboardingEmailsChange}
           fill={true}
         />
       </div>

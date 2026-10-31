@@ -1518,6 +1518,8 @@
   "settings_update_failed": "Could not update the setting",
   "weekly_summary_email": "Weekly summary",
   "weekly_summary_email_description": "A Monday morning email with last week's results and this week's schedule for this workspace.",
+  "onboarding_emails": "Getting started emails",
+  "onboarding_emails_description": "A few short tips during your free trial, such as connecting a channel and drafting posts with AI.",
   "import_col_date": "When to post, like 2026-11-03 09:30 (year-month-day, 24-hour time). Required.",
   "import_col_timezone": "Optional, like Europe/London. Empty means your timezone ({{timezone}}).",
   "import_col_channels": "One or more channel names, separated by |. Required.",

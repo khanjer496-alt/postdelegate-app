@@ -71,6 +71,8 @@ import { PostsImportRepository } from '@gitroom/nestjs-libraries/database/prisma
 import { PostsImportService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.import.service';
 import { WeeklySummaryRepository } from '@gitroom/nestjs-libraries/database/prisma/weekly-summary/weekly.summary.repository';
 import { WeeklySummaryService } from '@gitroom/nestjs-libraries/database/prisma/weekly-summary/weekly.summary.service';
+import { TrialOnboardingRepository } from '@gitroom/nestjs-libraries/database/prisma/trial-onboarding/trial.onboarding.repository';
+import { TrialOnboardingService } from '@gitroom/nestjs-libraries/database/prisma/trial-onboarding/trial.onboarding.service';
 import { IntegrationAuthorizationLifecycleService } from '@gitroom/nestjs-libraries/integrations/integration.authorization.lifecycle.service';
 import { ActivityLogRepository } from '@gitroom/nestjs-libraries/database/prisma/activity-log/activity.log.repository';
 import { ActivityLogService } from '@gitroom/nestjs-libraries/database/prisma/activity-log/activity.log.service';
@@ -163,6 +165,8 @@ import { ApprovalsService } from '@gitroom/nestjs-libraries/database/prisma/appr
     PostsImportService,
     WeeklySummaryRepository,
     WeeklySummaryService,
+    TrialOnboardingRepository,
+    TrialOnboardingService,
   ],
   get exports() {
     return this.providers;

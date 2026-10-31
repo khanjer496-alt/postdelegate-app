@@ -1,4 +1,4 @@
-import { IsBoolean } from 'class-validator';
+import { IsBoolean, ValidateIf } from 'class-validator';
 
 export class EmailNotificationsDto {
   @IsBoolean()
@@ -9,5 +9,9 @@ export class EmailNotificationsDto {
 
   @IsBoolean()
   sendStreakEmails: boolean;
-}
 
+  // optional for older clients, but null is rejected like the other fields
+  @ValidateIf((o) => o.sendOnboardingEmails !== undefined)
+  @IsBoolean()
+  sendOnboardingEmails?: boolean;
+}
