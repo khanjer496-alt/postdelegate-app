@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "Vorschaubilder gelten für Videos im Hauptbeitrag und werden an jeden Kanal gesendet, der sie unterstützt. YouTube kann sie bei Videos ignorieren, die als Shorts behandelt werden (vertikal, bis zu 3 Minuten), ohne dass die Veröffentlichung fehlschlägt, und erfordert für benutzerdefinierte Vorschaubilder einen kanal, der per Telefon verifiziert ist. Wenn YouTube das Vorschaubild ablehnt, wird das Video trotzdem veröffentlicht, und PostDelegate kann die Eignung nicht im Voraus prüfen.",
   "youtube_thumbnail_overrides_media": "Dieser Beitrag hat ein YouTube-spezifisches Vorschaubild, das das in den Medien-Einstellungen festgelegte Vorschaubild überschreibt.",
   "api_base_url": "API-Basis-URL",
-  "built_on_open_source_postiz": "Basiert auf dem Open-Source-Projekt Postiz",
+  "built_on_open_source_postiz": "Quellcode (AGPL-3.0)",
   "connect_your_ai": "Verbinde deine KI",
   "connect_your_ai_description": "Nutze dein eigenes Claude, ChatGPT oder deinen Coding-Assistenten, um Beiträge zu erstellen und zu planen. Füge PostDelegate als benutzerdefinierten Connector hinzu, melde dich an und bestätige den Zugriff, ein API-Schlüssel ist nicht nötig.",
   "connect_tab_other": "Cursor / VS Code / andere",

@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "Les vignettes s’appliquent aux vidéos de la publication principale et sont envoyées à chaque canal qui les prend en charge. YouTube peut les ignorer pour les vidéos traitées comme Shorts (verticales, jusqu’à 3 minutes) sans empêcher la publication, et exige une chaîne vérifiée par téléphone pour les vignettes personnalisées. Si YouTube rejette la vignette, la vidéo est quand même publiée, et PostDelegate ne peut pas vérifier l’éligibilité à l’avance.",
   "youtube_thumbnail_overrides_media": "Cette publication possède une vignette spécifique à YouTube, qui remplace la vignette définie dans les paramètres multimédias.",
   "api_base_url": "URL de base de l'API",
-  "built_on_open_source_postiz": "Basé sur le projet open source Postiz",
+  "built_on_open_source_postiz": "Code source (AGPL-3.0)",
   "connect_your_ai": "Connectez votre IA",
   "connect_your_ai_description": "Utilisez votre propre Claude, ChatGPT ou assistant de code pour créer et programmer des publications. Ajoutez PostDelegate comme connecteur personnalisé, connectez-vous et autorisez l'accès, aucune clé API n'est nécessaire.",
   "connect_tab_other": "Cursor / VS Code / autres",

@@ -502,7 +502,7 @@
     "start_writing_your_post": "დაიწყეთ თქვენი პოსტის წერა წინასწარი ხედვისთვის",
     "faq_can_i_trust_postiz_gitroom": "Შემიძლია ვენდო PostDelegate-ს?",
     "api_base_url": "API-ის საბაზო URL",
-    "built_on_open_source_postiz": "აგებულია ღია კოდის პროექტ Postiz-ზე",
+    "built_on_open_source_postiz": "საწყისი კოდი (AGPL-3.0)",
   "connect_your_ai": "დააკავშირეთ თქვენი AI",
   "connect_your_ai_description": "გამოიყენეთ საკუთარი Claude, ChatGPT ან პროგრამირების ასისტენტი პოსტების შესაქმნელად და დასაგეგმად. დაამატეთ PostDelegate მორგებულ კონექტორად, შედით და დაადასტურეთ წვდომა, API გასაღები საჭირო არ არის.",
   "connect_tab_other": "Cursor / VS Code / სხვა",

@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "缩略图适用于主帖中的视频，并会发送到每个支持缩略图的频道。YouTube 可能会对被视为 Shorts（竖屏、时长不超过 3 分钟）的视频忽略缩略图，但不会导致发布失败，并且自定义缩略图需要经过手机验证的频道。如果 YouTube 拒绝了缩略图，视频仍将发布，且 PostDelegate 无法提前检查其资格。",
   "youtube_thumbnail_overrides_media": "该帖子有专门针对 YouTube 的缩略图，会覆盖在媒体设置中设定的缩略图。",
   "api_base_url": "API 基础 URL",
-  "built_on_open_source_postiz": "基于开源项目 Postiz 构建",
+  "built_on_open_source_postiz": "源代码 (AGPL-3.0)",
   "connect_your_ai": "连接你的 AI",
   "connect_your_ai_description": "使用你自己的 Claude、ChatGPT 或编程助手来创建和排期帖子。将 PostDelegate 添加为自定义连接器，登录并批准访问即可，无需 API 密钥。",
   "connect_tab_other": "Cursor / VS Code / 其他",

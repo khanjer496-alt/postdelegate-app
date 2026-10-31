@@ -192,16 +192,7 @@ export const SettingsPopup: FC<{
             href="/source"
             className="mt-4 block text-[14px] text-textItemBlur underline underline-offset-4 hover:text-newTextColor mobile:mt-[8px]"
           >
-            {t('source_code', 'Source code')}
-          </a>
-          <a
-            href="/source"
-            className="mt-[4px] block text-[12px] text-textItemBlur hover:text-newTextColor"
-          >
-            {t(
-              'built_on_open_source_postiz',
-              'Built on the open-source Postiz project'
-            )}
+            {t('built_on_open_source_postiz', 'Source code (AGPL-3.0)')}
           </a>
         </div>
       </div>

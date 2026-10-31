@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "サムネイルはメイン投稿の動画に適用され、対応しているすべてのチャンネルに送信されます。YouTubeでは、Shorts（縦型・最長3分）の動画として扱われる場合、サムネイルが無視されることがありますが、公開自体は失敗しません。カスタムサムネイルには、電話番号認証済みのチャンネルが必要です。YouTubeがサムネイルを却下した場合でも動画は公開されます。また、PostDelegateでは事前にサムネイルの利用可否を確認することはできません。",
   "youtube_thumbnail_overrides_media": "この投稿にはYouTube専用のサムネイルが設定されており、メディア設定で設定したサムネイルは上書きされます。",
   "api_base_url": "APIのベースURL",
-  "built_on_open_source_postiz": "オープンソースのPostizプロジェクトをベースに構築",
+  "built_on_open_source_postiz": "ソースコード (AGPL-3.0)",
   "connect_your_ai": "AI を接続する",
   "connect_your_ai_description": "お使いの Claude、ChatGPT、またはコーディングアシスタントで投稿の作成とスケジュール設定ができます。PostDelegate をカスタムコネクタとして追加し、ログインしてアクセスを承認するだけで、API キーは不要です。",
   "connect_tab_other": "Cursor / VS Code / その他",

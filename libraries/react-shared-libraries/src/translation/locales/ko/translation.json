@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "썸네일은 메인 게시물의 동영상에 적용되며, 이를 지원하는 모든 채널에 전송됩니다. YouTube에서는 Shorts로 간주되는 동영상(세로, 최대 3분)에 대해서는 썸네일을 무시할 수 있으며, 맞춤 썸네일을 사용하려면 전화번호 인증이 완료된 채널이 필요합니다. YouTube에서 썸네일이 거부되더라도 동영상은 정상적으로 게시되며, PostDelegate에서는 사전 자격 조건을 확인할 수 없습니다.",
   "youtube_thumbnail_overrides_media": "이 게시물에는 유튜브 전용 썸네일이 설정되어 있어, 미디어 설정에서 지정한 썸네일을 덮어씁니다.",
   "api_base_url": "API 기본 URL",
-  "built_on_open_source_postiz": "오픈소스 Postiz 프로젝트를 기반으로 만들었습니다",
+  "built_on_open_source_postiz": "소스 코드 (AGPL-3.0)",
   "connect_your_ai": "AI 연결하기",
   "connect_your_ai_description": "본인의 Claude, ChatGPT 또는 코딩 어시스턴트로 게시물을 만들고 예약하세요. PostDelegate를 커스텀 커넥터로 추가하고 로그인해 접근을 승인하면 되며, API 키는 필요하지 않습니다.",
   "connect_tab_other": "Cursor / VS Code / 기타",

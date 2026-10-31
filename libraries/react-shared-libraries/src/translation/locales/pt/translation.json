@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "As miniaturas se aplicam aos vídeos na postagem principal e são enviadas para todos os canais que as suportam. O YouTube pode ignorá-las em vídeos que considera Shorts (verticais, de até 3 minutos) sem impedir a publicação, e exige um canal verificado por telefone para miniaturas personalizadas. Se o YouTube rejeitar a miniatura, o vídeo ainda será publicado e o PostDelegate não pode verificar a elegibilidade com antecedência.",
   "youtube_thumbnail_overrides_media": "Esta publicação possui uma miniatura específica do YouTube, que substitui a miniatura definida nas configurações de mídia.",
   "api_base_url": "URL base da API",
-  "built_on_open_source_postiz": "Baseado no projeto open source Postiz",
+  "built_on_open_source_postiz": "Código-fonte (AGPL-3.0)",
   "connect_your_ai": "Conecte sua IA",
   "connect_your_ai_description": "Use seu próprio Claude, ChatGPT ou assistente de programação para criar e agendar publicações. Adicione o PostDelegate como conector personalizado, entre e aprove o acesso, sem precisar de chave de API.",
   "connect_tab_other": "Cursor / VS Code / outros",

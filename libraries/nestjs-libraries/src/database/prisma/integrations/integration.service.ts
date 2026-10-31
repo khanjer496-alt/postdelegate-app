@@ -199,6 +199,20 @@ export class IntegrationService {
     return integration && !integration.deletedAt && !integration.disabled && !integration.inBetweenSteps ? integration : null;
   }
 
+  // Dashboard functions also run while a channel is half connected, but only for providers that
+  // finish setup by picking a page or account: that step loads its list through these functions.
+  async getIntegrationForFunction(org: string, id: string) {
+    const integration = await this.getIntegrationById(org, id);
+    if (!integration || integration.deletedAt || integration.disabled) {
+      return null;
+    }
+    if (!integration.inBetweenSteps) {
+      return integration;
+    }
+    const provider = this._integrationManager.getSocialIntegration(integration.providerIdentifier);
+    return provider?.fetchPageInformation ? integration : null;
+  }
+
   persistRefreshedAuthorization(integration: Integration, refresh: AuthTokenDetails) {
     return this._integrationRepository.updateAuthorizationIfActive(
       integration.organizationId, integration.id,

@@ -876,7 +876,7 @@
   "media_settings_section_tooltip": "Hình thu nhỏ được áp dụng cho các video trong bài đăng chính và được gửi đến mọi kênh hỗ trợ chúng. YouTube có thể bỏ qua hình thu nhỏ trên các video mà họ coi là Shorts (dọc, tối đa 3 phút) mà không làm thất bại việc đăng tải, và yêu cầu kênh đã xác minh số điện thoại để sử dụng hình thu nhỏ tùy chỉnh. Nếu YouTube từ chối hình thu nhỏ thì video vẫn được đăng, và PostDelegate không thể kiểm tra điều kiện đủ từ trước.",
   "youtube_thumbnail_overrides_media": "Bài viết này có hình thu nhỏ riêng cho YouTube, thay thế hình thu nhỏ được đặt trong cài đặt phương tiện.",
   "api_base_url": "URL cơ sở của API",
-  "built_on_open_source_postiz": "Xây dựng trên dự án mã nguồn mở Postiz",
+  "built_on_open_source_postiz": "Mã nguồn (AGPL-3.0)",
   "connect_your_ai": "Kết nối AI của bạn",
   "connect_your_ai_description": "Dùng Claude, ChatGPT hoặc trợ lý lập trình của riêng bạn để tạo và lên lịch bài đăng. Thêm PostDelegate làm trình kết nối tùy chỉnh, đăng nhập và chấp thuận quyền truy cập, không cần khóa API.",
   "connect_tab_other": "Cursor / VS Code / khác",

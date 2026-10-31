@@ -947,7 +947,7 @@
   "media_settings_section_tooltip": "Thumbnails apply to videos in the main post and are sent to every channel that supports them. YouTube may ignore them on videos it treats as Shorts (vertical, up to 3 minutes) without failing the publish, and requires a phone-verified channel for custom thumbnails. If YouTube rejects the thumbnail the video is still published, and PostDelegate cannot check eligibility in advance.",
   "youtube_thumbnail_overrides_media": "This post has a YouTube-specific thumbnail, which overrides the thumbnail set in the media settings.",
   "api_base_url": "API base URL",
-  "built_on_open_source_postiz": "Built on the open-source Postiz project",
+  "built_on_open_source_postiz": "Source code (AGPL-3.0)",
   "connect_your_ai": "Connect your AI",
   "connect_your_ai_description": "Use your own Claude, ChatGPT or coding assistant to create and schedule posts. Add PostDelegate as a custom connector, sign in and approve access, no API key needed.",
   "connect_tab_other": "Cursor / VS Code / other",

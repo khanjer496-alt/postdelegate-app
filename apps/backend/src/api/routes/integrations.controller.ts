@@ -359,7 +359,7 @@ export class IntegrationsController {
     @GetOrgFromRequest() org: Organization,
     @Body() body: IntegrationFunctionDto
   ): Promise<any> {
-    const getIntegration = await this._integrationService.getActiveIntegrationById(
+    const getIntegration = await this._integrationService.getIntegrationForFunction(
       org.id,
       body.id
     );
