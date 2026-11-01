@@ -2167,6 +2167,21 @@ model AnalyticsAccountSnapshot {
   @@index([date])
 }
 
+// One row per post sent to a network that a plan caps a month
+// (provider_posts_per_month), written by the publish activity when the post
+// goes out. It is what the cap counts, so deleting or moving a post never gives
+// its share back. No relations, like the analytics tables: every query is
+// scoped by organizationId and the erasure steps remove the rows.
+model ProviderPostUsage {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  providerIdentifier String
+  postId             String
+  createdAt          DateTime @default(now())
+
+  @@index([organizationId, providerIdentifier, createdAt])
+}
+
 // The latest metrics of one platform post, one row per channel and post
 model AnalyticsPost {
   id             String   @id @default(cuid())

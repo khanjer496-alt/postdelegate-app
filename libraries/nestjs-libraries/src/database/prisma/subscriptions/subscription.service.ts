@@ -7,6 +7,24 @@ import { Organization } from '@prisma/client';
 import dayjs from 'dayjs';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 
+// The plan month `at` falls in: k whole months after the anchor, both ends
+// taken from the anchor, so months that clamp (an anchor on the 29th to 31st)
+// leave no gap or overlap between one window and the next
+export const planMonth = (anchor: Date, at: Date | string = new Date()) => {
+  const start = dayjs(anchor);
+  let k = Math.max(0, dayjs(at).diff(start, 'month'));
+  while (k > 0 && dayjs(at).isBefore(start.add(k, 'month'))) {
+    k--;
+  }
+  while (!dayjs(at).isBefore(start.add(k + 1, 'month'))) {
+    k++;
+  }
+  return {
+    from: start.add(k, 'month').toDate(),
+    until: start.add(k + 1, 'month').toDate(),
+  };
+};
+
 @Injectable()
 export class SubscriptionService {
   constructor(
@@ -395,6 +413,28 @@ export class SubscriptionService {
     );
 
     return { deleted: count };
+  }
+
+  // The plan's monthly caps on single networks (provider_posts_per_month) and
+  // the anchor of its months (planMonth), the subscription's start like
+  // posts_per_month. Without billing there are no plans to cap
+  async getProviderPostsLimits(organizationId: string) {
+    if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+      return null;
+    }
+
+    const subscription =
+      await this._subscriptionRepository.getSubscriptionByOrganizationId(
+        organizationId
+      );
+    const tier = subscription?.subscriptionTier || 'FREE';
+
+    return {
+      plan: pricing[tier].label || tier,
+      limits: pricing[tier].provider_posts_per_month || {},
+      // without a subscription every cap is 0, the month doesn't matter
+      anchor: subscription?.createdAt || new Date(),
+    };
   }
 
   async checkCredits(organization: Organization, checkType = 'ai_images') {

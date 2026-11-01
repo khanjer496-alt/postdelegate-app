@@ -412,6 +412,39 @@ export class IntegrationRepository {
     );
   }
 
+  // the channel row of an account, deleted or not, as connect upserts it
+  getIntegrationByInternalIdWithDeleted(org: string, internalId: string) {
+    return this._integration.model.integration.findUnique({
+      where: {
+        organizationId_internalId: {
+          organizationId: org,
+          internalId,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        providerIdentifier: true,
+        deletedAt: true,
+      },
+    });
+  }
+
+  // frees the account's internalId of a deleted channel row, which keeps its
+  // posts and history, so a connection starts a new row
+  retireDeletedIntegration(org: string, id: string) {
+    return this._integration.model.integration.updateMany({
+      where: {
+        id,
+        organizationId: org,
+        deletedAt: { not: null },
+      },
+      data: {
+        internalId: `retired_${id}_${makeId(10)}`,
+      },
+    });
+  }
+
   async getIntegrationByInternalId(org: string, internalId: string) {
     return this.decryptRow(
       await this._integration.model.integration.findFirst({

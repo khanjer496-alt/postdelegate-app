@@ -51,6 +51,10 @@ export const Providers = [
     component: XProvider,
   },
   {
+    identifier: 'x-own-key',
+    component: XProvider,
+  },
+  {
     identifier: 'linkedin',
     component: LinkedinProvider,
   },

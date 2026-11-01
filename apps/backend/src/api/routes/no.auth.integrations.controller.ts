@@ -216,6 +216,12 @@ export class NoAuthIntegrationsController {
       throw new HttpException('', 412);
     }
 
+    await this._integrationService.checkCappedProviderSwitch(
+      org.id,
+      String(id),
+      integration
+    );
+
     if (refresh && String(id) !== String(refresh)) {
       // A reconnect that returns a different id is either the wrong account or
       // a channel migrating to another provider (MIGRATE_PROVIDERS) - the two

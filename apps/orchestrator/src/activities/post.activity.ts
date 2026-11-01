@@ -298,10 +298,25 @@ export class PostActivity {
           mappedPosts,
           integration
         );
+        await this.recordPublished(integration, posts);
         await this.activeIntegration(integration, posts, false);
         return result;
       });
     });
+  }
+
+  // What the plan's monthly cap on the network counts. The post is already
+  // out: best-effort, failing the activity here would publish it again
+  private async recordPublished(integration: Integration, posts: Post[]) {
+    try {
+      await this._postService.recordProviderPublish(
+        integration.organizationId,
+        integration.providerIdentifier,
+        posts.map((post) => post.id)
+      );
+    } catch (err) {
+      /**empty**/
+    }
   }
 
   @ActivityMethod()
@@ -420,6 +435,24 @@ export class PostActivity {
       integration.providerIdentifier
     );
 
+    // the plan's monthly cap on the network, whatever path queued the post:
+    // a BadBody is terminal in every workflow version, the post goes to ERROR
+    // with the message and nothing is sent or retried
+    setHeartbeatDetails('plan limit');
+    const limit = await this._postService.providerPublishProblem(
+      integration.organizationId,
+      integration.providerIdentifier,
+      posts
+    );
+    if (limit) {
+      throw new BadBody(
+        integration.providerIdentifier,
+        JSON.stringify({}),
+        Buffer.from('{}'),
+        limit
+      );
+    }
+
     setHeartbeatDetails('update tags');
     const newPosts = await this._postService.updateTags(
       integration.organizationId,
@@ -465,6 +498,7 @@ export class PostActivity {
             mappedPosts,
             integration
           );
+    await this.recordPublished(integration, posts);
     await this.activeIntegration(integration, posts, false);
 
     // The post is already published at this point: the streak is best-effort,

@@ -191,6 +191,10 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
     note: 'deleted with the organization; in shared organizations the rows the person acted on keep the action but lose actorUserId and actorName. Client names and emails typed on a share link go with the organization',
   },
   AnalyticsAccountSnapshot: { scope: 'org', note: 'deleted, daily channel counts' },
+  ProviderPostUsage: {
+    scope: 'org',
+    note: 'deleted, which posts went to a network the plan caps a month',
+  },
   AnalyticsPost: { scope: 'org', note: 'deleted, post titles, links and metrics' },
   AnalyticsPostSnapshot: { scope: 'org', note: 'deleted, daily post metrics' },
   AnalyticsReportSettings: {

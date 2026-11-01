@@ -64,6 +64,16 @@ import {
   actorName,
 } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
 import { ActivityLogService } from '@gitroom/nestjs-libraries/database/prisma/activity-log/activity.log.service';
+import {
+  planMonth,
+  SubscriptionService,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
+import { isCappedProvider } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  AuthorizationActions,
+  Sections,
+  SubscriptionException,
+} from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 
 type PostWithConditionals = Post & {
   integration?: Integration;
@@ -83,7 +93,8 @@ export class PostsService {
     private _temporalService: TemporalService,
     private _refreshIntegrationService: RefreshIntegrationService,
     private _approvalPolicyService: ApprovalPolicyService,
-    private _activityLogService: ActivityLogService
+    private _activityLogService: ActivityLogService,
+    private _subscriptionService: SubscriptionService
   ) {}
 
   searchForMissingThreeHoursPosts() {
@@ -1312,6 +1323,8 @@ export class PostsService {
       );
     }
 
+    const cappedChannels = await this.checkProviderPostsLimit(orgId, body);
+
     const postList = [];
     // posts sent for review in this save, the approvers hear about them once
     const submitted: { id: string; content: string; integrationName?: string; provider?: string }[] = [];
@@ -1365,6 +1378,15 @@ export class PostsService {
         orgId,
         body.type === 'now'
           ? dayjs().format('YYYY-MM-DDTHH:mm:00')
+          : // a passed date on a capped network is stored as now, the
+          // plan month it was counted in. Not for an in-place update: it
+          // keeps the date of posts already published, and the new entries
+          // it adds are counted in the current month and checked again
+          // when they go out
+          cappedChannels.has(post.integration.id) &&
+            body.type === 'schedule' &&
+            dayjs(post.date || body.date).isBefore(dayjs())
+          ? dayjs().format('YYYY-MM-DDTHH:mm:ss')
           : post.date || body.date,
         post,
         body.tags,
@@ -1435,6 +1457,280 @@ export class PostsService {
     }
 
     return postList;
+  }
+
+  // The plan's monthly caps (provider_posts_per_month) and the capped network
+  // of a channel, null when nothing is capped
+  private async providerCaps(orgId: string) {
+    const plan = await this._subscriptionService.getProviderPostsLimits(orgId);
+    if (!plan || !Object.keys(plan.limits).length) {
+      return null;
+    }
+
+    const providers = new Map(
+      (await this._integrationService.getIntegrationsList(orgId)).map((p) => [
+        p.id,
+        p.providerIdentifier,
+      ])
+    );
+
+    return {
+      plan,
+      capped: (integrationId?: string) => {
+        const provider = providers.get(integrationId || '');
+        return provider && plan.limits[provider] !== undefined
+          ? provider
+          : undefined;
+      },
+    };
+  }
+
+  // The plan counts a post when it is published, a repeating or evergreen post
+  // is published again without being saved, so it is refused on a network the
+  // plan caps a month
+  private repeatError(provider: string, plan: string) {
+    const social = this._integrationManager.getSocialIntegration(provider);
+    return new BadRequestException(
+      social?.planRepeatHint ||
+        `Repeating and evergreen posts on ${
+          social?.name || provider
+        } aren't available on the ${plan} plan.`
+    );
+  }
+
+  async checkRepeatAllowed(orgId: string, integrationIds: string[]) {
+    const caps = await this.providerCaps(orgId);
+    const provider = integrationIds.map((id) => caps?.capped(id)).find(Boolean);
+    if (caps && provider) {
+      throw this.repeatError(provider, caps.plan.plan);
+    }
+  }
+
+  // The early warning of a plan's monthly cap on a network
+  // (provider_posts_per_month), for the whole save before anything is stored:
+  // the posts already published this plan month (ProviderPostUsage) and the
+  // ones queued in it, plus the entries this save queues, each in the plan
+  // month it publishes in (a passed date publishes now). The publish activity
+  // enforces the cap again when a post goes out (providerPublishProblem).
+  // Returns the capped channels of the save.
+  async checkProviderPostsLimit(
+    orgId: string,
+    body: {
+      type: CreatePostDto['type'];
+      date?: string | Date;
+      inter?: number | null;
+      posts: {
+        integration: { id: string };
+        date?: string | Date;
+        value?: { id?: string }[];
+      }[];
+    }
+  ): Promise<Set<string>> {
+    const caps = await this.providerCaps(orgId);
+    const saving = (body.posts || [])
+      .map((post) => ({ post, provider: caps?.capped(post.integration?.id) }))
+      .filter(({ provider }) => !!provider);
+    if (!caps || !saving.length) {
+      return new Set();
+    }
+
+    if (body.inter) {
+      throw this.repeatError(saving[0].provider!, caps.plan.plan);
+    }
+
+    const cappedChannels = new Set(
+      saving.map(({ post }) => post.integration.id)
+    );
+    if (body.type === 'draft') {
+      return cappedChannels;
+    }
+
+    const ids = saving
+      .flatMap(({ post }) => post.value || [])
+      .map((value) => value.id!)
+      .filter(Boolean);
+    const stored = new Map(
+      (await this._postRepository.getPostsState(orgId, ids)).map((row) => [
+        row.id,
+        row,
+      ])
+    );
+
+    const windows = groupBy(
+      saving.map((item) => ({
+        ...item,
+        window: planMonth(
+          caps.plan.anchor,
+          this.publishAt(body.type, item.post.date || body.date)
+        ),
+      })),
+      ({ provider, window }) => `${provider} ${window.from.getTime()}`
+    );
+
+    for (const group of Object.values(windows)) {
+      const { provider, window } = group[0];
+      const values = group.flatMap(({ post }) => post.value || []);
+      const limit = caps.plan.limits[provider!];
+
+      // after the save: schedule and now queue every entry, an update keeps
+      // the state of the stored ones and queues the new ones
+      const queued = values.filter((value) => {
+        const row = stored.get(value.id || '');
+        return body.type !== 'update' || !row || row.state === 'QUEUE';
+      });
+      // already counted: stored entries queued in this plan month
+      const counted = values.filter((value) => {
+        const row = stored.get(value.id || '');
+        return (
+          row?.state === 'QUEUE' &&
+          !row.deletedAt &&
+          row.publishDate >= window.from &&
+          row.publishDate < window.until
+        );
+      });
+      if (queued.length <= counted.length) {
+        continue;
+      }
+
+      const used =
+        (await this._postRepository.countProviderUsage(
+          orgId,
+          provider!,
+          window.from,
+          window.until
+        )) +
+        (await this._postRepository.countQueuedProviderPosts(
+          orgId,
+          provider!,
+          window.from,
+          window.until,
+          ids
+        ));
+
+      if (used + queued.length <= limit) {
+        continue;
+      }
+
+      const social = this._integrationManager.getSocialIntegration(provider!);
+      const name = social?.name || provider;
+      const period = dayjs(window.from).isAfter(dayjs())
+        ? `the plan month starting ${dayjs(window.from).format('MMMM D')}`
+        : 'this month';
+      const left = Math.max(0, limit - used);
+      throw new SubscriptionException({
+        action: AuthorizationActions.Create,
+        section: Sections.PROVIDER_POSTS_PER_MONTH,
+        message: `${
+          left
+            ? `Only ${left} of your ${limit} ${name} posts for ${period} on the ${caps.plan.plan} plan are left, and this needs ${queued.length} (every post of a thread counts).`
+            : `You've used your ${limit} ${name} posts for ${period} on the ${caps.plan.plan} plan.`
+        } ${social?.planLimitHint || 'Upgrade your plan to post more.'}`,
+      });
+    }
+
+    return cappedChannels;
+  }
+
+  // when a saved post publishes: now for "now" and for a date that passed
+  private publishAt(type: CreatePostDto['type'], date?: string | Date) {
+    return type === 'now' || !date || dayjs(date).isBefore(dayjs())
+      ? new Date()
+      : dayjs(date).toDate();
+  }
+
+  // The same check for a stored post that is queued again (a draft or a
+  // published post scheduled through the API, rescheduled, or approved), with
+  // every post of its thread, at its new date when it moves. Tells whether
+  // its network is capped
+  async checkStoredPostLimit(
+    orgId: string,
+    postId: string,
+    date?: string | Date
+  ) {
+    // without billing nothing is capped, the thread isn't loaded
+    if (!(await this._subscriptionService.getProviderPostsLimits(orgId))) {
+      return false;
+    }
+
+    const ordered = await this.getPostsRecursively(postId, false, orgId, true);
+    const [root] = ordered;
+    if (!root) {
+      return false;
+    }
+
+    const capped = await this.checkProviderPostsLimit(orgId, {
+      type: 'schedule',
+      date: date || root.publishDate,
+      inter: root.intervalInDays,
+      posts: [
+        {
+          integration: { id: root.integrationId },
+          value: ordered.map((post) => ({ id: post.id })),
+        },
+      ],
+    });
+    return capped.size > 0;
+  }
+
+  // The backstop when a post goes out, whatever path queued it: a network the
+  // plan caps a month only gets posts while the posts published this plan
+  // month leave room for the whole thread. Returns why it can't go out
+  async providerPublishProblem(
+    orgId: string,
+    providerIdentifier: string,
+    posts: { id: string; parentPostId?: string | null }[]
+  ): Promise<string | null> {
+    if (!isCappedProvider(providerIdentifier) || !posts.length) {
+      return null;
+    }
+
+    const plan = await this._subscriptionService.getProviderPostsLimits(orgId);
+    const limit = plan?.limits[providerIdentifier];
+    if (!plan || limit === undefined) {
+      return null;
+    }
+
+    // a main post reserves its comments, they go out right after it
+    const count =
+      posts.length === 1 && !posts[0].parentPostId
+        ? Math.max(
+            1,
+            (await this.getPostsRecursively(posts[0].id, false, orgId)).length
+          )
+        : posts.length;
+
+    const window = planMonth(plan.anchor);
+    const used = await this._postRepository.countProviderUsage(
+      orgId,
+      providerIdentifier,
+      window.from,
+      window.until
+    );
+    if (used + count <= limit) {
+      return null;
+    }
+
+    const social =
+      this._integrationManager.getSocialIntegration(providerIdentifier);
+    return `Monthly ${social?.name || providerIdentifier} post limit reached on the ${plan.plan} plan (${limit}). ${
+      social?.planLimitHint || 'Upgrade your plan to post more.'
+    }`;
+  }
+
+  // the posts that went out to a capped network, what the cap counts
+  async recordProviderPublish(
+    orgId: string,
+    providerIdentifier: string,
+    postIds: string[]
+  ) {
+    if (!isCappedProvider(providerIdentifier) || !postIds.length) {
+      return;
+    }
+    await this._postRepository.recordProviderUsage(
+      orgId,
+      providerIdentifier,
+      postIds
+    );
   }
 
   // Update ONLY the provider settings of a not-yet-published post (scheduled or
@@ -1610,6 +1906,12 @@ export class PostsService {
       throw new BadRequestException('Post not found');
     }
 
+    // queued again from a draft, a failure or a published post (a draft held
+    // for review is scheduled once approved, the check can't wait)
+    if (status === 'schedule' && getPostById.state !== 'QUEUE') {
+      await this.checkStoredPostLimit(orgId, id);
+    }
+
     if (status === 'schedule' && actor?.type === 'agent') {
       await this._approvalPolicyService.assertAgentGuardrails(
         orgId,
@@ -1768,6 +2070,20 @@ export class PostsService {
 
     if (action === 'schedule' && !republish) {
       this.guardAgainstRepublish(getPostById, 'changeDate');
+    }
+
+    // a post that ends up queued, again or in another plan month, is checked
+    // against the plan's monthly cap on its network at its new date
+    const queued =
+      getPostById.state !== 'DRAFT' &&
+      (action === 'schedule' || getPostById.state === 'QUEUE');
+    if (
+      queued &&
+      (await this.checkStoredPostLimit(orgId, id, date)) &&
+      dayjs(date).isBefore(dayjs())
+    ) {
+      // a passed date publishes now, stored in the plan month it counted in
+      date = dayjs().format('YYYY-MM-DDTHH:mm:ss');
     }
 
     // schedule: Set status to QUEUE and change date (reschedule the post)

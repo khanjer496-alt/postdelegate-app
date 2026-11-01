@@ -27,6 +27,7 @@ const make = (provider: object) => {
   const integrationService = {
     createOrUpdateIntegration: jest.fn(async () => ({ id: 'int-1', name: 'x' })),
     migrateIntegrationOnConnect: jest.fn(),
+    checkCappedProviderSwitch: jest.fn(),
     saveProviderPage: jest.fn(async () => ({ saved: true })),
   };
   const controller = new NoAuthIntegrationsController(

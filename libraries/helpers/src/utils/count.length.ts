@@ -1,12 +1,16 @@
 // @ts-ignore
 import twitter from 'twitter-text';
 
+// a provider variant ("x-own-key") counts like its network ("x"), the same
+// network the publish task queues use
+const network = (integrationType: string) => integrationType.split('-')[0];
+
 export const textSlicer = (
   integrationType: string,
   end: number,
   text: string
 ): { start: number; end: number } => {
-  if (integrationType !== 'x') {
+  if (network(integrationType) !== 'x') {
     return {
       start: 0,
       end,
@@ -39,11 +43,11 @@ export const weightedLength = (text: string): number => {
 };
 
 export const countLength = (integrationType: string, text: string): number => {
-  if (integrationType === 'x') {
+  if (network(integrationType) === 'x') {
     return weightedLength(text);
   }
 
-  if (integrationType === 'threads') {
+  if (network(integrationType) === 'threads') {
     return new TextEncoder().encode(text).length;
   }
 

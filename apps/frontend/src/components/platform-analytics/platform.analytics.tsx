@@ -31,6 +31,7 @@ const allowedIntegrations = [
   'pinterest',
   'threads',
   'x',
+  'x-own-key',
 ];
 export const PlatformAnalytics = () => {
   const fetch = useFetch();
@@ -47,7 +48,7 @@ export const PlatformAnalytics = () => {
     const int = (
       await (await fetch('/integrations/list')).json()
     ).integrations.filter((f: any) => {
-      if (f.identifier === 'x' && disableXAnalytics) {
+      if (['x', 'x-own-key'].includes(f.identifier) && disableXAnalytics) {
         return false;
       }
       return true;
@@ -89,6 +90,7 @@ export const PlatformAnalytics = () => {
         'threads',
         'gmb',
         'x',
+        'x-own-key',
         'tiktok',
         'tiktok-business',
       ].indexOf(currentIntegration.identifier) !== -1
@@ -109,6 +111,7 @@ export const PlatformAnalytics = () => {
         'threads',
         'gmb',
         'x',
+        'x-own-key',
         'tiktok',
         'tiktok-business',
       ].indexOf(currentIntegration.identifier) !== -1
@@ -119,9 +122,15 @@ export const PlatformAnalytics = () => {
       });
     }
     if (
-      ['facebook', 'linkedin-page', 'pinterest', 'youtube', 'x', 'gmb'].indexOf(
-        currentIntegration.identifier
-      ) !== -1
+      [
+        'facebook',
+        'linkedin-page',
+        'pinterest',
+        'youtube',
+        'x',
+        'x-own-key',
+        'gmb',
+      ].indexOf(currentIntegration.identifier) !== -1
     ) {
       arr.push({
         key: 90,

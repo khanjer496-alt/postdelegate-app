@@ -42,4 +42,11 @@ describe('pricing', () => {
       expect(tier.clipping_minutes).toBe(0);
     }
   });
+
+  it('caps X posts a month on every plan, nothing on the free plan', () => {
+    expect(pricing.FREE.provider_posts_per_month).toEqual({ x: 0 });
+    expect(paid.map((p) => pricing[p].provider_posts_per_month?.x)).toEqual([
+      30, 100, 300, 1000,
+    ]);
+  });
 });

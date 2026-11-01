@@ -197,6 +197,11 @@ const organizationSteps = (org: string): Step[] => [
     where: { organizationId: org },
   },
   {
+    table: 'ProviderPostUsage',
+    model: 'providerPostUsage',
+    where: { organizationId: org },
+  },
+  {
     table: 'AnalyticsReportSettings',
     model: 'analyticsReportSettings',
     where: { organizationId: org },

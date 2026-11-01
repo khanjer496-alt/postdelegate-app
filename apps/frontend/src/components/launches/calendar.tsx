@@ -1390,7 +1390,8 @@ const CalendarItem: FC<{
               <OpenPost />
             </button>
           )}{' '}
-        {(post.integration.providerIdentifier === 'x' && disableXAnalytics) ||
+        {(['x', 'x-own-key'].includes(post.integration.providerIdentifier) &&
+          disableXAnalytics) ||
         !post.releaseId ? (
           <></>
         ) : post.releaseId === 'missing' && missingRelease ? (

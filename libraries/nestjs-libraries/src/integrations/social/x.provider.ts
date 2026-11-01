@@ -88,6 +88,10 @@ export class XProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 10;
   toolTip =
     'You will be logged in into your current account, if you would like a different account, change it first on X';
+  planLimitHint =
+    'Upgrade your plan, or connect X with your own API key for unlimited X posts.';
+  planRepeatHint =
+    'Repeating and evergreen posts on X need your own API key. Connect X with your own API key to repeat this post.';
 
   // The provider receives the rich HTML so articles keep their formatting;
   // regular tweets are stripped to plain text inside the provider.
@@ -328,8 +332,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     // eslint-disable-next-line prefer-rest-params
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(integration.token),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -350,7 +353,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     identifier: 'x-repost-post-users',
     title: 'Add Re-posters',
     description: 'Add accounts to repost your post',
-    pickIntegration: ['x'],
+    pickIntegration: ['x', 'x-own-key'],
     fields: [],
   })
   async repostPostUsers(
@@ -361,8 +364,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
   ) {
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(integration.token),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -412,8 +414,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     // eslint-disable-next-line prefer-rest-params
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(integration.token),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -449,8 +450,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
 
   async generateAuthUrl() {
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(),
     });
     const { url, oauth_token, oauth_token_secret } =
       await client.generateAuthLink(
@@ -469,13 +469,15 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  async authenticate(params: { code: string; codeVerifier: string }) {
+  async authenticate(params: {
+    code: string;
+    codeVerifier: string;
+  }): Promise<AuthTokenDetails | string> {
     const { code, codeVerifier } = params;
     const [oauth_token, oauth_token_secret] = codeVerifier.split(':');
 
     const startingClient = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(),
       accessToken: oauth_token,
       accessSecret: oauth_token_secret,
     });
@@ -515,11 +517,19 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
+  // The X app the channel's tokens belong to: PostDelegate's app here, the
+  // customer's own app for X with their own API key (x.own.key.provider.ts)
+  protected appCredentials(accessToken?: string) {
+    return {
+      appKey: process.env.X_API_KEY!,
+      appSecret: process.env.X_API_SECRET!,
+    };
+  }
+
   private async getClient(accessToken: string) {
     const [accessTokenSplit, accessSecretSplit] = accessToken.split(':');
     return new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(accessToken),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -529,7 +539,8 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     method: string,
     url: string,
     accessToken: string,
-    accessSecret: string
+    accessSecret: string,
+    app: { appKey: string; appSecret: string }
   ): string {
     const pct = (s: string) =>
       encodeURIComponent(s)
@@ -540,7 +551,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
         .replace(/\)/g, '%29');
 
     const params: Record<string, string> = {
-      oauth_consumer_key: process.env.X_API_KEY!,
+      oauth_consumer_key: app.appKey,
       oauth_nonce: randomBytes(16).toString('hex'),
       oauth_signature_method: 'HMAC-SHA1',
       oauth_timestamp: String(Math.floor(Date.now() / 1000)),
@@ -559,7 +570,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
       pct(paramString),
     ].join('&');
 
-    const signingKey = `${pct(process.env.X_API_SECRET!)}&${pct(accessSecret)}`;
+    const signingKey = `${pct(app.appSecret)}&${pct(accessSecret)}`;
     params.oauth_signature = createHmac('sha1', signingKey)
       .update(baseString)
       .digest('base64');
@@ -1195,7 +1206,8 @@ export class XProvider extends SocialAbstract implements SocialProvider {
           'POST',
           draftUrl,
           accessTokenSplit,
-          accessSecretSplit
+          accessSecretSplit,
+          this.appCredentials(accessToken)
         ),
         'Content-Type': 'application/json',
       },
@@ -1256,7 +1268,8 @@ export class XProvider extends SocialAbstract implements SocialProvider {
           'POST',
           publishUrl,
           accessTokenSplit,
-          accessSecretSplit
+          accessSecretSplit,
+          this.appCredentials(accessToken)
         ),
         'Content-Type': 'application/json',
       },
@@ -1343,7 +1356,8 @@ export class XProvider extends SocialAbstract implements SocialProvider {
           'POST',
           tweetUrl,
           accessTokenSplit,
-          accessSecretSplit
+          accessSecretSplit,
+          this.appCredentials(accessToken)
         ),
         'Content-Type': 'application/json',
       },
@@ -1485,7 +1499,8 @@ export class XProvider extends SocialAbstract implements SocialProvider {
           'POST',
           tweetUrl,
           accessTokenSplit,
-          accessSecretSplit
+          accessSecretSplit,
+          this.appCredentials(accessToken)
         ),
         'Content-Type': 'application/json',
       },
@@ -1548,8 +1563,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
   private analyticsClient(accessToken: string) {
     const [accessTokenSplit, accessSecretSplit] = accessToken.split(':');
     return new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(accessToken),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -1619,8 +1633,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
 
     const [accessTokenSplit, accessSecretSplit] = accessToken.split(':');
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(accessToken),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -1709,8 +1722,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
 
     const [accessTokenSplit, accessSecretSplit] = accessToken.split(':');
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(accessToken),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });
@@ -1788,8 +1800,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
   override async mention(token: string, d: { query: string }) {
     const [accessTokenSplit, accessSecretSplit] = token.split(':');
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      ...this.appCredentials(token),
       accessToken: accessTokenSplit,
       accessSecret: accessSecretSplit,
     });

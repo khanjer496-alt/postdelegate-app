@@ -18,8 +18,11 @@ export class SubscriptionExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse();
     const request = ctx.getRequest();
     const status = exception.getStatus();
-    const error: { section: Sections; action: AuthorizationActions } =
-      exception.getResponse() as any;
+    const error: {
+      section: Sections;
+      action: AuthorizationActions;
+      message?: string;
+    } = exception.getResponse() as any;
 
     const isMember = request?.org?.users?.[0]?.role === 'USER';
     const message = getErrorMessage(error, isMember);
@@ -47,6 +50,7 @@ const getErrorMessage = (
   error: {
     section: Sections;
     action: AuthorizationActions;
+    message?: string;
   },
   isMember: boolean
 ) => {
@@ -55,6 +59,14 @@ const getErrorMessage = (
       switch (error.action) {
         default:
           return 'You have reached the maximum number of posts for your subscription. Please upgrade your subscription to add more posts.';
+      }
+    case Sections.PROVIDER_POSTS_PER_MONTH:
+      switch (error.action) {
+        default:
+          return (
+            error.message ||
+            'You have reached the maximum number of posts to this channel for your subscription. Please upgrade your subscription to add more posts.'
+          );
       }
     case Sections.CHANNEL:
       switch (error.action) {

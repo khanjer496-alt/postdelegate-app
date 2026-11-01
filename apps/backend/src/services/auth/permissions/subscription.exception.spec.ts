@@ -94,4 +94,23 @@ describe('SubscriptionExceptionFilter', () => {
       url: 'https://app.example.com/billing',
     });
   });
+
+  it('shows the message written for a network cap and links billing', () => {
+    new SubscriptionExceptionFilter().catch(
+      new SubscriptionException({
+        section: Sections.PROVIDER_POSTS_PER_MONTH,
+        action: AuthorizationActions.Create,
+        message: "You've used your 30 X posts for this month on the Starter plan.",
+      }),
+      host
+    );
+
+    expect(status).toHaveBeenCalledWith(402);
+    expect(json).toHaveBeenCalledWith({
+      statusCode: 402,
+      message: "You've used your 30 X posts for this month on the Starter plan.",
+      section: Sections.PROVIDER_POSTS_PER_MONTH,
+      url: 'https://app.example.com/billing',
+    });
+  });
 });

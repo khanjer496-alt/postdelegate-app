@@ -289,6 +289,12 @@ export interface SocialProvider
   publishedLabel?(settings: any): string | undefined;
   // the label of the link to such a post, e.g. in the digest email
   publishedLinkLabel?(settings: any): string | undefined;
+  // what lifts the plan's monthly cap on this network
+  // (provider_posts_per_month), the end of the message shown at the cap
+  planLimitHint?: string;
+  // why a repeating or evergreen post can't go to this network while a plan
+  // caps it a month, and what lifts that
+  planRepeatHint?: string;
   dto?: any;
   maxLength: (additionalSettings?: any, settings?: any) => number;
   checkValidity(

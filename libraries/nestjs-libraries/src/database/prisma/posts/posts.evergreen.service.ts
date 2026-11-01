@@ -108,6 +108,12 @@ export class PostsEvergreenService {
       );
     }
 
+    // every share is a post the plan can't count on a network it caps a month
+    await this._postsService.checkRepeatAllowed(
+      orgId,
+      roots.map((root) => root.integration.id)
+    );
+
     const until = body.until ? new Date(body.until) : null;
     if (until && until.getTime() <= Date.now()) {
       throw new BadRequestException('Pick an end date in the future.');

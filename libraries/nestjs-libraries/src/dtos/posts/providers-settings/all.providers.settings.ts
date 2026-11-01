@@ -40,6 +40,7 @@ export type AllProvidersSettings =
   | ProviderExtension<'kick', KickDto>
   | ProviderExtension<'twitch', TwitchDto>
   | ProviderExtension<'x', XDto>
+  | ProviderExtension<'x-own-key', XDto>
   | ProviderExtension<'linkedin', LinkedinDto>
   | ProviderExtension<'linkedin-page', LinkedinDto>
   | ProviderExtension<'instagram', InstagramDto>
@@ -80,6 +81,7 @@ export const allProviders = (setEmpty?: any) => {
     { value: KickDto, name: 'kick' },
     { value: TwitchDto, name: 'twitch' },
     { value: XDto, name: 'x' },
+    { value: XDto, name: 'x-own-key' },
     { value: LinkedinDto, name: 'linkedin' },
     { value: LinkedinDto, name: 'linkedin-page' },
     { value: InstagramDto, name: 'instagram' },

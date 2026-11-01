@@ -321,6 +321,10 @@ export class ApprovalsService {
       );
     }
 
+    // a post waiting for approval is a draft, the plan's monthly cap on its
+    // network applies once it is scheduled
+    await this._postsService.checkStoredPostLimit(organizationId, post.id);
+
     // a time that passed while the post waited means "publish now"
     const now = new Date();
     const publishDate = dayjs(post.publishDate).isBefore(now) ? now : undefined;

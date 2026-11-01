@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 import { Injectable } from '@nestjs/common';
 import { XProvider } from '@gitroom/nestjs-libraries/integrations/social/x.provider';
+import { XOwnKeyProvider } from '@gitroom/nestjs-libraries/integrations/social/x.own.key.provider';
 import { SocialProvider } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { LinkedinProvider } from '@gitroom/nestjs-libraries/integrations/social/linkedin.provider';
 import { RedditProvider } from '@gitroom/nestjs-libraries/integrations/social/reddit.provider';
@@ -41,6 +42,7 @@ import { TumblrProvider } from '@gitroom/nestjs-libraries/integrations/social/tu
 
 export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
   new XProvider(),
+  new XOwnKeyProvider(),
   new LinkedinProvider(),
   new LinkedinPageProvider(),
   new RedditProvider(),
@@ -81,7 +83,7 @@ export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
 @Injectable()
 export class IntegrationManager {
   // Both are env-driven so cloud and self-hosted instances can differ:
-  // HIDDEN_PROVIDERS ("tiktok,x") hides providers from the add-channel screen,
+  // HIDDEN_PROVIDERS ("tiktok,x,x-own-key") hides providers from the add-channel screen,
   // MIGRATE_PROVIDERS ("tiktok:tiktok-business") routes a reconnect of the old
   // provider through the new provider's OAuth and migrates the channel in
   // place, keeping its id, scheduled posts and settings.

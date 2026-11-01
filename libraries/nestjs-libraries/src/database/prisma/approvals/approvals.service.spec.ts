@@ -101,6 +101,7 @@ const makeService = (opts: { post?: any; settings?: any; link?: any } = {}) => {
     addReviewComment: jest.fn().mockResolvedValue({}),
     getPostsRecursively: jest.fn().mockResolvedValue([]),
     getStoredPostProblem: jest.fn().mockResolvedValue(null),
+    checkStoredPostLimit: jest.fn().mockResolvedValue(undefined),
   };
   const service = new ApprovalsService(
     repository as any,
@@ -187,6 +188,16 @@ describe('ApprovalsService transitions', () => {
       "This post can't be published yet: it needs at least one character or one image"
     );
     expect(posts.getStoredPostProblem).toHaveBeenCalledWith(ORG, 'p-1');
+    expect(repository.transitionGroup).not.toHaveBeenCalled();
+  });
+
+  it('does not approve a post past the plan cap on its network', async () => {
+    const { service, repository, posts } = makeService();
+    posts.checkStoredPostLimit.mockRejectedValue(new Error('cap reached'));
+    await expect(service.approve(ORG, 'p-1', admin)).rejects.toThrow(
+      'cap reached'
+    );
+    expect(posts.checkStoredPostLimit).toHaveBeenCalledWith(ORG, 'p-1');
     expect(repository.transitionGroup).not.toHaveBeenCalled();
   });
 

@@ -1,7 +1,11 @@
 import { AgentToolInterface } from '@gitroom/nestjs-libraries/chat/agent.tool.interface';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+} from '@nestjs/common';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
@@ -330,7 +334,11 @@ If validation fails, or the workspace limits what agents can do (allowed channel
               actor
             );
           } catch (err) {
-            if (err instanceof BadRequestException) {
+            // a plan limit (402) carries the message written for the customer
+            if (
+              err instanceof BadRequestException ||
+              (err instanceof HttpException && err.getStatus() === 402)
+            ) {
               return { output: { errors: err.message } };
             }
             throw err;

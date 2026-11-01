@@ -8,6 +8,10 @@ export interface PricingInnerInterface {
   year_price: number;
   channel?: number;
   posts_per_month: number;
+  // a monthly cap on the posts of one network, keyed by provider identifier,
+  // for networks whose API is paid per post. A network that isn't listed only
+  // counts toward posts_per_month
+  provider_posts_per_month?: Record<string, number>;
   team_members: boolean;
   community_features: boolean;
   featured_by_gitroom: boolean;
@@ -34,6 +38,7 @@ export const pricing: PricingInterface = {
     channel: 0,
     image_generation_count: 0,
     posts_per_month: 0,
+    provider_posts_per_month: { x: 0 },
     team_members: false,
     community_features: false,
     featured_by_gitroom: false,
@@ -55,6 +60,7 @@ export const pricing: PricingInterface = {
     year_price: 180,
     channel: 5,
     posts_per_month: 1000000,
+    provider_posts_per_month: { x: 30 },
     image_generation_count: 0,
     team_members: false,
     ai: false,
@@ -77,6 +83,7 @@ export const pricing: PricingInterface = {
     year_price: 276,
     channel: 10,
     posts_per_month: 1000000,
+    provider_posts_per_month: { x: 100 },
     image_generation_count: 0,
     community_features: true,
     team_members: true,
@@ -99,6 +106,7 @@ export const pricing: PricingInterface = {
     year_price: 372,
     channel: 30,
     posts_per_month: 1000000,
+    provider_posts_per_month: { x: 300 },
     image_generation_count: 0,
     community_features: true,
     team_members: true,
@@ -121,6 +129,7 @@ export const pricing: PricingInterface = {
     year_price: 756,
     channel: 100,
     posts_per_month: 1000000,
+    provider_posts_per_month: { x: 1000 },
     image_generation_count: 0,
     community_features: true,
     team_members: true,
@@ -136,3 +145,9 @@ export const pricing: PricingInterface = {
     analytics_reports: true,
   },
 };
+
+// networks some plan caps a month, their published posts are counted
+export const isCappedProvider = (providerIdentifier: string) =>
+  Object.values(pricing).some(
+    (plan) => plan.provider_posts_per_month?.[providerIdentifier] !== undefined
+  );
