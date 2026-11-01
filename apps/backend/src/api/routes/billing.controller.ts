@@ -21,6 +21,7 @@ import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
 import { PaymentService } from '@gitroom/nestjs-libraries/services/payment/payment.service';
 import { BillingSyncDto } from '@gitroom/nestjs-libraries/dtos/billing/billing.sync.dto';
+import { BillingExtraChannelsDto } from '@gitroom/nestjs-libraries/dtos/billing/billing.extra.channels.dto';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import {
   AuthorizationActions,
@@ -255,6 +256,24 @@ export class BillingController {
     @Body() body: BillingSubscribeDto
   ) {
     return (await this.provider(org)).prorate(org.id, body);
+  }
+
+  @Get('/extra-channels')
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  async getExtraChannels(@GetOrgFromRequest() org: Organization) {
+    return (await this.provider(org)).getExtraChannels(org.id);
+  }
+
+  @Post('/extra-channels')
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  async setExtraChannels(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: BillingExtraChannelsDto
+  ) {
+    return (await this.provider(org)).setExtraChannels(
+      org.id,
+      body.extraChannels
+    );
   }
 
   @Get('/charges')

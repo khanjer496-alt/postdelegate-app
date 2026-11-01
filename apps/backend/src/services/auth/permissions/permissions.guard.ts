@@ -10,7 +10,7 @@ import {
 } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { Organization } from '@prisma/client';
 import { Request } from 'express';
-import { SubscriptionException } from './permission.exception.class';
+import { Sections, SubscriptionException } from './permission.exception.class';
 
 // Routes that run before there is an organization on the request. Matched on
 // whole path segments from the start, a path that merely contains one of
@@ -61,9 +61,17 @@ export class PoliciesGuard implements CanActivate {
     );
 
     if (item) {
+      // the offer is a nicer prompt, never a reason to fail the plain 402
+      const extraChannels =
+        item[1] === Sections.CHANNEL
+          ? await this._authorizationService
+              .extraChannelsOffer(org)
+              .catch(() => null)
+          : null;
       throw new SubscriptionException({
         section: item[1],
         action: item[0],
+        ...(extraChannels ? { extraChannels } : {}),
       });
     }
 

@@ -1,4 +1,9 @@
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  allowsExtraChannels,
+  MAX_EXTRA_CHANNELS,
+  pricing,
+  totalChannelsOf,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 
 describe('pricing', () => {
   const paid = ['STANDARD', 'TEAM', 'PRO', 'ULTIMATE'];
@@ -48,5 +53,33 @@ describe('pricing', () => {
     expect(paid.map((p) => pricing[p].provider_posts_per_month?.x)).toEqual([
       30, 100, 300, 1000,
     ]);
+  });
+
+  it('sells extra channels on Ultimate only, $1 a month and 20% less yearly', () => {
+    expect(Object.keys(pricing).filter(allowsExtraChannels)).toEqual([
+      'ULTIMATE',
+    ]);
+    expect(pricing.ULTIMATE.extra_channel_month_price).toBe(1);
+    expect(pricing.ULTIMATE.extra_channel_year_price).toBeCloseTo(
+      pricing.ULTIMATE.extra_channel_month_price! * 12 * 0.8
+    );
+  });
+
+  it('maps extra channels to the stored channel limit', () => {
+    expect(totalChannelsOf('ULTIMATE')).toBe(100);
+    expect(totalChannelsOf('ULTIMATE', 0)).toBe(100);
+    expect(totalChannelsOf('ULTIMATE', 1)).toBe(101);
+    expect(totalChannelsOf('ULTIMATE', 250)).toBe(350);
+    expect(totalChannelsOf('ULTIMATE', -4)).toBe(100);
+    expect(totalChannelsOf('ULTIMATE', 2.7)).toBe(102);
+    expect(totalChannelsOf('ULTIMATE', 5000)).toBe(100 + MAX_EXTRA_CHANNELS);
+  });
+
+  it('ignores extra channels on a tier that does not sell them', () => {
+    expect(totalChannelsOf('STANDARD', 10)).toBe(5);
+    expect(totalChannelsOf('PRO', 10)).toBe(30);
+    expect(totalChannelsOf('FREE', 10)).toBe(0);
+    expect(allowsExtraChannels(undefined)).toBe(false);
+    expect(allowsExtraChannels('UNKNOWN')).toBe(false);
   });
 });

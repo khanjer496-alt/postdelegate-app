@@ -97,6 +97,19 @@ export abstract class PaymentProviderAbstract {
     return this.notSupported();
   }
 
+  // Channels bought on top of the tier's channels, for tiers that sell them
+  async getExtraChannels(organizationId: string): Promise<any> {
+    return { available: false };
+  }
+
+  // Set the number of extra channels (the target quantity, not a delta)
+  async setExtraChannels(
+    organizationId: string,
+    extraChannels: number
+  ): Promise<any> {
+    return this.notSupported();
+  }
+
   // Toggle cancel-at-period-end
   async setToCancel(organizationId: string): Promise<any> {
     return this.notSupported();

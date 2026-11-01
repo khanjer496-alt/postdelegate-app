@@ -1712,5 +1712,21 @@
   "bulk_videos_capped": "A monthly limit of your plan stopped {{names}}, so those posts were skipped. The other channels got their videos.",
   "bulk_videos_not_posted_to": "Not posted to {{names}}.",
   "bulk_videos_too_long": "This is taking longer than expected. Check the calendar before you schedule these videos again.",
-  "bulk_videos_not_created": "The videos were not scheduled. Check the preview, then try again."
+  "bulk_videos_not_created": "The videos were not scheduled. Check the preview, then try again.",
+  "add_extra_channels": "Add extra channels",
+  "channel_limit_reached": "Channel limit reached",
+  "extra_channels": "Extra channels",
+  "extra_channels_description": "Your plan includes {{included}} channels. Add more for ${{price}} {{period}} each.",
+  "extra_channels_a_month": "a month",
+  "extra_channels_a_year": "a year",
+  "extra_channels_after_trial": "You can add them once your trial ends, or finish the trial now to add them today.",
+  "extra_channels_proration": "Changes are prorated: adding channels charges the rest of this billing period today, removing them credits your next invoice.",
+  "extra_channels_total": "{{total}} channels in total",
+  "extra_channels_remove_one": "Remove one channel",
+  "extra_channels_add_one": "Add one channel",
+  "extra_channels_updated": "Your extra channels were updated",
+  "extra_channels_update_failed": "Your extra channels could not be updated",
+  "extra_channels_payment_processing": "Your payment is processing. Your extra channels update as soon as it goes through.",
+  "faq_more_than_100_channels": "What if I need more than 100 channels?",
+  "faq_extra_channels_description": "The Ultimate plan includes 100 channels, and each extra channel above that costs $1 a month ($9.60 a year on yearly billing). Once your plan is paid, a workspace admin adds them under Extra channels on this page, up to 900 extra channels (1,000 in total). Changes are prorated, and you cannot go below the channels you already have connected."
 }

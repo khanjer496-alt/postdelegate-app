@@ -359,6 +359,14 @@ export class SubscriptionService {
     );
   }
 
+  // Channels that count against the limit right now, the ones a lower limit
+  // would disable (modifySubscription)
+  async getActiveChannelsCount(organizationId: string) {
+    return (
+      await this._integrationService.getIntegrationsList(organizationId)
+    ).filter((f) => !f.disabled).length;
+  }
+
   getSubscriptionByIdentifier(identifier: string) {
     return this._subscriptionRepository.getSubscriptionByIdentifier(identifier);
   }

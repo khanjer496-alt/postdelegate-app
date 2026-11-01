@@ -10,7 +10,10 @@ describe('isUnderPrefix', () => {
     expect(isUnderPrefix('/auth', '/auth')).toBe(true);
     expect(isUnderPrefix('/auth/login', '/auth')).toBe(true);
     expect(
-      isUnderPrefix('/integrations/social-connect/x', '/integrations/social-connect')
+      isUnderPrefix(
+        '/integrations/social-connect/x',
+        '/integrations/social-connect'
+      )
     ).toBe(true);
   });
 
@@ -60,5 +63,75 @@ describe('PoliciesGuard', () => {
     const { result, check } = await run('/auth/login');
     await expect(result).resolves.toBe(true);
     expect(check).not.toHaveBeenCalled();
+  });
+});
+
+describe('PoliciesGuard channel limit', () => {
+  class Handlers {
+    @CheckPolicies([AuthorizationActions.Create, Sections.CHANNEL])
+    channel() {}
+  }
+
+  const deny = async (offer: unknown) => {
+    const extraChannelsOffer =
+      offer instanceof Error
+        ? jest.fn().mockRejectedValue(offer)
+        : jest.fn().mockResolvedValue(offer);
+    const guard = new PoliciesGuard(new Reflector(), {
+      check: jest.fn().mockResolvedValue({ can: () => false }),
+      extraChannelsOffer,
+    } as any);
+    const org = {
+      id: 'o',
+      createdAt: new Date(),
+      paymentId: 'cus_1',
+      users: [{ role: 'ADMIN' }],
+    };
+    const error = await guard
+      .canActivate({
+        getHandler: () => Handlers.prototype.channel,
+        switchToHttp: () => ({
+          getRequest: () => ({
+            path: '/integrations/social/x',
+            query: {},
+            org,
+          }),
+        }),
+      } as any)
+      .catch((e) => e);
+    return { response: error.getResponse(), extraChannelsOffer, org };
+  };
+
+  it('adds the extra channels offer to a denied channel', async () => {
+    const offer = {
+      plan: 'Ultimate',
+      totalChannels: 100,
+      price: 1,
+      period: 'MONTHLY',
+    };
+    const { response, extraChannelsOffer, org } = await deny(offer);
+
+    expect(extraChannelsOffer).toHaveBeenCalledWith(org);
+    expect(response).toEqual({
+      section: Sections.CHANNEL,
+      action: AuthorizationActions.Create,
+      extraChannels: offer,
+    });
+  });
+
+  it('falls back to the plain 402 when the offer lookup fails', async () => {
+    const { response } = await deny(new Error('db down'));
+    expect(response).toEqual({
+      section: Sections.CHANNEL,
+      action: AuthorizationActions.Create,
+    });
+  });
+
+  it('leaves it out when there is no offer', async () => {
+    const { response } = await deny(null);
+    expect(response).toEqual({
+      section: Sections.CHANNEL,
+      action: AuthorizationActions.Create,
+    });
   });
 });

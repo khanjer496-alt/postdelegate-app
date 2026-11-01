@@ -26,6 +26,8 @@ describe('BillingController authorization', () => {
     'applyDiscount',
     'chatbaseRefund',
     'getInvoices',
+    'getExtraChannels',
+    'setExtraChannels',
   ] as const)('%s requires an org admin', (name) => {
     expect(policiesOf(name)).toEqual([
       [AuthorizationActions.Create, Sections.ADMIN],

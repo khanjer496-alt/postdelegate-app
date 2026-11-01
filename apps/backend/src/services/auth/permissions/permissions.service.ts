@@ -1,13 +1,21 @@
 import { Ability, AbilityBuilder, AbilityClass } from '@casl/ability';
 import { Injectable } from '@nestjs/common';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  allowsExtraChannels,
+  pricing,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { STRIPE_PROVIDER } from '@gitroom/nestjs-libraries/services/payment/payment.providers';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import dayjs from 'dayjs';
 import { WebhooksService } from '@gitroom/nestjs-libraries/database/prisma/webhooks/webhooks.service';
 import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
-import { AuthorizationActions, Sections } from './permission.exception.class';
+import {
+  AuthorizationActions,
+  ExtraChannelsOffer,
+  Sections,
+} from './permission.exception.class';
 
 export type AppAbility = Ability<[AuthorizationActions, Sections]>;
 
@@ -35,6 +43,43 @@ export class PermissionsService {
         ...all,
         ...{ channel: tier === 'FREE' ? channel : -10 },
       },
+    };
+  }
+
+  // A full plan that sells extra channels adds them instead of upgrading.
+  // Only a paid, active Stripe subscription can buy them: not a trial or a
+  // past_due one (the webhooks store isTrailing for any status but active), a
+  // store subscription, a lifetime deal or an admin-granted plan (no Stripe
+  // customer)
+  async extraChannelsOffer(org: {
+    id: string;
+    isTrailing?: boolean;
+    paymentId?: string | null;
+  }): Promise<ExtraChannelsOffer | null> {
+    if (org.isTrailing || !org.paymentId?.startsWith('cus_')) {
+      return null;
+    }
+
+    const subscription =
+      await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
+    if (
+      !subscription ||
+      subscription.provider !== STRIPE_PROVIDER ||
+      subscription.isLifetime ||
+      !allowsExtraChannels(subscription.subscriptionTier)
+    ) {
+      return null;
+    }
+
+    const plan = pricing[subscription.subscriptionTier];
+    const yearly = subscription.period === 'YEARLY';
+    return {
+      plan: plan.label || subscription.subscriptionTier,
+      totalChannels: subscription.totalChannels,
+      price: (yearly
+        ? plan.extra_channel_year_price
+        : plan.extra_channel_month_price)!,
+      period: yearly ? 'YEARLY' : 'MONTHLY',
     };
   }
 

@@ -10,7 +10,10 @@ import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import clsx from 'clsx';
 import { capitalize } from 'lodash';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  allowsExtraChannels,
+  pricing,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { FAQComponent } from '@gitroom/frontend/components/billing/faq.component';
 import {
   useBillingFeatures,
@@ -39,6 +42,7 @@ import { useDubClickId } from '@gitroom/frontend/components/layout/dubAnalytics'
 import { LogoutComponent } from '@gitroom/frontend/components/layout/logout.component';
 import useCookie from 'react-use-cookie';
 import { usePaymentAction } from '@gitroom/frontend/components/billing/use.payment.action';
+import { ExtraChannels } from '@gitroom/frontend/components/billing/extra.channels.component';
 
 type SubscriptionWithPlatform = Subscription & {
   platform?: 'web' | 'mobile';
@@ -650,6 +654,45 @@ export const MainBillingComponent: FC<{
             );
           }
         }
+        const fromTier = subscription?.subscriptionTier || 'FREE';
+        if (
+          billing !== 'FREE' &&
+          allowsExtraChannels(fromTier) &&
+          !allowsExtraChannels(billing) &&
+          (subscription?.totalChannels || 0) > (pricing[fromTier]?.channel || 0)
+        ) {
+          messages.push(
+            `Your extra channels will be removed and the unused time credited to your next invoice`
+          );
+        }
+        // a switch between two plans that sell extra channels (monthly and
+        // yearly Ultimate) keeps them, so the limit stays the same
+        const newLimit =
+          allowsExtraChannels(fromTier) && allowsExtraChannels(billing)
+            ? subscription?.totalChannels || 0
+            : pricing[billing].channel || 0;
+        if (
+          billing !== 'FREE' &&
+          newLimit < (subscription?.totalChannels || 0)
+        ) {
+          try {
+            const { integrations } = await (
+              await fetch('/integrations/list')
+            ).json();
+            const active = (integrations || []).filter(
+              (p: { disabled: boolean }) => !p.disabled
+            ).length;
+            if (active > newLimit) {
+              const plan = pricing[billing].label || capitalize(billing);
+              const disabled = active - newLimit;
+              messages.push(
+                `${disabled} of your ${active} active channels will be disabled, as the ${plan} plan includes ${newLimit}`
+              );
+            }
+          } catch (err: any) {
+            // the change still disables the channels above the new limit
+          }
+        }
         if (billing === 'FREE') {
           if (
             subscription?.cancelAt ||
@@ -737,7 +780,14 @@ export const MainBillingComponent: FC<{
           setLoading(false);
           return;
         }
-        const { url, portal, blocked, requiresAction, clientSecret } = await (
+        const {
+          url,
+          portal,
+          blocked,
+          requiresAction,
+          clientSecret,
+          error,
+        } = await (
           await fetch('/billing/subscribe', {
             method: 'POST',
             body: JSON.stringify({
@@ -750,6 +800,11 @@ export const MainBillingComponent: FC<{
             }),
           })
         ).json();
+        if (error) {
+          setLoading(false);
+          toast.show(error, 'warning');
+          return;
+        }
         if (blocked) {
           setLoading(false);
           await deleteDialog(
@@ -810,6 +865,7 @@ export const MainBillingComponent: FC<{
           );
           mutate('/billing/invoices');
           mutate('/billing/renewal');
+          mutate('/billing/extra-channels');
           showConfirmedPlan(
             billing,
             monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY'
@@ -1011,6 +1067,10 @@ export const MainBillingComponent: FC<{
           canceled={!!subscription.cancelAt}
         />
       )}
+      {!!subscription?.id &&
+        allowsExtraChannels(
+          sub?.subscriptionTier || subscription.subscriptionTier
+        ) && <ExtraChannels />}
       {!!subscription?.id && (
         <div className="flex items-center gap-[16px] rounded-[12px] border border-newTableBorder bg-newBgColorInner shadow-previewShadow px-[24px] py-[20px] mobile:flex-col mobile:items-stretch mobile:p-[16px]">
           <div className="w-[48px] h-[48px] rounded-full bg-[#7357ff]/10 text-btnPrimary flex items-center justify-center shrink-0 mobile:hidden">

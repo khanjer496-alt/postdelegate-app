@@ -7,6 +7,12 @@ export interface PricingInnerInterface {
   month_price: number;
   year_price: number;
   channel?: number;
+  // channels bought on top of `channel`, per channel, as one more Stripe
+  // subscription item whose quantity is the number of extra channels
+  // (lookup_key postdelegate_extra_channel_<month|year>). A tier without
+  // them can't add channels beyond `channel`
+  extra_channel_month_price?: number;
+  extra_channel_year_price?: number;
   posts_per_month: number;
   // a monthly cap on the posts of one network, keyed by provider identifier,
   // for networks whose API is paid per post. A network that isn't listed only
@@ -128,6 +134,8 @@ export const pricing: PricingInterface = {
     month_price: 79,
     year_price: 756,
     channel: 100,
+    extra_channel_month_price: 1,
+    extra_channel_year_price: 9.6,
     posts_per_month: 1000000,
     provider_posts_per_month: { x: 1000 },
     image_generation_count: 0,
@@ -151,3 +159,17 @@ export const isCappedProvider = (providerIdentifier: string) =>
   Object.values(pricing).some(
     (plan) => plan.provider_posts_per_month?.[providerIdentifier] !== undefined
   );
+
+// the most extra channels one subscription can hold, on top of the tier's
+export const MAX_EXTRA_CHANNELS = 900;
+
+export const allowsExtraChannels = (tier?: string | null) =>
+  !!tier && !!pricing[tier]?.extra_channel_month_price;
+
+// the channel limit stored on the subscription: the tier's channels plus the
+// extra channels bought, which only count on a tier that sells them
+export const totalChannelsOf = (tier: string, extraChannels = 0) =>
+  (pricing[tier]?.channel || 0) +
+  (allowsExtraChannels(tier)
+    ? Math.min(MAX_EXTRA_CHANNELS, Math.max(0, Math.floor(extraChannels || 0)))
+    : 0);

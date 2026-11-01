@@ -82,6 +82,57 @@ describe('SubscriptionExceptionFilter', () => {
     }
   );
 
+  const denyChannel = (extraChannels?: Record<string, unknown>) =>
+    new SubscriptionExceptionFilter().catch(
+      new SubscriptionException({
+        section: Sections.CHANNEL,
+        action: AuthorizationActions.Create,
+        ...(extraChannels ? { extraChannels: extraChannels as any } : {}),
+      }),
+      host
+    );
+
+  it('offers extra channels instead of an upgrade, priced monthly', () => {
+    denyChannel({
+      plan: 'Ultimate',
+      totalChannels: 125,
+      price: 1,
+      period: 'MONTHLY',
+    });
+
+    expect(json).toHaveBeenCalledWith({
+      statusCode: 402,
+      message:
+        'You have used all 125 channels of your Ultimate plan. Add extra channels for $1 a month each.',
+      section: Sections.CHANNEL,
+      url: 'https://app.example.com/billing?extraChannels=true',
+    });
+  });
+
+  it('prices the offer yearly on a yearly plan', () => {
+    denyChannel({
+      plan: 'Ultimate',
+      totalChannels: 100,
+      price: 9.6,
+      period: 'YEARLY',
+    });
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'You have used all 100 channels of your Ultimate plan. Add extra channels for $9.60 a year each.',
+      })
+    );
+  });
+
+  it('keeps the upgrade prompt without an offer', () => {
+    denyChannel();
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'https://app.example.com/billing' })
+    );
+  });
+
   it('still sends a plan limit to billing', () => {
     deny(Sections.POSTS_PER_MONTH);
 

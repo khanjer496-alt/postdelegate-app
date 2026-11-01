@@ -98,3 +98,59 @@ describe('PermissionsService role sections', () => {
     });
   });
 });
+
+describe('PermissionsService extraChannelsOffer', () => {
+  const offerFor = (
+    subscription: Record<string, unknown> | null,
+    org: { isTrailing?: boolean; paymentId?: string | null } = {
+      paymentId: 'cus_1',
+    }
+  ) =>
+    new PermissionsService(
+      {
+        getSubscriptionByOrganizationId: jest
+          .fn()
+          .mockResolvedValue(subscription),
+      } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    ).extraChannelsOffer({ id: 'org', ...org });
+
+  const ultimate = {
+    provider: 'stripe',
+    subscriptionTier: 'ULTIMATE',
+    period: 'MONTHLY',
+    isLifetime: false,
+    totalChannels: 125,
+  };
+
+  it('offers $1 a month on a paid monthly Ultimate plan', async () => {
+    expect(await offerFor(ultimate)).toEqual({
+      plan: 'Ultimate',
+      totalChannels: 125,
+      price: 1,
+      period: 'MONTHLY',
+    });
+  });
+
+  it('offers $9.60 a year on a yearly Ultimate plan', async () => {
+    expect(await offerFor({ ...ultimate, period: 'YEARLY' })).toEqual(
+      expect.objectContaining({ price: 9.6, period: 'YEARLY' })
+    );
+  });
+
+  it.each([
+    ['a trial', ultimate, { isTrailing: true, paymentId: 'cus_1' }],
+    // the webhooks store isTrailing for every status but active
+    ['a past_due subscription', ultimate, { isTrailing: true, paymentId: 'cus_1' }],
+    ['an admin-granted plan', ultimate, { paymentId: 'user_1' }],
+    ['a store subscription', { ...ultimate, provider: 'revenuecat' }, undefined],
+    ['a lifetime deal', { ...ultimate, isLifetime: true }, undefined],
+    ['Pro', { ...ultimate, subscriptionTier: 'PRO' }, undefined],
+    ['no subscription', null, undefined],
+  ])('offers nothing to %s', async (_, subscription, org) => {
+    expect(await offerFor(subscription, org)).toBeNull();
+  });
+});

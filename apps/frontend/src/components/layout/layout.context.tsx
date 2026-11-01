@@ -128,11 +128,19 @@ function LayoutContextInner(params: { children: ReactNode }) {
 
         const { pathname, search } = new URL(body.url, window.location.origin);
         const billing = pathname === '/billing';
+        // a full plan that sells extra channels adds them instead of upgrading
+        const extraChannels = new URLSearchParams(search).has('extraChannels');
         if (
           await deleteDialog(
             body.message,
-            billing ? 'Move to billing' : t('open_settings', 'Open settings'),
-            billing
+            extraChannels
+              ? t('add_extra_channels', 'Add extra channels')
+              : billing
+              ? 'Move to billing'
+              : t('open_settings', 'Open settings'),
+            extraChannels
+              ? t('channel_limit_reached', 'Channel limit reached')
+              : billing
               ? 'Payment Required'
               : t('action_required', 'Action required')
           )
