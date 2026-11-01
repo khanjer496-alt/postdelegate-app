@@ -5,7 +5,7 @@ import { AccountStats, PostStats } from '@gitroom/nestjs-libraries/integrations/
 
 // the most rows one history read returns, newest first: a 90-day comparison
 // window of 100 channels is under 20,000 snapshot rows
-const HISTORY_READ_LIMIT = 50000;
+export const HISTORY_READ_LIMIT = 50000;
 // deleted channels per batch when their history is purged
 const PURGE_BATCH = 500;
 
@@ -363,6 +363,56 @@ export class AnalyticsRepository {
         publishedAt: { gte: from, lt: to },
       },
       orderBy: { publishedAt: 'desc' },
+      take: HISTORY_READ_LIMIT,
+      select: postMetricsSelect,
+    });
+  }
+
+  // The daily view counts of the channels' posts in [from, to], for the view
+  // gains. Only the four columns the gains need are read
+  getPostViewSnapshots(
+    orgId: string,
+    integrationIds: string[],
+    from: Date,
+    to: Date
+  ) {
+    if (!integrationIds.length) {
+      return Promise.resolve([]);
+    }
+    return this._postSnapshot.model.analyticsPostSnapshot.findMany({
+      where: {
+        organizationId: orgId,
+        integrationId: { in: integrationIds },
+        date: { gte: from, lte: to },
+        views: { not: null },
+      },
+      // past the limit the oldest days go, never the current ones
+      orderBy: { date: 'desc' },
+      take: HISTORY_READ_LIMIT,
+      select: {
+        integrationId: true,
+        externalId: true,
+        date: true,
+        views: true,
+      },
+    });
+  }
+
+  // The latest metrics of these platform posts of the channels
+  getAnalyticsPostsOf(
+    orgId: string,
+    integrationIds: string[],
+    externalIds: string[]
+  ) {
+    if (!integrationIds.length || !externalIds.length) {
+      return Promise.resolve([]);
+    }
+    return this._analyticsPost.model.analyticsPost.findMany({
+      where: {
+        organizationId: orgId,
+        integrationId: { in: integrationIds },
+        externalId: { in: externalIds },
+      },
       take: HISTORY_READ_LIMIT,
       select: postMetricsSelect,
     });

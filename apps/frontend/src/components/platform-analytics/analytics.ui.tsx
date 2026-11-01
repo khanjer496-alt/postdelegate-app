@@ -40,6 +40,47 @@ export const Skeleton: FC<{ className?: string }> = ({ className }) => (
   />
 );
 
+// A headline number of a section
+export const StatTile: FC<{
+  label: string;
+  hint: string;
+  value?: number;
+  tone?: 'default' | 'danger';
+  loading: boolean;
+}> = ({ label, hint, value, tone = 'default', loading }) => (
+  <div className="flex flex-col gap-[6px] bg-newTableHeader border border-newTableBorder rounded-[12px] px-[16px] py-[14px] min-w-0">
+    <div className="text-[13px] font-[500] text-newTableText">{label}</div>
+    {loading ? (
+      <Skeleton className="h-[36px] w-[72px]" />
+    ) : (
+      <div
+        className={clsx(
+          'text-[32px] leading-[36px] font-[600] tracking-tight flex items-center gap-[8px]',
+          tone === 'danger' && !!value ? 'text-red-500' : 'text-newTextColor'
+        )}
+      >
+        {tone === 'danger' && !!value && (
+          <svg
+            aria-hidden="true"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7.5v5.5M12 16.5h.01" />
+          </svg>
+        )}
+        {formatNumber(value || 0)}
+      </div>
+    )}
+    <div className="text-[12px] text-newTableText">{hint}</div>
+  </div>
+);
+
 export const Card: FC<{
   title: string;
   subtitle?: string;

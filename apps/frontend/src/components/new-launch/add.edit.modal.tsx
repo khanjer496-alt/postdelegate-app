@@ -36,6 +36,8 @@ export interface AddEditModalProps {
     image?: Array<{
       id: string;
       path: string;
+      thumbnail?: string;
+      thumbnailTimestamp?: number;
     }>;
   }>;
 }

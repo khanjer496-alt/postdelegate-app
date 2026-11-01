@@ -90,6 +90,13 @@ export interface IAuthenticator {
     accessToken: string,
     postIds: string[]
   ): Promise<Record<string, PostStats>>; // Stats of several posts in one call, used by the daily analytics history instead of one postAnalytics call per post. Throws when the platform call fails
+  viewsMetric?: ViewsMetric; // Which analytics metric counts views, read by the daily view-gain charts (Analytics > Views), see ViewsMetric
+  topViewedPosts?(
+    id: string,
+    accessToken: string,
+    days: number,
+    limit: number
+  ): Promise<ViewedPost[]>; // The channel's posts with the most views gained in the last `days` days, most first, read live. For networks whose analytics may not be kept in the daily history. Throws when the platform call fails
   resolveReleaseId?(
     accessToken: string,
     releaseId: string,
@@ -158,6 +165,32 @@ export interface PostStats {
   comments?: number;
   shares?: number;
   clicks?: number;
+}
+
+// Which analytics metric counts views, read by the daily view-gain charts
+// (Analytics > Views). A provider without it shows as a network that does not
+// share view counts.
+export interface ViewsMetric {
+  // label of the analytics() metric whose points are the channel's views per
+  // day. Only for networks whose analytics() returns a daily series of views,
+  // not a running total
+  channel?: string;
+  // days to move the dates of that series by, -1 where each point is dated
+  // the end of its day (the start of the next one)
+  channelDateOffset?: number;
+  // labels of the postAnalytics() metrics that hold a post's lifetime views,
+  // the first one reported wins. The daily analytics history keeps that count
+  // and the daily gains are computed from it
+  post?: string[];
+}
+
+// A post with the views it gained over a range, read live from the platform
+export interface ViewedPost {
+  id: string;
+  views: number;
+  title?: string;
+  url?: string;
+  publishedAt?: string; // ISO 8601
 }
 
 export type GenerateAuthUrlResponse = {

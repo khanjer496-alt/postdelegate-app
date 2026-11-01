@@ -72,6 +72,8 @@ describe('ErasureRepository.eraseOrganization', () => {
     expect(at('orderItems')).toBeLessThan(at('orders'));
     expect(at('orders')).toBeLessThan(at('messagesGroup'));
     expect(at('clippingClip')).toBeLessThan(at('clipping'));
+    expect(at('studioRender')).toBeLessThan(at('studioProject'));
+    expect(at('studioProject')).toBeLessThan(at('organization'));
     expect(at('oAuthSelfHostedAuthorization')).toBeLessThan(at('oAuthApp'));
     expect(at('oAuthApp')).toBeLessThan(at('media'));
     expect(at('subscription')).toBeLessThan(at('organization'));

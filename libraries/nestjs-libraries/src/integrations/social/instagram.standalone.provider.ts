@@ -3,6 +3,7 @@ import {
   PostDetails,
   PostResponse,
   SocialProvider,
+  ViewsMetric,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
 import dayjs from 'dayjs';
@@ -39,6 +40,9 @@ export class InstagramStandaloneProvider
   dto = InstagramDto;
 
   editor = 'normal' as const;
+
+  // the same analytics as the Instagram provider, see its viewsMetric
+  viewsMetric: ViewsMetric = { post: ['Views'] };
   maxLength() {
     return 2200;
   }

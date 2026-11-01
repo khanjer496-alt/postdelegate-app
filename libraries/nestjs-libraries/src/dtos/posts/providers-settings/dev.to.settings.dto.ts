@@ -12,6 +12,7 @@ import {
 import { MediaDto } from '@gitroom/nestjs-libraries/dtos/media/media.dto';
 import { Type } from 'class-transformer';
 import { DevToTagsSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/dev.to.tags.settings.dto';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class DevToSettingsDto {
   @IsString()
@@ -37,11 +38,13 @@ export class DevToSettingsDto {
 
   @IsString()
   @IsOptional()
+  @ComposerOnly()
   organization?: string;
 
   @IsArray()
   @ArrayMaxSize(4)
   @Type(() => DevToTagsSettingsDto)
   @ValidateNested({ each: true })
+  @ComposerOnly()
   tags: DevToTagsSettingsDto[] = [];
 }

@@ -242,6 +242,16 @@ const organizationSteps = (org: string): Step[] => [
   },
   { table: 'Clipping', model: 'clipping', where: { organizationId: org } },
   {
+    table: 'StudioRender',
+    model: 'studioRender',
+    where: { organizationId: org },
+  },
+  {
+    table: 'StudioProject',
+    model: 'studioProject',
+    where: { organizationId: org },
+  },
+  {
     table: 'OAuthSelfHostedAuthorization',
     model: 'oAuthSelfHostedAuthorization',
     where: { oauthApp: { organizationId: org } },
@@ -485,7 +495,7 @@ export class ErasureRepository {
     org: string
   ): Promise<OrganizationWorkflowTargets> {
     const db = this._prisma.model;
-    const [integrations, posts, autoposts, clippings, clips, media] =
+    const [integrations, posts, autoposts, clippings, clips, media, renders] =
       await Promise.all([
         db.integration.findMany({
           where: { organizationId: org },
@@ -509,6 +519,14 @@ export class ErasureRepository {
         }),
         db.media.findMany({
           where: { organizationId: org, status: { not: 'ready' } },
+          select: { id: true },
+        }),
+        // a render still running would save a media after the erasure
+        db.studioRender.findMany({
+          where: {
+            organizationId: org,
+            status: { notIn: ['completed', 'failed', 'cancelled'] },
+          },
           select: { id: true },
         }),
       ]);
@@ -535,6 +553,7 @@ export class ErasureRepository {
         ...clippings.map(({ id }) => `clipping_${id}`),
         ...clips.map(({ id }) => `clipping_clip_${id}`),
         ...media.map(({ id }) => `media_${id}`),
+        ...renders.map(({ id }) => `studio_${id}`),
       ],
     };
   }

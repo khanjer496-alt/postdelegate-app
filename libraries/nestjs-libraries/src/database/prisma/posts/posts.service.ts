@@ -2224,6 +2224,21 @@ export class PostsService {
     return this._postRepository.findPopularPosts(category, topic);
   }
 
+  // the dates channels already post at, for a bulk schedule
+  getPublishDatesOfIntegrations(
+    orgId: string,
+    integrationIds: string[],
+    from: Date,
+    until: Date
+  ) {
+    return this._postRepository.getPublishDatesOfIntegrations(
+      orgId,
+      integrationIds,
+      from,
+      until
+    );
+  }
+
   async findFreeDateTime(orgId: string, integrationId?: string) {
     const findTimes = await this._integrationService.findFreeDateTime(
       orgId,

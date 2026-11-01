@@ -27,3 +27,4 @@ export * from './analytics.snapshot.workflow.v1';
 export * from './analytics.report.workflow.v1';
 export * from './weekly.summary.workflow.v1';
 export * from './trial.onboarding.workflow.v1';
+export * from './studio.render.workflow.v1';

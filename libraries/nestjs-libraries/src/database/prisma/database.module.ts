@@ -42,6 +42,7 @@ import { AiCredentialRepository } from '@gitroom/nestjs-libraries/database/prism
 import { AiCredentialService } from '@gitroom/nestjs-libraries/database/prisma/ai-credentials/ai.credential.service';
 import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.service';
 import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
+import { StudioTemplateManager } from '@gitroom/nestjs-libraries/studio/studio.manager';
 import { FalService } from '@gitroom/nestjs-libraries/openai/fal.service';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { OAuthRepository } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.repository';
@@ -65,10 +66,13 @@ import { ActivationService } from '@gitroom/nestjs-libraries/database/prisma/act
 import { LoginLockoutService } from '@gitroom/nestjs-libraries/services/login.lockout.service';
 import { IdeasRepository } from '@gitroom/nestjs-libraries/database/prisma/ideas/ideas.repository';
 import { IdeasService } from '@gitroom/nestjs-libraries/database/prisma/ideas/ideas.service';
+import { StudioRepository } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.repository';
+import { StudioService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.service';
 import { PostsEvergreenRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.evergreen.repository';
 import { PostsEvergreenService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.evergreen.service';
 import { PostsImportRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.import.repository';
 import { PostsImportService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.import.service';
+import { PostsBulkVideosService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.bulk.videos.service';
 import { WeeklySummaryRepository } from '@gitroom/nestjs-libraries/database/prisma/weekly-summary/weekly.summary.repository';
 import { WeeklySummaryService } from '@gitroom/nestjs-libraries/database/prisma/weekly-summary/weekly.summary.service';
 import { TrialOnboardingRepository } from '@gitroom/nestjs-libraries/database/prisma/trial-onboarding/trial.onboarding.repository';
@@ -135,6 +139,7 @@ import { ApprovalsService } from '@gitroom/nestjs-libraries/database/prisma/appr
     OAuthRepository,
     OAuthService,
     VideoManager,
+    StudioTemplateManager,
     AnnouncementsRepository,
     AnnouncementsService,
     ErrorsRepository,
@@ -159,10 +164,13 @@ import { ApprovalsService } from '@gitroom/nestjs-libraries/database/prisma/appr
     ApprovalsService,
     IdeasRepository,
     IdeasService,
+    StudioRepository,
+    StudioService,
     PostsEvergreenRepository,
     PostsEvergreenService,
     PostsImportRepository,
     PostsImportService,
+    PostsBulkVideosService,
     WeeklySummaryRepository,
     WeeklySummaryService,
     TrialOnboardingRepository,

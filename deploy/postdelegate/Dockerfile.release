@@ -16,6 +16,31 @@ ENV IS_GENERAL=true
 ENV NEXT_PUBLIC_VERSION=""
 ENV STORAGE_PROVIDER=cloudflare
 
+# Studio renders videos on this server with ffmpeg. The base image is Debian
+# bookworm (node:22-bookworm-slim), whose ffmpeg 5.1 carries libass (with
+# harfbuzz and fribidi), freetype, fontconfig, x264 and the native aac
+# encoder. apt over a pinned static build so it gets Debian security updates.
+# Only OFL fonts are bundled (licences in fonts/OFL.txt); renders pin this
+# directory with ass=...:fontsdir= so a caption never falls back to a font
+# the preview does not have. The checks fail the build if a filter, an
+# encoder or the fonts are missing instead of failing the first render.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig \
+    && rm -rf /var/lib/apt/lists/*
+COPY deploy/postdelegate/fonts/ /usr/share/fonts/truetype/postdelegate-studio/
+ENV STUDIO_FONTS_DIR=/usr/share/fonts/truetype/postdelegate-studio
+RUN fc-cache -f \
+    && fc-list | grep -q "Montserrat" \
+    && fc-list | grep -q "Anton" \
+    && ffmpeg -hide_banner -filters | grep -qE '\bass\b' \
+    && ffmpeg -hide_banner -filters | grep -q drawtext \
+    && ffmpeg -hide_banner -encoders | grep -q libx264 \
+    && ffmpeg -hide_banner -encoders | grep -qE '\baac\b' \
+    && ffprobe -version > /dev/null \
+    && ffmpeg -hide_banner -loglevel error \
+      -f lavfi -i testsrc=size=108x192:rate=30:duration=1 \
+      -f lavfi -i anullsrc=r=48000:cl=stereo \
+      -t 1 -c:v libx264 -preset veryfast -c:a aac -f null -
+
 # The provider changes are used by both HTTP handlers and Temporal workers.
 # Rebuild all three applications with the pinned image's installed dependencies.
 # COPY only adds and overwrites, so clear the upstream public assets first:

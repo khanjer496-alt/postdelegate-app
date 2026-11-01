@@ -16,14 +16,29 @@ export class RefreshIntegrationService {
     private _integrationService: IntegrationService,
     private _temporalService: TemporalService
   ) {}
-  async refresh(integration: Integration, cause = ''): Promise<false | AuthTokenDetails> {
+  // `soft`: a failed refresh only returns false, the channel is not flagged
+  // for reconnect and nobody is notified (read-mostly views like Analytics >
+  // Views, where a network that briefly fails must not block publishing)
+  async refresh(
+    integration: Integration,
+    cause = '',
+    soft = false
+  ): Promise<false | AuthTokenDetails> {
     const current = await this._integrationService.getActiveIntegrationById(integration.organizationId, integration.id);
     if (!current || current.token !== integration.token) return false;
     const socialProvider = this._integrationManager.getSocialIntegration(
       integration.providerIdentifier
     );
 
-    const refresh = await this.refreshProcess(integration, socialProvider, cause);
+    const refresh = await this.refreshProcess(
+      integration,
+      socialProvider,
+      cause,
+      soft
+    ).catch((err) => {
+      if (soft) return false as const;
+      throw err;
+    });
 
     if (!refresh) {
       return false as const;
@@ -67,7 +82,8 @@ export class RefreshIntegrationService {
   private async refreshProcess(
     integration: Integration,
     socialProvider: SocialProvider,
-    cause = ''
+    cause = '',
+    soft = false
   ): Promise<AuthTokenDetails | false> {
     let refreshError: any = undefined;
     const refresh: false | AuthTokenDetails = await socialProvider
@@ -76,6 +92,10 @@ export class RefreshIntegrationService {
         refreshError = err;
         return false as const;
       });
+
+    if ((!refresh || !refresh.accessToken) && soft) {
+      return false;
+    }
 
     if (!refresh || !refresh.accessToken) {
       const current = await this._integrationService.getActiveIntegrationById(integration.organizationId, integration.id);

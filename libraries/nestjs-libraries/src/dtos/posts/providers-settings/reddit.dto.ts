@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class RedditFlairDto {
   @IsString()
@@ -79,5 +80,6 @@ export class RedditSettingsDto {
   @Type(() => RedditSettingsValueDto)
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
+  @ComposerOnly()
   subreddit: RedditSettingsValueDto[];
 }

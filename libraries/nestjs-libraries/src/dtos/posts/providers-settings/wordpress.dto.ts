@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { MediaDto } from '@gitroom/nestjs-libraries/dtos/media/media.dto';
 import { Type } from 'class-transformer';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class WordpressDto {
   @IsString()
@@ -24,16 +25,19 @@ export class WordpressDto {
 
   @IsString()
   @IsDefined()
+  @ComposerOnly()
   type: string;
 
   @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
+  @ComposerOnly()
   categories?: number[];
 
   @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
+  @ComposerOnly()
   tags?: number[];
 
   @IsOptional()

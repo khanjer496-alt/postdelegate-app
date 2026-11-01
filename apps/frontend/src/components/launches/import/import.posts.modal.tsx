@@ -88,7 +88,7 @@ const templateCsv = (channels: string[]) => {
   return rows.map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
 };
 
-const errorMessage = async (response: Response, fallback: string) => {
+export const errorMessage = async (response: Response, fallback: string) => {
   try {
     const body = await response.json();
     const message = Array.isArray(body?.message)
@@ -100,7 +100,7 @@ const errorMessage = async (response: Response, fallback: string) => {
   }
 };
 
-const Avatar: FC<{ picture?: string | null; identifier: string; name: string }> = ({
+export const Avatar: FC<{ picture?: string | null; identifier: string; name: string }> = ({
   picture,
   identifier,
   name,
@@ -130,7 +130,7 @@ const Avatar: FC<{ picture?: string | null; identifier: string; name: string }> 
   </div>
 );
 
-const StatusChip: FC<{ tone: 'ok' | 'warn' | 'error'; children: React.ReactNode }> = ({
+export const StatusChip: FC<{ tone: 'ok' | 'warn' | 'error'; children: React.ReactNode }> = ({
   tone,
   children,
 }) => (

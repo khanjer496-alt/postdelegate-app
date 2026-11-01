@@ -6,6 +6,7 @@ import {
   PostDetails,
   PostResponse,
   SocialProvider,
+  ViewsMetric,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import dayjs from 'dayjs';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
@@ -52,6 +53,10 @@ export class TiktokBusinessProvider
   override maxConcurrentJob = 10000;
   dto = TikTokDto;
   editor = 'normal' as const;
+
+  // analytics() only totals the latest videos for today, so the daily gains
+  // come from the history of each video's view count
+  viewsMetric: ViewsMetric = { post: ['Views'] };
   maxLength() {
     // Business API caption limit for videos (photos allow 4,000)
     return 2200;

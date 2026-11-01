@@ -25,6 +25,8 @@ model Organization {
   Comments            Comments[]
   credits             Credits[]
   clippings           Clipping[]
+  studioProjects      StudioProject[]
+  studioRenders       StudioRender[]
   customers           Customer[]
   errors              Errors[]
   github              GitHub[]
@@ -341,6 +343,48 @@ model Clipping {
 
   @@index([organizationId])
   @@index([deletedAt])
+}
+
+// A Studio video being edited: the template and its settings (inputs, trim,
+// crop, overlays, caption words) as validated JSON, like Post.settings
+model StudioProject {
+  id             String         @id @default(uuid())
+  organizationId String
+  name           String
+  template       String
+  spec           String
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  renders        StudioRender[]
+
+  @@index([organizationId, deletedAt])
+}
+
+// One render of a Studio project. The spec is copied when it starts, so an
+// edit while it renders never changes what is being rendered
+model StudioRender {
+  id             String        @id @default(uuid())
+  organizationId String
+  projectId      String
+  // queued | rendering | uploading | completed | failed | cancelled
+  status         String        @default("queued")
+  progress       Int           @default(0)
+  seconds        Int
+  error          String?
+  mediaId        String?
+  path           String?
+  thumbnail      String?
+  specSnapshot   String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  project        StudioProject @relation(fields: [projectId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([projectId])
+  @@index([status])
 }
 
 model ClippingClip {

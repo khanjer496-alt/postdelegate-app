@@ -9,6 +9,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class PinterestSettingsDto {
   @IsString()
@@ -42,5 +43,6 @@ export class PinterestSettingsDto {
     description:
       'The numeric id of the board (from the boards list of the channel), not the board name',
   })
+  @ComposerOnly()
   board: string;
 }

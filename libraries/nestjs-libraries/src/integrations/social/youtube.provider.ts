@@ -10,6 +10,8 @@ import {
   ProviderAuthorizationPolicy,
   ProviderAuthorizationRevocation,
   SocialProvider,
+  ViewedPost,
+  ViewsMetric,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { Integration } from '@prisma/client';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
@@ -84,6 +86,10 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
   ];
 
   editor = 'normal' as const;
+
+  // analytics() reports views per day; the history never keeps YouTube
+  // analytics, so the top posts by views come from topViewedPosts
+  viewsMetric: ViewsMetric = { channel: 'Views', post: ['Views'] };
 
   get authorizationPolicy(): ProviderAuthorizationPolicy {
     return {
@@ -1263,9 +1269,85 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
         })),
       });
 
+      // last, so API clients reading the earlier entries by position keep working
+      acc.push({
+        label: 'Views',
+        data: mappedData?.map((p: any) => ({
+          total: p.views,
+          date: p.day,
+        })),
+      });
+
       return acc;
     } catch (err) {
       return [];
+    }
+  }
+
+  // The channel's videos with the most views in the range, from the Analytics
+  // reports API, plus their titles from the Data API
+  async topViewedPosts(
+    id: string,
+    accessToken: string,
+    days: number,
+    limit: number
+  ): Promise<ViewedPost[]> {
+    try {
+      const { client, youtube, youtubeAnalytics } = clientAndYoutube();
+      client.setCredentials({ access_token: accessToken });
+
+      const { data } = await youtubeAnalytics(client).reports.query({
+        ids: 'channel==MINE',
+        startDate: dayjs().subtract(days - 1, 'day').format('YYYY-MM-DD'),
+        endDate: dayjs().format('YYYY-MM-DD'),
+        metrics: 'views',
+        dimensions: 'video',
+        sort: '-views',
+        // videos.list below takes at most 50 ids
+        maxResults: Math.min(50, Math.max(1, limit)),
+      });
+
+      const columns = (data?.columnHeaders || []).map((p) => p.name);
+      const videoIndex = columns.indexOf('video');
+      const viewsIndex = columns.indexOf('views');
+      const rows = (data?.rows || [])
+        .map((row) => ({
+          id: String(row[videoIndex] || ''),
+          views: Math.max(0, Number(row[viewsIndex]) || 0),
+        }))
+        .filter((row) => row.id);
+
+      if (!rows.length) {
+        return [];
+      }
+
+      const { data: videos } = await youtube(client).videos.list({
+        part: ['snippet'],
+        id: rows.map((row) => row.id),
+      });
+      const snippets = new Map(
+        (videos.items || []).map((video) => [video.id, video.snippet])
+      );
+
+      return rows.map((row) => {
+        const snippet = snippets.get(row.id);
+        return {
+          id: row.id,
+          views: row.views,
+          title: snippet?.title || undefined,
+          url: `https://www.youtube.com/watch?v=${row.id}`,
+          publishedAt: snippet?.publishedAt || undefined,
+        };
+      });
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        throw new RefreshToken(
+          this.identifier,
+          JSON.stringify(err.response.data || {}),
+          '{}'
+        );
+      }
+      throw err;
     }
   }
 

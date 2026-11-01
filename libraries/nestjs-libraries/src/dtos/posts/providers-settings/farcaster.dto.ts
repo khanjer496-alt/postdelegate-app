@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsString, ValidateNested } from 'class-validator';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class FarcasterId {
   @IsString()
@@ -13,5 +14,6 @@ export class FarcasterValue {
 export class FarcasterDto {
   @ValidateNested({ each: true })
   @Type(() => FarcasterValue)
+  @ComposerOnly()
   subreddit: FarcasterValue[];
 }

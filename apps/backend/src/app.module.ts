@@ -9,6 +9,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AgentModule } from '@gitroom/nestjs-libraries/agent/agent.module';
 import { ThirdPartyModule } from '@gitroom/nestjs-libraries/3rdparties/thirdparty.module';
 import { VideoModule } from '@gitroom/nestjs-libraries/videos/video.module';
+import { StudioModule } from '@gitroom/nestjs-libraries/studio/studio.module';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { FILTER } from '@gitroom/nestjs-libraries/sentry/sentry.exception';
 import { ChatModule } from '@gitroom/nestjs-libraries/chat/chat.module';
@@ -28,6 +29,7 @@ import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
     AgentModule,
     ThirdPartyModule,
     VideoModule,
+    StudioModule,
     ChatModule,
     getTemporalModule(false),
     TemporalRegisterMissingSearchAttributesModule,

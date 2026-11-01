@@ -16,6 +16,7 @@ import {
   RangePicker,
   RANGES,
   Skeleton,
+  StatTile,
   swrOptions,
   weekdayName,
 } from '@gitroom/frontend/components/platform-analytics/analytics.ui';
@@ -24,6 +25,7 @@ import {
   TrendsSection,
 } from '@gitroom/frontend/components/platform-analytics/analytics.trends';
 import { TopPostsSection } from '@gitroom/frontend/components/platform-analytics/analytics.top.posts';
+import { ViewsSection } from '@gitroom/frontend/components/platform-analytics/analytics.views';
 import { InsightsSection } from '@gitroom/frontend/components/platform-analytics/analytics.insights';
 import { ReportsSection } from '@gitroom/frontend/components/platform-analytics/analytics.reports';
 
@@ -91,46 +93,6 @@ const topIndexes = (values: number[], count: number) =>
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value || a.index - b.index)
     .slice(0, count);
-
-const StatTile: FC<{
-  label: string;
-  hint: string;
-  value?: number;
-  tone?: 'default' | 'danger';
-  loading: boolean;
-}> = ({ label, hint, value, tone = 'default', loading }) => (
-  <div className="flex flex-col gap-[6px] bg-newTableHeader border border-newTableBorder rounded-[12px] px-[16px] py-[14px] min-w-0">
-    <div className="text-[13px] font-[500] text-newTableText">{label}</div>
-    {loading ? (
-      <Skeleton className="h-[36px] w-[72px]" />
-    ) : (
-      <div
-        className={clsx(
-          'text-[32px] leading-[36px] font-[600] tracking-tight flex items-center gap-[8px]',
-          tone === 'danger' && !!value ? 'text-red-500' : 'text-newTextColor'
-        )}
-      >
-        {tone === 'danger' && !!value && (
-          <svg
-            aria-hidden="true"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7.5v5.5M12 16.5h.01" />
-          </svg>
-        )}
-        {formatNumber(value || 0)}
-      </div>
-    )}
-    <div className="text-[12px] text-newTableText">{hint}</div>
-  </div>
-);
 
 const ChannelBreakdown: FC<{ channels: OverviewChannel[] }> = ({
   channels,
@@ -568,7 +530,14 @@ const Engagement: FC<{ days: Range }> = ({ days }) => {
   );
 };
 
-const SECTIONS = ['overview', 'trends', 'top', 'insights', 'reports'] as const;
+const SECTIONS = [
+  'overview',
+  'trends',
+  'views',
+  'top',
+  'insights',
+  'reports',
+] as const;
 type Section = (typeof SECTIONS)[number];
 
 const SectionTabs: FC<{
@@ -580,6 +549,7 @@ const SectionTabs: FC<{
   const labels: Record<Section, string> = {
     overview: t('analytics_section_overview', 'Overview'),
     trends: t('analytics_section_trends', 'Trends'),
+    views: t('analytics_section_views', 'Views'),
     top: t('analytics_section_top_posts', 'Top posts'),
     insights: t('analytics_section_insights', 'Insights'),
     reports: t('analytics_section_reports', 'Reports'),
@@ -697,6 +667,11 @@ export const AnalyticsOverview: FC = () => {
       {section === 'trends' && (
         <div role="tabpanel" id="analytics-panel-trends" aria-labelledby="analytics-tab-trends">
           <TrendsSection days={days} />
+        </div>
+      )}
+      {section === 'views' && (
+        <div role="tabpanel" id="analytics-panel-views" aria-labelledby="analytics-tab-views">
+          <ViewsSection days={days} />
         </div>
       )}
       {section === 'top' && (

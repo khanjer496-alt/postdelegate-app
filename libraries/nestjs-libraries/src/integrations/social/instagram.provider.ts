@@ -6,6 +6,7 @@ import {
   PostDetails,
   PostResponse,
   SocialProvider,
+  ViewsMetric,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
 import { timer } from '@gitroom/helpers/utils/timer';
@@ -46,6 +47,10 @@ export class InstagramProvider
   ];
   override maxConcurrentJob = 400;
   editor = 'normal' as const;
+
+  // analytics() reports views as one total for the range, so the daily gains
+  // come from the history of each post's view count
+  viewsMetric: ViewsMetric = { post: ['Views'] };
   dto = InstagramDto;
   maxLength() {
     return 2200;

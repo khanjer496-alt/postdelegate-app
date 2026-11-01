@@ -20,6 +20,7 @@ import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 dayjs.extend(utc);
 
@@ -181,6 +182,8 @@ export class YoutubeSettingsDto {
     description:
       'Publish later on YouTube: an ISO 8601 date and time (e.g. 2026-11-05T15:00:00Z) after the post date. The video is still uploaded at the post date, as private whatever the type is, and YouTube itself makes it public at this time. Leave it out to publish with the type at the post date.',
   })
+  // one date per post, a bulk form would give every video the same one
+  @ComposerOnly()
   publishAt?: string;
 
   @IsIn(['yes', 'no'])

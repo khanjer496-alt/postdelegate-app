@@ -363,7 +363,10 @@ export class AnalyticsSnapshotService {
               SNAPSHOT_POST_DAYS
             )
           );
-          const metrics = this.normalisePostAnalytics(data);
+          const metrics = this.normalisePostAnalytics(
+            data,
+            provider.viewsMetric?.post
+          );
           if (metrics) {
             byExternalId.set(externalId, { ...base, ...metrics });
           }
@@ -443,8 +446,13 @@ export class AnalyticsSnapshotService {
 
   // Generic: maps whatever labels postAnalytics returns onto the normalised
   // counters, so every provider with post analytics feeds the history without
-  // provider-specific code here. undefined when nothing could be mapped.
-  normalisePostAnalytics(data: AnalyticsData[] | undefined): PostStats | undefined {
+  // provider-specific code here. For the views, the labels the provider
+  // declares in viewsMetric.post come first, then the generic ones. undefined
+  // when nothing could be mapped.
+  normalisePostAnalytics(
+    data: AnalyticsData[] | undefined,
+    viewsLabels?: string[]
+  ): PostStats | undefined {
     const byLabel = new Map<string, number>();
     for (const metric of Array.isArray(data) ? data : []) {
       const label = metric?.label?.trim().toLowerCase();
@@ -463,9 +471,13 @@ export class AnalyticsSnapshotService {
     }
 
     const stats: PostStats = {};
-    for (const [key, labels] of Object.entries(POST_METRIC_LABELS) as Array<
+    const declaredViews = (viewsLabels || [])
+      .map((label) => label.trim().toLowerCase())
+      .filter(Boolean);
+    for (const [key, generic] of Object.entries(POST_METRIC_LABELS) as Array<
       [keyof PostStats, string[]]
     >) {
+      const labels = key === 'views' ? [...declaredViews, ...generic] : generic;
       const label = labels.find((l) => byLabel.has(l));
       if (label) {
         stats[key] = Math.min(MAX_INT, byLabel.get(label)!);

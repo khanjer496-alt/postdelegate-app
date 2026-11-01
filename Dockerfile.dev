@@ -7,7 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     bash \
     nginx \
+    ffmpeg \
+    fontconfig \
 && rm -rf /var/lib/apt/lists/*
+
+# Studio renders with ffmpeg and only the bundled OFL fonts
+COPY deploy/postdelegate/fonts/ /usr/share/fonts/truetype/postdelegate-studio/
+ENV STUDIO_FONTS_DIR=/usr/share/fonts/truetype/postdelegate-studio
+RUN fc-cache -f \
+ && ffmpeg -hide_banner -filters | grep -qE '\bass\b' \
+ && ffmpeg -hide_banner -encoders | grep -q libx264
 
 RUN addgroup --system www \
  && adduser --system --ingroup www --home /www --shell /usr/sbin/nologin www \

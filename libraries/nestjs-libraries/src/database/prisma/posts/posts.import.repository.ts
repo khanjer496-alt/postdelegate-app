@@ -59,6 +59,22 @@ export class PostsImportRepository {
     }
   }
 
+  // where a claimed request stands, null when it was never claimed
+  get(orgId: string, hash: string) {
+    return this._postImport.model.postImport.findUnique({
+      where: {
+        organizationId_hash: {
+          organizationId: orgId,
+          hash,
+        },
+      },
+      select: {
+        status: true,
+        result: true,
+      },
+    });
+  }
+
   finish(orgId: string, hash: string, result: string) {
     return this._postImport.model.postImport.update({
       where: {

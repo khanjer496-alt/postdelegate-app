@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class MediumTagsSettings {
   @IsString()
@@ -43,6 +44,7 @@ export class MediumSettingsDto {
 
   @IsString()
   @IsOptional()
+  @ComposerOnly()
   publication?: string;
 
   @IsArray()

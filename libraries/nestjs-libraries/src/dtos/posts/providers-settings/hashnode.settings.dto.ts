@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MediaDto } from '@gitroom/nestjs-libraries/dtos/media/media.dto';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class HashnodeTagsSettings {
   @IsString()
@@ -49,11 +50,13 @@ export class HashnodeSettingsDto {
 
   @IsString()
   @IsDefined()
+  @ComposerOnly()
   publication?: string;
 
   @IsArray()
   @ArrayMinSize(1)
   @Type(() => HashnodeTagsSettings)
   @ValidateNested({ each: true })
+  @ComposerOnly()
   tags: HashnodeTagsSettings[];
 }

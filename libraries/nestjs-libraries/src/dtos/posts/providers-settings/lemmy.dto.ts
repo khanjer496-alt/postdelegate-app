@@ -9,6 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class LemmySettingsDtoInner {
   @IsString()
@@ -42,5 +43,6 @@ export class LemmySettingsDto {
   @Type(() => LemmySettingsValueDto)
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
+  @ComposerOnly()
   subreddit: LemmySettingsValueDto[];
 }

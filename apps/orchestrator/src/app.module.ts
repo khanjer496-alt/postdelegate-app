@@ -14,6 +14,8 @@ import { IntegrationAuthorizationMaintenanceActivity } from '@gitroom/orchestrat
 import { AnalyticsHistoryActivity } from '@gitroom/orchestrator/activities/analytics.history.activity';
 import { WeeklySummaryActivity } from '@gitroom/orchestrator/activities/weekly.summary.activity';
 import { TrialOnboardingActivity } from '@gitroom/orchestrator/activities/trial.onboarding.activity';
+import { StudioActivity } from '@gitroom/orchestrator/activities/studio.activity';
+import { StudioModule } from '@gitroom/nestjs-libraries/studio/studio.module';
 
 const activities = [
   PostActivity,
@@ -27,11 +29,13 @@ const activities = [
   AnalyticsHistoryActivity,
   WeeklySummaryActivity,
   TrialOnboardingActivity,
+  StudioActivity,
 ];
 @Module({
   imports: [
     DatabaseModule,
     VideoModule,
+    StudioModule,
     getTemporalModule(true, require.resolve('./workflows'), activities),
   ],
   controllers: [HealthController],

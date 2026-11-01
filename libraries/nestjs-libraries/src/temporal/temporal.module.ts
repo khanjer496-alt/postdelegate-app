@@ -93,6 +93,26 @@ export const getTemporalModule = (
                   maxTaskQueueActivitiesPerSecond: perSecond,
                 },
               })),
+            // Activity-only Worker for Studio renders. Each render is one
+            // ffmpeg on 2 threads, so this is how many cores renders may take
+            // on this server. EXCLUDE_QUEUE=studio moves rendering to another
+            // container started from the same image
+            ...(excludeQueues.includes('studio')
+              ? []
+              : [
+                  {
+                    taskQueue: 'studio',
+                    activityClasses: activityClasses!,
+                    autoStart: true,
+                    workerOptions: {
+                      maxConcurrentActivityTaskExecutions: Math.max(
+                        1,
+                        Number(process.env.STUDIO_RENDER_CONCURRENCY) || 1
+                      ),
+                      maxHeartbeatThrottleInterval: '15s',
+                    },
+                  },
+                ]),
           ],
         }
       : {}),

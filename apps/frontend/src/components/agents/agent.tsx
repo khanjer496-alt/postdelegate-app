@@ -203,20 +203,27 @@ export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
 
 export const PropertiesContext = createContext({ properties: [] });
 
-const ConnectAiKey: FC = () => {
+// Also shown by Studio, with its own title and description, where AI is an
+// option rather than a requirement
+export const ConnectAiKey: FC<{ title?: string; description?: string }> = ({
+  title,
+  description,
+}) => {
   const t = useT();
   const user = useUser();
 
   return (
     <div className="bg-newBgColorInner p-[20px] mobile:p-[12px] flex flex-1 flex-col gap-[16px] items-center justify-center text-center">
       <h2 className="text-[20px] font-[500]">
-        {t('agent_connect_key_title', 'Connect your OpenAI key to start')}
+        {title ||
+          t('agent_connect_key_title', 'Connect your OpenAI key to start')}
       </h2>
       <div className="text-textItemBlur max-w-[440px]">
-        {t(
-          'agent_connect_key_description',
-          'The Agent runs on your own OpenAI account, so usage is billed to you by OpenAI, not by PostDelegate.'
-        )}
+        {description ||
+          t(
+            'agent_connect_key_description',
+            'The Agent runs on your own OpenAI account, so usage is billed to you by OpenAI, not by PostDelegate.'
+          )}
       </div>
       {user?.role !== 'USER' ? (
         <Link

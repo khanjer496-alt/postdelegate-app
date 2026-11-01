@@ -20,6 +20,8 @@ import { AnalyticsReportService } from '@gitroom/nestjs-libraries/database/prism
 import {
   AnalyticsHistoryDto,
   AnalyticsTopPostsDto,
+  AnalyticsViewPostsDto,
+  AnalyticsViewsDto,
 } from '@gitroom/nestjs-libraries/dtos/analytics/analytics.history.dto';
 import {
   AnalyticsReportDataDto,
@@ -82,6 +84,26 @@ export class AnalyticsController {
     @Query() query: AnalyticsTopPostsDto
   ) {
     return this._analyticsService.getTopPosts(org.id, query.days, query);
+  }
+
+  // daily view gains per channel; like the channel view, an expired token of a
+  // network read live is refreshed
+  @Get('/views')
+  async getViewGains(
+    @GetOrgFromRequest() org: Organization,
+    @Query() query: AnalyticsViewsDto
+  ) {
+    return this._analyticsService.getViewGains(org, query.days);
+  }
+
+  // read-only: the Views section loads this after /views, which already
+  // refreshed an expired token
+  @Get('/views/posts')
+  async getViewGainPosts(
+    @GetOrgFromRequest() org: Organization,
+    @Query() query: AnalyticsViewPostsDto
+  ) {
+    return this._analyticsService.getViewGainPosts(org, query.days, query);
   }
 
   @Get('/best-times')

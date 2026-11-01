@@ -522,4 +522,24 @@ describe('AnalyticsSnapshotService.normalisePostAnalytics', () => {
     expect(service.normalisePostAnalytics([])).toBeUndefined();
     expect(service.normalisePostAnalytics(undefined)).toBeUndefined();
   });
+
+  it('reads the views from the labels the provider declares', () => {
+    const data = [
+      { label: 'Impressions', data: [{ total: '90', date: '' }], percentageChange: 0 },
+      { label: 'Plays', data: [{ total: '30', date: '' }], percentageChange: 0 },
+      { label: 'Likes', data: [{ total: '4', date: '' }], percentageChange: 0 },
+    ];
+    // generic preference: impressions before plays
+    expect(service.normalisePostAnalytics(data)).toEqual({ views: 90, likes: 4 });
+    // declared: plays first, matched without regard to case
+    expect(service.normalisePostAnalytics(data, ['views', 'PLAYS'])).toEqual({
+      views: 30,
+      likes: 4,
+    });
+    // a declared label the platform did not report falls back to the generic ones
+    expect(service.normalisePostAnalytics(data, ['Views'])).toEqual({
+      views: 90,
+      likes: 4,
+    });
+  });
 });

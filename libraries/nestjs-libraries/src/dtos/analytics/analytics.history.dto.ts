@@ -83,3 +83,32 @@ export class AnalyticsTopPostsDto {
   @Max(5000)
   offset?: number;
 }
+
+// the daily view gains of every channel (Analytics > Views)
+export class AnalyticsViewsDto {
+  @Type(() => Number)
+  @IsIn(ANALYTICS_OVERVIEW_RANGES)
+  days: (typeof ANALYTICS_OVERVIEW_RANGES)[number];
+}
+
+// the posts with the most views gained in the range, `limit` per channel
+export class AnalyticsViewPostsDto {
+  @Type(() => Number)
+  @IsIn(ANALYTICS_OVERVIEW_RANGES)
+  days: (typeof ANALYTICS_OVERVIEW_RANGES)[number];
+
+  @IsOptional()
+  @Transform(toIdList)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  integrations?: string[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+}

@@ -57,6 +57,14 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
   Credits: { scope: 'org', note: 'deleted' },
   Clipping: { scope: 'org', note: 'deleted' },
   ClippingClip: { scope: 'org', note: 'deleted, clip files are R2 objects' },
+  StudioProject: {
+    scope: 'org',
+    note: 'deleted after its renders; the settings name media ids only',
+  },
+  StudioRender: {
+    scope: 'org',
+    note: 'deleted before the projects; the rendered videos are Media rows and go with the media',
+  },
   Subscription: {
     scope: 'org',
     note: 'row deleted after the Stripe subscription is cancelled; Stripe keeps its own customer and invoice records (tax law), the customer id is listed in the receipt for the operator',
@@ -101,7 +109,10 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
     note: 'deleted, which trial emails were sent',
   },
   ThirdParty: { scope: 'org', note: 'deleted, holds a third party API key' },
-  AiCredential: { scope: 'org', note: 'deleted, holds the workspace OpenAI key' },
+  AiCredential: {
+    scope: 'org',
+    note: 'deleted, holds the workspace OpenAI key',
+  },
   Errors: { scope: 'org', note: 'deleted, bodies can hold post content' },
   Mentions: { scope: 'none', note: 'global cache of public social handles' },
   mastra_messages: { scope: 'org', note: AI_MEMORY },
@@ -190,12 +201,18 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
     scope: 'org+user',
     note: 'deleted with the organization; in shared organizations the rows the person acted on keep the action but lose actorUserId and actorName. Client names and emails typed on a share link go with the organization',
   },
-  AnalyticsAccountSnapshot: { scope: 'org', note: 'deleted, daily channel counts' },
+  AnalyticsAccountSnapshot: {
+    scope: 'org',
+    note: 'deleted, daily channel counts',
+  },
   ProviderPostUsage: {
     scope: 'org',
     note: 'deleted, which posts went to a network the plan caps a month',
   },
-  AnalyticsPost: { scope: 'org', note: 'deleted, post titles, links and metrics' },
+  AnalyticsPost: {
+    scope: 'org',
+    note: 'deleted, post titles, links and metrics',
+  },
   AnalyticsPostSnapshot: { scope: 'org', note: 'deleted, daily post metrics' },
   AnalyticsReportSettings: {
     scope: 'org',

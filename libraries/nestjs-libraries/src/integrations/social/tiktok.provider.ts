@@ -7,6 +7,7 @@ import {
   PostResponse,
   RecentPostStat,
   SocialProvider,
+  ViewsMetric,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import dayjs from 'dayjs';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
@@ -60,6 +61,10 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 10000;
   dto = TikTokDto;
   editor = 'normal' as const;
+
+  // analytics() only totals the latest videos for today, so the daily gains
+  // come from the history of each video's view count
+  viewsMetric: ViewsMetric = { post: ['Views'] };
   maxLength() {
     return 2000;
   }

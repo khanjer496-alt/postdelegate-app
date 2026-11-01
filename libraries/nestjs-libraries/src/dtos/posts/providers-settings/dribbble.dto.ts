@@ -6,6 +6,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class DribbbleDto {
   @IsString()
@@ -20,5 +21,6 @@ export class DribbbleDto {
   @IsString()
   @ValidateIf((o) => !!o.team)
   @Matches(/^\d+$/, { message: 'Choose a team from the list' })
+  @ComposerOnly()
   team?: string;
 }

@@ -1,5 +1,6 @@
 import { IsDefined, IsOptional, IsString, MinLength } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
+import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class WhopDto {
   @MinLength(1)
@@ -8,6 +9,7 @@ export class WhopDto {
   @JSONSchema({
     description: 'Company ID',
   })
+  @ComposerOnly()
   company: string;
 
   @MinLength(1)
@@ -16,6 +18,7 @@ export class WhopDto {
   @JSONSchema({
     description: 'Experience ID for the Whop forum',
   })
+  @ComposerOnly()
   experience: string;
 
   @IsOptional()

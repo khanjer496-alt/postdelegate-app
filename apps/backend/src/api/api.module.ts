@@ -66,7 +66,9 @@ import { PublicApprovalsController } from '@gitroom/backend/api/routes/public.ap
 import { IdeasController } from '@gitroom/backend/api/routes/ideas.controller';
 import { EvergreenController } from '@gitroom/backend/api/routes/evergreen.controller';
 import { PostsImportController } from '@gitroom/backend/api/routes/posts.import.controller';
+import { PostsBulkVideosController } from '@gitroom/backend/api/routes/posts.bulk.videos.controller';
 import { WeeklySummaryController } from '@gitroom/backend/api/routes/weekly.summary.controller';
+import { StudioController } from '@gitroom/backend/api/routes/studio.controller';
 
 const authenticatedController = [
   UsersController,
@@ -97,7 +99,9 @@ const authenticatedController = [
   IdeasController,
   EvergreenController,
   PostsImportController,
+  PostsBulkVideosController,
   WeeklySummaryController,
+  StudioController,
 ];
 @Module({
   imports: [UploadModule],

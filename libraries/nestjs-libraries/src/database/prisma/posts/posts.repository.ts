@@ -1176,6 +1176,29 @@ export class PostsRepository {
     );
   }
 
+  // the dates channels already post at, so a bulk schedule skips the time
+  // slots that have a post
+  getPublishDatesOfIntegrations(
+    orgId: string,
+    integrationIds: string[],
+    from: Date,
+    until: Date
+  ) {
+    return this._post.model.post.findMany({
+      where: {
+        organizationId: orgId,
+        deletedAt: null,
+        parentPostId: null,
+        integrationId: { in: integrationIds },
+        publishDate: { gte: from, lt: until },
+      },
+      select: {
+        integrationId: true,
+        publishDate: true,
+      },
+    });
+  }
+
   getCommentsForPosts(postIds: string[]) {
     return this._comments.model.comments.findMany({
       where: {
