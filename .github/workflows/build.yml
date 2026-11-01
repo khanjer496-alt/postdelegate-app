@@ -41,4 +41,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
+        # the default Node heap runs out building the backend; the release
+        # image builds with 3 GB (deploy/postdelegate/Dockerfile.release)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm run build

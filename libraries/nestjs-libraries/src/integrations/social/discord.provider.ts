@@ -209,6 +209,7 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
   ): Promise<PostResponse[]> {
     const [firstPost] = postDetails;
     const channel = firstPost.settings.channel;
+    await this.checkChannelInServer(id, channel);
 
     const data = await this.sendMessageWithMedia(
       channel,
@@ -243,6 +244,7 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
     // starts the thread.
     const threadChannel = postId;
     if (!lastCommentId) {
+      await this.checkChannelInServer(id, channel);
       await this.startThread(channel, postId);
     }
 
@@ -260,6 +262,27 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
         status: 'success',
       },
     ];
+  }
+
+  // One bot serves every workspace, so a channel id from the post settings is
+  // only used when it belongs to this channel's own server
+  private async checkChannelInServer(serverId: string, channel: string) {
+    const { guild_id } = await (
+      await this.fetch(`https://discord.com/api/channels/${channel}`, {
+        headers: {
+          Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_ID}`,
+        },
+      })
+    ).json();
+
+    if (!guild_id || String(guild_id) !== String(serverId)) {
+      throw new BadBody(
+        'discord',
+        '{}',
+        {} as any,
+        'This Discord channel is not in the connected server, pick a channel from the list'
+      );
+    }
   }
 
   // A retry of the first comment finds the thread already started (160004),

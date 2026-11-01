@@ -194,7 +194,9 @@ export class PublicIntegrationsController {
     const validation = await this._postsService.validatePosts(
       org.id,
       body.posts,
-      body.type
+      body.type,
+      false,
+      body.date
     );
 
     const fail = (item: (typeof validation)[number], error: string) => {

@@ -22,7 +22,8 @@ const comment = (message = 'Follow up') =>
 
 // Only the Discord HTTP calls are replaced, the provider logic runs as is.
 const provider = (
-  fetchResponse: (url: string) => any = () => ({ id: 'thread' })
+  fetchResponse: (url: string) => any = (url) =>
+    url.endsWith('/channels/channel-1') ? { guild_id: GUILD } : { id: 'thread' }
 ) => {
   const instance = new DiscordProvider();
   const fetched: string[] = [];
@@ -128,6 +129,7 @@ describe('DiscordProvider comment threads', () => {
     );
 
     expect(fetched).toEqual([
+      'https://discord.com/api/channels/channel-1',
       'https://discord.com/api/channels/channel-1/messages/post-message/threads',
     ]);
     expect(sent[0].url).toBe(
@@ -163,7 +165,10 @@ describe('DiscordProvider comment threads', () => {
 
   it('carries on into the thread when a retry finds it already started', async () => {
     const { instance, sent } = provider();
-    instance.fetch = jest.fn(async () => {
+    instance.fetch = jest.fn(async (url: string) => {
+      if (url.endsWith('/channels/channel-1')) {
+        return { json: async () => ({ guild_id: GUILD }) } as any;
+      }
       throw new BadBody(
         'discord',
         '{"message": "A thread has already been created for this message", "code": 160004}',
@@ -187,7 +192,10 @@ describe('DiscordProvider comment threads', () => {
 
   it('fails the comment when the thread cannot be started for another reason', async () => {
     const { instance, sent } = provider();
-    instance.fetch = jest.fn(async () => {
+    instance.fetch = jest.fn(async (url: string) => {
+      if (url.endsWith('/channels/channel-1')) {
+        return { json: async () => ({ guild_id: GUILD }) } as any;
+      }
       throw new BadBody(
         'discord',
         '{"message": "Missing Permissions", "code": 50013}',
@@ -205,6 +213,45 @@ describe('DiscordProvider comment threads', () => {
         {} as any
       )
     ).rejects.toBeInstanceOf(BadBody);
+    expect(sent).toEqual([]);
+  });
+});
+
+describe('DiscordProvider channel ownership', () => {
+  const otherServer = () =>
+    provider((url) =>
+      url.endsWith('/channels/channel-1') ? { guild_id: 'someone-else' } : {}
+    );
+
+  it('posts to a channel of the connected server', async () => {
+    const { instance, sent } = provider();
+    await instance.post(GUILD, 'token', [comment('Hello')]);
+    expect(sent[0].url).toBe(
+      'https://discord.com/api/channels/channel-1/messages'
+    );
+  });
+
+  it('refuses a channel from another server and sends nothing', async () => {
+    const { instance, sent } = otherServer();
+    await expect(
+      instance.post(GUILD, 'token', [comment('Hello')])
+    ).rejects.toBeInstanceOf(BadBody);
+    expect(sent).toEqual([]);
+  });
+
+  it('refuses to start a thread in another server', async () => {
+    const { instance, fetched, sent } = otherServer();
+    await expect(
+      instance.comment(
+        GUILD,
+        'post-message',
+        undefined,
+        'token',
+        [comment()],
+        {} as any
+      )
+    ).rejects.toBeInstanceOf(BadBody);
+    expect(threadStarts(fetched)).toBe(0);
     expect(sent).toEqual([]);
   });
 });

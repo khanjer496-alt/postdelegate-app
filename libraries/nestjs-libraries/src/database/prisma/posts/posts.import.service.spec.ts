@@ -229,6 +229,10 @@ describe('PostsImportService', () => {
     ]);
     // the media check runs on the links, before anything is downloaded
     expect(postsService.validatePosts.mock.calls[0][0]).toBe('org-1');
+    // the row date, for the settings checked against the post time
+    expect(postsService.validatePosts.mock.calls[0][4]).toBe(
+      preview.rows[0].date
+    );
   });
 
   it(`refuses more than ${IMPORT_ROW_LIMIT} rows and missing columns`, async () => {

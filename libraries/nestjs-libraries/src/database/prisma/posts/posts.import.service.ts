@@ -514,7 +514,9 @@ export class PostsImportService {
       const results = await this._postsService.validatePosts(
         orgId,
         request.posts as any,
-        'schedule'
+        'schedule',
+        false,
+        row.date ?? undefined
       );
       for (const result of results) {
         if (result.emptyContent) {

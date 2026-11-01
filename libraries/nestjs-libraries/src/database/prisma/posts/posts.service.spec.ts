@@ -16,6 +16,7 @@ jest.mock('@gitroom/nestjs-libraries/upload/upload.factory', () => ({
 }));
 
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
+import { YoutubeSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
 
 const makeService = (integrationManager: any = {}) => {
   const postRepository = {
@@ -959,5 +960,106 @@ describe('PostsService monthly cap on one network', () => {
         ['p-1', 'p-2']
       );
     });
+  });
+});
+
+describe('PostsService.validatePosts post date context', () => {
+  const makeValidationService = () => {
+    const integrationService = {
+      getIntegrationById: jest.fn().mockResolvedValue({
+        id: 'yt-1',
+        name: 'Channel',
+        providerIdentifier: 'youtube',
+        additionalSettings: '[]',
+      }),
+    };
+    const service = new PostsService(
+      {} as any,
+      {
+        // the real settings DTO, the provider media rules are not under test
+        getSocialIntegration: () => ({
+          dto: YoutubeSettingsDto,
+          checkValidity: async () => true,
+          maxLength: () => 5000,
+        }),
+      } as any,
+      integrationService as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
+    return { service };
+  };
+
+  const postDate = dayjs.utc().add(2, 'day');
+  const youtubePost = (settings: Record<string, any>, extra = {}) => ({
+    integration: { id: 'yt-1' },
+    value: [{ content: 'Description', image: [] }],
+    settings: { title: 'My video', type: 'public', ...settings },
+    ...extra,
+  });
+
+  it('checks publishAt against the request date', async () => {
+    const { service } = makeValidationService();
+    const [result] = await service.validatePosts(
+      'org-1',
+      [youtubePost({ publishAt: postDate.subtract(1, 'hour').format() })],
+      'schedule',
+      false,
+      postDate.format('YYYY-MM-DDTHH:mm:ss')
+    );
+    expect(result.valid).toBe(false);
+    expect(result.settingsError).toContain('after the post is published');
+  });
+
+  it('prefers the date of the channel over the request date', async () => {
+    const { service } = makeValidationService();
+    const [result] = await service.validatePosts(
+      'org-1',
+      [
+        youtubePost(
+          { publishAt: postDate.add(1, 'hour').format() },
+          { date: postDate.add(3, 'hour').format('YYYY-MM-DDTHH:mm:ss') }
+        ),
+      ],
+      'schedule',
+      false,
+      postDate.format('YYYY-MM-DDTHH:mm:ss')
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it('never trusts a date sent inside the settings', async () => {
+    const { service } = makeValidationService();
+    const [result] = await service.validatePosts(
+      'org-1',
+      [
+        youtubePost({
+          publishAt: postDate.subtract(1, 'hour').format(),
+          __validationDate: dayjs.utc().format('YYYY-MM-DDTHH:mm:ss'),
+        }),
+      ],
+      'schedule',
+      false,
+      postDate.format('YYYY-MM-DDTHH:mm:ss')
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it('accepts a later YouTube time and settings without it, as before', async () => {
+    const { service } = makeValidationService();
+    const results = await service.validatePosts(
+      'org-1',
+      [youtubePost({ publishAt: postDate.add(1, 'hour').format() }), youtubePost({})],
+      'schedule',
+      false,
+      postDate.format('YYYY-MM-DDTHH:mm:ss')
+    );
+    expect(results.map((r) => r.valid)).toEqual([true, true]);
   });
 });

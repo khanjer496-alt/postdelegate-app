@@ -509,6 +509,7 @@ export class PostsService {
               ...(post.settings || ({} as any)),
               __type: integration.providerIdentifier,
               __validationOperation: operation,
+              __validationDate: post.date || body?.date,
             },
           };
         }) || []
@@ -527,9 +528,11 @@ export class PostsService {
       type: 'body',
       metatype: CreatePostDto,
     });
-    // The trusted operation is validation context, never stored post settings.
+    // The trusted operation and date are validation context, never stored
+    // post settings.
     for (const post of validated.posts) {
       delete (post.settings as any).__validationOperation;
+      delete (post.settings as any).__validationDate;
     }
     return validated;
   }
@@ -1142,6 +1145,8 @@ export class PostsService {
     orgId: string,
     posts: Array<{
       type?: CreatePostDto['type'];
+      // a channel that keeps a date of its own, the others use `date`
+      date?: string;
       integration: { id: string };
       value: Array<{
         content?: string;
@@ -1150,7 +1155,9 @@ export class PostsService {
       settings?: any;
     }>,
     operation: CreatePostDto['type'] = 'schedule',
-    allowPerPostOperation = false
+    allowPerPostOperation = false,
+    // when the post goes out, for the settings that must be checked against it
+    date?: string
   ) {
     return Promise.all(
       (posts || []).map(async (post) => {
@@ -1183,6 +1190,7 @@ export class PostsService {
           __type: integration.providerIdentifier,
         };
         delete settings.__validationOperation;
+        delete settings.__validationDate;
         const validationOperation = allowPerPostOperation
           ? post.type || operation
           : operation;
@@ -1194,7 +1202,11 @@ export class PostsService {
         if (provider?.dto) {
           const instance = plainToInstance(
             provider.dto,
-            { ...settings, __validationOperation: validationOperation },
+            {
+              ...settings,
+              __validationOperation: validationOperation,
+              __validationDate: post.date || date,
+            },
             { enableImplicitConversion: false }
           );
           const validationErrors = await validate(instance as object, {
@@ -1333,6 +1345,7 @@ export class PostsService {
       // Defensive boundary for internal callers that skip mapTypeToPost.
       post.settings = { ...post.settings };
       delete (post.settings as any).__validationOperation;
+      delete (post.settings as any).__validationDate;
       const existing =
         post.value?.[0]?.id && (actor || body.type === 'schedule' || body.type === 'now')
           ? await this._postRepository.getPostById(post.value[0].id, orgId)
@@ -1812,6 +1825,7 @@ export class PostsService {
       [
         {
           integration: { id: integration.id },
+          date: dayjs.utc(root.publishDate).format('YYYY-MM-DDTHH:mm:ss'),
           settings: mergedSettings,
           value: value.map((p) => ({ content: p.content, image: p.image })),
         },
@@ -2017,6 +2031,7 @@ export class PostsService {
     const [validation] = await this.validatePosts(orgId, [
       {
         integration: { id: integration.id },
+        date: dayjs.utc(root.publishDate).format('YYYY-MM-DDTHH:mm:ss'),
         settings: { ...settings, __type: integration.providerIdentifier },
         value: ordered.map((p) => {
           let image = [];

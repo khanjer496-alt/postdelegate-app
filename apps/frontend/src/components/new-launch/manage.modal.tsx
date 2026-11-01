@@ -686,6 +686,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           method: 'POST',
           body: JSON.stringify({
             type,
+            date: date.utc().format('YYYY-MM-DDTHH:mm:ss'),
             posts: posts.map((post: any) => ({
               ...post,
               type: saveTypeOf(post.integration.id),

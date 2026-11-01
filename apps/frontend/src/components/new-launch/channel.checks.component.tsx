@@ -5,6 +5,7 @@ import React, {
   RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -12,12 +13,14 @@ import useSWR from 'swr';
 import clsx from 'clsx';
 import { capitalize } from 'lodash';
 import { useShallow } from 'zustand/react/shallow';
+import dayjs from 'dayjs';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 import SafeImage from '@gitroom/react/helpers/safe.image';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import { useExistingData } from '@gitroom/frontend/components/launches/helpers/use.existing.data';
 
 interface ChannelCheck {
   id: string;
@@ -63,12 +66,31 @@ export const ChannelChecks: FC<{
   onFix: (where: 'fix' | 'preview') => void;
 }> = ({ providers, onFix }) => {
   const t = useT();
-  const { global, internal, selectedIntegrations } = useLaunchStore(
-    useShallow((state) => ({
-      global: state.global,
-      internal: state.internal,
-      selectedIntegrations: state.selectedIntegrations,
-    }))
+  const { global, internal, selectedIntegrations, date, channelDates } =
+    useLaunchStore(
+      useShallow((state) => ({
+        global: state.global,
+        internal: state.internal,
+        selectedIntegrations: state.selectedIntegrations,
+        date: state.date,
+        channelDates: state.channelDates,
+      }))
+    );
+
+  // a channel that already went out (or is going out right now) is saved as
+  // an update, like the schedule button does
+  const existingData = useExistingData();
+  const publishedChannels = useMemo(
+    () =>
+      [existingData, ...(existingData.siblings || [])]
+        .filter(
+          (p) =>
+            p.posts?.[0]?.state === 'PUBLISHED' ||
+            (p.posts?.[0]?.state === 'QUEUE' &&
+              dayjs().isAfter((channelDates[p.integration] || date).utc()))
+        )
+        .map((p) => p.integration),
+    [existingData, channelDates, date]
   );
 
   // the channel settings live in their own forms, a change there checks again
@@ -135,8 +157,17 @@ export const ChannelChecks: FC<{
       setBody(
         JSON.stringify({
           type: 'schedule',
+          date: date.utc().format('YYYY-MM-DDTHH:mm:ss'),
           posts: values.map((post) => ({
             integration: { id: post.id },
+            type: publishedChannels.includes(post.id) ? 'update' : 'schedule',
+            ...(channelDates[post.id]
+              ? {
+                  date: channelDates[post.id]
+                    .utc()
+                    .format('YYYY-MM-DDTHH:mm:ss'),
+                }
+              : {}),
             settings: post.settings || {},
             value: (post.values || []).map((value: any) => ({
               content: value.content,
@@ -156,7 +187,15 @@ export const ChannelChecks: FC<{
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [global, internal, selectedIntegrations, revision]);
+  }, [
+    global,
+    internal,
+    selectedIntegrations,
+    date,
+    channelDates,
+    publishedChannels,
+    revision,
+  ]);
 
   const { data } = useChannelChecks(check);
 

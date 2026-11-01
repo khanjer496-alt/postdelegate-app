@@ -15,7 +15,10 @@ import { Integration } from '@prisma/client';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library/build/src/auth/oauth2client';
-import { YoutubeSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
+import {
+  parseYoutubePublishAt,
+  YoutubeSettingsDto,
+} from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
 import {
   BadBody,
   PublishedWithError,
@@ -26,11 +29,14 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import * as process from 'node:process';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import { createReadStream, statSync } from 'fs';
 import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 import { setHeartbeatDetails } from '@gitroom/nestjs-libraries/temporal/temporal.heartbeat';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { DashboardFunction } from '@gitroom/nestjs-libraries/integrations/dashboard.function.decorator';
+
+dayjs.extend(utc);
 
 const clientAndYoutube = () => {
   const client = new google.auth.OAuth2({
@@ -813,6 +819,22 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
     const path = firstPost?.media?.[0]?.path!;
     const videoSize = await this.youtubeMediaSize(path);
 
+    // "Publish later on YouTube": the video is uploaded as private and YouTube
+    // makes it public at publishAt (it only accepts publishAt on a private
+    // video). A time that passed meanwhile (the post went out late or was
+    // moved after it) publishes the video now, like YouTube does for a past
+    // publishAt. Drafts and status changes skip the settings validation, so a
+    // value that isn't a real date keeps the type, as if it wasn't set.
+    const publishAtDate = parseYoutubePublishAt(settings?.publishAt);
+    const publishAt = publishAtDate?.isAfter(dayjs())
+      ? publishAtDate.toISOString()
+      : undefined;
+    const privacyStatus = publishAtDate
+      ? publishAt
+        ? 'private'
+        : 'public'
+      : settings.type;
+
     // Start a resumable upload session: nothing exists on the channel until
     // the final byte is received, so nothing here is irreversible yet - the
     // bytes themselves are streamed by finalizePost, outside this activity.
@@ -835,8 +857,12 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
               : {}),
           },
           status: {
-            privacyStatus: settings.type,
+            privacyStatus,
+            ...(publishAt ? { publishAt } : {}),
             selfDeclaredMadeForKids: settings.selfDeclaredMadeForKids === 'yes',
+            ...(settings?.containsSyntheticMedia === 'yes'
+              ? { containsSyntheticMedia: true }
+              : {}),
           },
         }),
       }

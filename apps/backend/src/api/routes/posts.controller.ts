@@ -211,7 +211,8 @@ export class PostsController {
       org.id,
       rawBody?.posts || [],
       rawBody?.type,
-      true
+      true,
+      rawBody?.date
     );
   }
 
@@ -226,7 +227,9 @@ export class PostsController {
     const validation = await this._postsService.validatePosts(
       org.id,
       rawBody?.posts || [],
-      rawBody?.type
+      rawBody?.type,
+      false,
+      rawBody?.date
     );
 
     const fail = (item: (typeof validation)[number], error: string) => {

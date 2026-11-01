@@ -225,13 +225,15 @@ If validation fails, or the workspace limits what agents can do (allowed channel
             [
               {
                 integration: { id: platform.integrationId },
+                date: platform.date,
                 settings,
                 value: platform.postsAndComments.map((p: any) => ({
                   content: p.content,
                   image: (p.attachments || []).map(toMedia),
                 })),
               },
-            ]
+            ],
+            platform.type
           );
 
           if (validation.emptyContent) {
