@@ -13,7 +13,7 @@ const mockStripe = {
   paymentMethods: { list: jest.fn() },
   billingPortal: { sessions: { create: jest.fn() } },
   invoicePayments: { list: jest.fn() },
-  charges: { retrieve: jest.fn() },
+  charges: { retrieve: jest.fn(), list: jest.fn() },
 };
 
 jest.mock('stripe', () => ({
@@ -275,6 +275,60 @@ describe('createBillingPortalLink', () => {
     expect(
       mockStripe.billingPortal.sessions.create.mock.calls[1][0].configuration
     ).toBe('bpc_123');
+  });
+});
+
+describe('applyDiscount', () => {
+  const service = new StripeService({} as any, {} as any, {} as any, {} as any);
+  const original = process.env.STRIPE_DISCOUNT_ID;
+  beforeEach(() => {
+    process.env.STRIPE_DISCOUNT_ID = 'coupon_save';
+    mockStripe.subscriptions.update.mockReset();
+    mockStripe.charges.list.mockResolvedValue({ data: [{ amount: 7900 }] });
+  });
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.STRIPE_DISCOUNT_ID;
+    } else {
+      process.env.STRIPE_DISCOUNT_ID = original;
+    }
+  });
+
+  const subscription = (interval: string, discounts: any[] = []) => ({
+    data: [
+      {
+        id: 'sub_1',
+        status: 'active',
+        discounts,
+        items: { data: [{ price: { recurring: { interval } } }] },
+      },
+    ],
+  });
+
+  it('applies the coupon to an eligible monthly subscription', async () => {
+    mockStripe.subscriptions.list.mockResolvedValue(subscription('month'));
+    expect(await service.applyDiscount({ paymentId: 'cus_1' } as any)).toBe(
+      true
+    );
+    expect(mockStripe.subscriptions.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a yearly subscription', async () => {
+    mockStripe.subscriptions.list.mockResolvedValue(subscription('year'));
+    expect(await service.applyDiscount({ paymentId: 'cus_1' } as any)).toBe(
+      false
+    );
+    expect(mockStripe.subscriptions.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a subscription that already has a discount', async () => {
+    mockStripe.subscriptions.list.mockResolvedValue(
+      subscription('month', [{ id: 'di_1' }])
+    );
+    expect(await service.applyDiscount({ paymentId: 'cus_1' } as any)).toBe(
+      false
+    );
+    expect(mockStripe.subscriptions.update).not.toHaveBeenCalled();
   });
 });
 

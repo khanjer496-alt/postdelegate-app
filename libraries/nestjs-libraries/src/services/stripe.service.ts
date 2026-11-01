@@ -1346,7 +1346,7 @@ export class StripeService extends PaymentProviderAbstract {
 
   async applyDiscount(organization: Organization) {
     const customer = organization.paymentId;
-    const check = this.checkDiscount(organization);
+    const check = await this.checkDiscount(organization);
     if (!check) {
       return false;
     }
