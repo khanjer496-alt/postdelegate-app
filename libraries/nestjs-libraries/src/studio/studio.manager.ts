@@ -7,23 +7,21 @@ import {
   StudioTemplateParams,
 } from '@gitroom/nestjs-libraries/studio/studio.interface';
 
-// Every message of a validation, nested ones with their path. A draft may
-// still miss parts, so "partial" drops the "is missing" ones
-const messages = (
-  errors: ValidationError[],
-  partial: boolean,
-  path = ''
-): string[] =>
-  errors.flatMap((error) => [
-    ...Object.entries(error.constraints || {})
-      .filter(([key]) => !partial || key !== 'isDefined')
-      .map(([, message]) => (path ? `${path}.${message}` : message)),
-    ...messages(
-      error.children || [],
-      partial,
-      path ? `${path}.${error.property}` : error.property
-    ),
-  ]);
+// Every message of a validation, nested ones included. The DTOs word each
+// message for the customer, so the same one twice is said once. A draft may
+// still miss parts, so "partial" drops the "is missing" ones, an empty text
+// (a hook being typed, a caption word being fixed) counting as missing
+const DRAFT_SKIPS = ['isDefined', 'minLength'];
+const messages = (errors: ValidationError[], partial: boolean): string[] => [
+  ...new Set(
+    errors.flatMap((error) => [
+      ...Object.entries(error.constraints || {})
+        .filter(([key]) => !partial || !DRAFT_SKIPS.includes(key))
+        .map(([, message]) => message),
+      ...messages(error.children || [], partial),
+    ])
+  ),
+];
 
 @Injectable()
 export class StudioTemplateManager {

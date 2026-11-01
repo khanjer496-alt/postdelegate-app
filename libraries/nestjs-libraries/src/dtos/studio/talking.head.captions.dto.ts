@@ -11,11 +11,11 @@ export class TalkingHeadCaptionsDto extends StudioClipDto {
   // "crop" fills the frame and cuts the sides, "blur" keeps the whole picture
   // over a blurred copy of itself
   @IsOptional()
-  @IsIn(['crop', 'blur'])
+  @IsIn(['crop', 'blur'], { message: 'Pick Fill or Whole picture' })
   fit?: 'crop' | 'blur';
 
-  @IsDefined()
+  @IsDefined({ message: 'Make the captions first' })
   @Type(() => StudioCaptionsDto)
-  @ValidateNested()
+  @ValidateNested({ message: 'Make the captions first' })
   captions: StudioCaptionsDto;
 }

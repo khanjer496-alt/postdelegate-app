@@ -1,5 +1,6 @@
 'use client';
 
+import 'reflect-metadata';
 import React, { FC, useCallback, useState } from 'react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';

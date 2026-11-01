@@ -51,6 +51,14 @@ export abstract class PaymentProviderAbstract {
 
   // --- subscription lifecycle -------------------------------------------
 
+  // Whether the organization's subscription is in its free trial right now,
+  // as the provider has it (the stored isTrailing is also set for a renewal
+  // being retried). A provider that can't tell says no, so a limit built on
+  // it falls back to the plan's
+  async isTrialing(organizationId: string): Promise<boolean> {
+    return false;
+  }
+
   // Client initiated re-check of the organization subscription against the
   // provider (mobile app after purchase / restore)
   async syncSubscription(organizationId: string): Promise<{ active: boolean }> {

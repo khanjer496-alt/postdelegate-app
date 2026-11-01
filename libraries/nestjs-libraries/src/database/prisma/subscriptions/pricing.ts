@@ -173,3 +173,33 @@ export const totalChannelsOf = (tier: string, extraChannels = 0) =>
   (allowsExtraChannels(tier)
     ? Math.min(MAX_EXTRA_CHANNELS, Math.max(0, Math.floor(extraChannels || 0)))
     : 0);
+
+// the plans from the smallest to the biggest, like the billing page shows them
+export const isBiggerPlan = (from: string | null | undefined, to: string) =>
+  Object.keys(pricing).indexOf(to) >
+  Object.keys(pricing).indexOf(from || 'FREE');
+
+// A trial publishes on the networks paid per post no more than the first paid
+// plan does, whatever plan it tries: every one of those posts costs money
+export const TRIAL_POSTS_CAP_TIER = 'STANDARD';
+
+// The plan's monthly caps on single networks (provider_posts_per_month), the
+// smaller of the plan's and the trial cap's while it is a trial
+export const providerPostsLimitsOf = (
+  tier: string,
+  trial = false
+): Record<string, number> => {
+  const limits = pricing[tier]?.provider_posts_per_month || {};
+  if (!trial) {
+    return limits;
+  }
+  const cap = pricing[TRIAL_POSTS_CAP_TIER].provider_posts_per_month || {};
+  return Object.fromEntries(
+    [...new Set([...Object.keys(limits), ...Object.keys(cap)])].map(
+      (provider) => [
+        provider,
+        Math.min(limits[provider] ?? Infinity, cap[provider] ?? Infinity),
+      ]
+    )
+  );
+};

@@ -71,7 +71,7 @@ export const StudioEditor: FC<{
       const data = await response.json().catch(() => ({}));
       toaster.show(
         Array.isArray(data?.message)
-          ? data.message.join(', ')
+          ? data.message.join('. ')
           : data?.message || t('studio_save_failed', 'Could not save'),
         'warning'
       );
@@ -133,14 +133,17 @@ export const StudioEditor: FC<{
     });
   }, [modals, change]);
 
+  // the length comes from the player, a media record has none. A length the
+  // player does not know yet (0, NaN, Infinity) is waited out, and a clip
+  // that does not fit the video (none yet, empty, past its end) starts over
   const onDuration = useCallback(
     (seconds: number) => {
-      if (!Number.isFinite(seconds)) {
+      if (!Number.isFinite(seconds) || seconds <= 0) {
         return;
       }
       setDuration(seconds);
       const trim = latest.current.trim;
-      if (!trim || trim.end > seconds + 0.5) {
+      if (!trim || trim.end <= trim.start || trim.end > seconds + 0.5) {
         change({
           trim: {
             start: 0,
@@ -192,6 +195,14 @@ export const StudioEditor: FC<{
 
   const Settings = settings?.Settings;
   const src = spec.input?.path;
+  // checked before a render is sent, in the words the server would use
+  const missing = !spec.input?.mediaId
+    ? t('studio_missing_video', 'Pick a video from your media library')
+    : !spec.trim || trim.end <= trim.start
+    ? t('studio_missing_trim', 'Wait for the video to load, then trim the clip')
+    : settings && !settings.ready(spec)
+    ? settings.missing(t)
+    : undefined;
 
   return (
     <div className="flex flex-1 gap-[20px] tablet:flex-col min-w-0">
@@ -386,11 +397,7 @@ export const StudioEditor: FC<{
           <StudioRenderPanel
             projectId={project.id}
             latest={project.renders?.[0]}
-            ready={
-              !!spec.input?.mediaId &&
-              !!spec.trim &&
-              (!settings || settings.ready(spec))
-            }
+            missing={missing}
             tooLong={outputSeconds > STUDIO_MAX_SECONDS}
             save={save}
             onRendered={onChanged}

@@ -34,6 +34,30 @@ export class PaymentService {
     return this._paymentProviderManager.getDefaultProvider(platform).name;
   }
 
+  // Asks the provider that owns the subscription whether it is in its trial
+  // right now. No subscription, an unknown provider or a provider that can't
+  // be reached is a no, so a limit built on it fails open to the plan's
+  async isTrialing(organizationId: string) {
+    try {
+      const subscription =
+        await this._subscriptionService.getSubscriptionByOrganizationId(
+          organizationId
+        );
+      if (!subscription) {
+        return false;
+      }
+      return await this._paymentProviderManager
+        .getProvider(subscription.provider)
+        .isTrialing(organizationId);
+    } catch (err) {
+      console.error('payment_trial_status_failed', {
+        organization_id: organizationId,
+        err: (err as Error)?.message,
+      });
+      return false;
+    }
+  }
+
   // Subscription row + the platform (web / mobile) of the provider that owns it,
   // so clients can tell the user where to manage the subscription.
   async getSubscription(organizationId: string) {

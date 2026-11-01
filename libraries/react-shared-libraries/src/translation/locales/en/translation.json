@@ -1068,7 +1068,7 @@
   "billing_trial_already_used": "This email already had a free trial. Choose a plan to continue.",
   "billing_trial_failed": "We could not start your free trial",
   "billing_trial_without_card_ends_on": "Add a card to keep your plan. Your free trial ends on",
-  "billing_card_added": "Your card was added. Your plan continues when the trial ends.",
+  "billing_card_added": "Your card was added. Your plan continues when the trial ends, and you can now move to a bigger plan.",
   "add_a_card": "Add a card",
   "billing_workspace_already_subscribed": "This workspace already has a plan.",
   "finish_trial_add_card_first": "This feature is not part of the free trial. Add a card first, then you can end your trial and use it right away.",
@@ -1728,5 +1728,10 @@
   "extra_channels_update_failed": "Your extra channels could not be updated",
   "extra_channels_payment_processing": "Your payment is processing. Your extra channels update as soon as it goes through.",
   "faq_more_than_100_channels": "What if I need more than 100 channels?",
-  "faq_extra_channels_description": "The Ultimate plan includes 100 channels, and each extra channel above that costs $1 a month ($9.60 a year on yearly billing). Once your plan is paid, a workspace admin adds them under Extra channels on this page, up to 900 extra channels (1,000 in total). Changes are prorated, and you cannot go below the channels you already have connected."
+  "faq_extra_channels_description": "The Ultimate plan includes 100 channels, and each extra channel above that costs $1 a month ($9.60 a year on yearly billing). Once your plan is paid, a workspace admin adds them under Extra channels on this page, up to 900 extra channels (1,000 in total). Changes are prorated, and you cannot go below the channels you already have connected.",
+  "billing_channels_then_extra_monthly": "{{channels}} channels, then ${{price}}/month per extra channel, up to {{max}}",
+  "billing_channels_then_extra_yearly": "{{channels}} channels, then ${{price}}/year per extra channel, up to {{max}}",
+  "billing_trial_upgrade_add_card_first": "Add a card to move to a bigger plan during your free trial. You are not charged until the trial ends, then the first payment is the new plan's price.",
+  "billing_trial_add_card_to_switch": "Add a card to switch during your trial",
+  "billing_trial_then_price": "$0 today, ${{price}} when the trial ends"
 }

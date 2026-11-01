@@ -7,7 +7,6 @@ import { LemmySettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers
 import { DribbbleDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/dribbble.dto';
 import { DiscordDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/discord.dto';
 import { SlackDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/slack.dto';
-import { KickDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/kick.dto';
 import { TwitchDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/twitch.dto';
 import { InstagramDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/instagram.dto';
 import { LinkedinDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/linkedin.dto';
@@ -37,7 +36,7 @@ export type AllProvidersSettings =
   | ProviderExtension<'tiktok-business', TikTokDto>
   | ProviderExtension<'discord', DiscordDto>
   | ProviderExtension<'slack', SlackDto>
-  | ProviderExtension<'kick', KickDto>
+  | ProviderExtension<'kick', None>
   | ProviderExtension<'twitch', TwitchDto>
   | ProviderExtension<'x', XDto>
   | ProviderExtension<'x-own-key', XDto>
@@ -78,7 +77,9 @@ export const allProviders = (setEmpty?: any) => {
     { value: TikTokDto, name: 'tiktok-business' },
     { value: DiscordDto, name: 'discord' },
     { value: SlackDto, name: 'slack' },
-    { value: KickDto, name: 'kick' },
+    // no settings: a class without validation rules is refused as "an
+    // unknown value", so Kick is validated like the others without any
+    { value: setEmpty, name: 'kick' },
     { value: TwitchDto, name: 'twitch' },
     { value: XDto, name: 'x' },
     { value: XDto, name: 'x-own-key' },

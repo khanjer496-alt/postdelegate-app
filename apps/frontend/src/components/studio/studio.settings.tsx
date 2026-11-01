@@ -112,6 +112,8 @@ const HookSettings: FC<StudioSettingsProps> = ({ spec, change }) => {
   const id = useId();
   const positions = usePositions();
   const hook = spec.hook || { text: '' };
+  const [touched, setTouched] = useState(false);
+  const empty = touched && !hook.text.trim();
 
   return (
     <div className="flex flex-col gap-[14px]">
@@ -125,14 +127,24 @@ const HookSettings: FC<StudioSettingsProps> = ({ spec, change }) => {
           maxLength={120}
           rows={3}
           onChange={(e) => change({ hook: { ...hook, text: e.target.value } })}
+          onBlur={() => setTouched(true)}
+          aria-invalid={empty}
+          aria-describedby={empty ? `${id}-missing` : undefined}
           placeholder={t(
             'studio_hook_placeholder',
             'The line that stops the scroll'
           )}
           className="bg-newBgColorInner border border-newTableBorder rounded-[8px] p-[12px] text-[14px] text-textColor outline-none resize-none focus-visible:ring-2 focus-visible:ring-btnPrimary"
         />
-        <div className="text-[12px] text-textItemBlur self-end tabular-nums">
-          {hook.text.length}/120
+        <div className="flex gap-[8px] text-[12px]">
+          {empty && (
+            <div id={`${id}-missing`} className="text-red-400">
+              {t('studio_hook_missing', 'Add a hook line')}
+            </div>
+          )}
+          <div className="text-textItemBlur ms-auto tabular-nums">
+            {hook.text.length}/120
+          </div>
         </div>
       </div>
       <StyleSelect
@@ -206,6 +218,8 @@ const CaptionSettings: FC<StudioSettingsProps> = ({
           toaster.show(
             typeof data?.message === 'string'
               ? data.message
+              : Array.isArray(data?.message)
+              ? data.message.join('. ')
               : t('studio_transcribe_failed', 'The captions could not be made'),
             'warning'
           );
@@ -381,12 +395,15 @@ export const studioTemplateSettings: Record<
     defaults: Partial<StudioSpec>;
     // the template has what it needs to render
     ready: (spec: StudioSpec) => boolean;
+    // what to do when it is not ready, shown by the render button
+    missing: (t: ReturnType<typeof useT>) => string;
     Settings: FC<StudioSettingsProps>;
   }
 > = {
   'hook-over-clip': {
     defaults: { hook: { text: '', style: 'bold', position: 'top' } },
     ready: (spec) => !!spec.hook?.text?.trim(),
+    missing: (t) => t('studio_hook_missing', 'Add a hook line'),
     Settings: HookSettings,
   },
   'talking-head-captions': {
@@ -397,7 +414,14 @@ export const studioTemplateSettings: Record<
         style: { font: 'bold', position: 'bottom', maxWords: 3 },
       },
     },
-    ready: (spec) => !!spec.captions?.words?.length,
+    // the render burns in the words, from the AI or a timed script: a script
+    // typed but not timed yet, or words all emptied, would render none
+    ready: (spec) => !!spec.captions?.words?.some((word) => word.text.trim()),
+    missing: (t) =>
+      t(
+        'studio_captions_missing',
+        'Make the captions with your AI, or type a script and click "Use this script"'
+      ),
     Settings: CaptionSettings,
   },
 };

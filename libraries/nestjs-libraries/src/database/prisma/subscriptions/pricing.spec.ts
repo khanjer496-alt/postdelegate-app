@@ -1,7 +1,9 @@
 import {
   allowsExtraChannels,
+  isBiggerPlan,
   MAX_EXTRA_CHANNELS,
   pricing,
+  providerPostsLimitsOf,
   totalChannelsOf,
 } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 
@@ -81,5 +83,28 @@ describe('pricing', () => {
     expect(totalChannelsOf('FREE', 10)).toBe(0);
     expect(allowsExtraChannels(undefined)).toBe(false);
     expect(allowsExtraChannels('UNKNOWN')).toBe(false);
+  });
+
+  it('orders the plans like the billing page', () => {
+    expect(isBiggerPlan('STANDARD', 'ULTIMATE')).toBe(true);
+    expect(isBiggerPlan('STANDARD', 'TEAM')).toBe(true);
+    expect(isBiggerPlan(undefined, 'STANDARD')).toBe(true);
+    expect(isBiggerPlan('ULTIMATE', 'STANDARD')).toBe(false);
+    expect(isBiggerPlan('PRO', 'PRO')).toBe(false);
+  });
+
+  it('never lets a trial post more on X than Starter, whatever the plan', () => {
+    const starter = pricing.STANDARD.provider_posts_per_month!.x;
+    for (const tier of Object.keys(pricing)) {
+      expect(providerPostsLimitsOf(tier, true).x).toBeLessThanOrEqual(starter);
+    }
+    expect(providerPostsLimitsOf('ULTIMATE', true)).toEqual({ x: starter });
+    expect(providerPostsLimitsOf('FREE', true)).toEqual({ x: 0 });
+  });
+
+  it('keeps the plan caps once it is paid', () => {
+    expect(providerPostsLimitsOf('ULTIMATE')).toEqual({ x: 1000 });
+    expect(providerPostsLimitsOf('PRO', false)).toEqual({ x: 300 });
+    expect(providerPostsLimitsOf('UNKNOWN')).toEqual({});
   });
 });

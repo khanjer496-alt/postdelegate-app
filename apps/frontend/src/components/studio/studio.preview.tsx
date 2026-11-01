@@ -33,6 +33,9 @@ const POSITION_MARGIN: Record<StudioPosition, number> = {
   center: 0,
   bottom: 420,
 };
+// how long and how often a video that does not load yet is asked for again
+const RETRY_MS = 3000;
+const MAX_RETRIES = 20;
 
 // The bundled fonts under their own names, so they never clash with the
 // app's fonts. The files are the ones the render uses
@@ -111,6 +114,45 @@ export const StudioPreview: FC<{
   const speed = spec.speed || 1;
   const duration = Math.max(0, (trim.end - trim.start) / speed);
   const scale = width / OUTPUT_WIDTH;
+  // failed loads of this video in a row: a video picked right after its
+  // upload can still be processing, so it is asked for again for a minute
+  const [failures, setFailures] = useState(0);
+  const probing = useRef(false);
+
+  useEffect(() => {
+    setFailures(0);
+  }, [src]);
+
+  useEffect(() => {
+    if (!failures || failures > MAX_RETRIES) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      videoRef.current?.load();
+      // the blurred copy reads the same file and failed the same way
+      background.current?.load();
+    }, RETRY_MS);
+    return () => clearTimeout(timer);
+  }, [failures]);
+
+  // The length is read on loadedmetadata and again whenever it changes. A
+  // file without its length in the header reports Infinity until the player
+  // has read it to the end, so it is seeked past the end once to find out
+  const readDuration = useCallback(
+    (player: HTMLVideoElement) => {
+      if (player.duration === Infinity) {
+        probing.current = true;
+        player.currentTime = Number.MAX_SAFE_INTEGER;
+        return;
+      }
+      if (probing.current && Number.isFinite(player.duration)) {
+        probing.current = false;
+        player.currentTime = 0;
+      }
+      onDuration(player.duration);
+    },
+    [onDuration]
+  );
 
   useEffect(() => {
     if (!frame.current) {
@@ -192,7 +234,12 @@ export const StudioPreview: FC<{
         playsInline
         preload="auto"
         muted={!!spec.mute}
-        onLoadedMetadata={(e) => onDuration(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => {
+          setFailures(0);
+          readDuration(e.currentTarget);
+        }}
+        onDurationChange={(e) => readDuration(e.currentTarget)}
+        onError={() => setFailures((current) => current + 1)}
         onPlay={() => background.current?.play().catch(() => undefined)}
         onPause={() => background.current?.pause()}
         className={clsx(
@@ -201,6 +248,22 @@ export const StudioPreview: FC<{
         )}
         style={blur ? undefined : { objectPosition }}
       />
+      {failures > 0 && (
+        <div
+          role="status"
+          className="absolute inset-0 flex items-center justify-center p-[24px] text-center text-[14px] text-white bg-black/70"
+        >
+          {failures > MAX_RETRIES
+            ? t(
+                'studio_video_failed',
+                'This video could not be loaded. Pick it again or pick another one.'
+              )
+            : t(
+                'studio_video_processing',
+                'Loading the video… A video you just uploaded can take a moment to finish processing.'
+              )}
+        </div>
+      )}
       {!!spec.hook?.text &&
         now <= Math.min(duration, spec.hook.seconds || duration) && (
           <TextLayer position={spec.hook.position || 'top'} scale={scale}>

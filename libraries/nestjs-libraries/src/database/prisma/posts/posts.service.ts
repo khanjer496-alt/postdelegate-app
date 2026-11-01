@@ -68,7 +68,12 @@ import {
   planMonth,
   SubscriptionService,
 } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
-import { isCappedProvider } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  isCappedProvider,
+  pricing,
+  TRIAL_POSTS_CAP_TIER,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { PaymentService } from '@gitroom/nestjs-libraries/services/payment/payment.service';
 import {
   AuthorizationActions,
   Sections,
@@ -94,7 +99,8 @@ export class PostsService {
     private _refreshIntegrationService: RefreshIntegrationService,
     private _approvalPolicyService: ApprovalPolicyService,
     private _activityLogService: ActivityLogService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    private _paymentService: PaymentService
   ) {}
 
   searchForMissingThreeHoursPosts() {
@@ -1580,10 +1586,10 @@ export class PostsService {
       ({ provider, window }) => `${provider} ${window.from.getTime()}`
     );
 
+    const trialing = this.liveTrial(orgId);
     for (const group of Object.values(windows)) {
       const { provider, window } = group[0];
       const values = group.flatMap(({ post }) => post.value || []);
-      const limit = caps.plan.limits[provider!];
 
       // after the save: schedule and now queue every entry, an update keeps
       // the state of the stored ones and queues the new ones
@@ -1620,6 +1626,12 @@ export class PostsService {
           ids
         ));
 
+      const { limit, trial } = await this.capFor(
+        caps.plan,
+        provider!,
+        used + queued.length,
+        trialing
+      );
       if (used + queued.length <= limit) {
         continue;
       }
@@ -1630,14 +1642,15 @@ export class PostsService {
         ? `the plan month starting ${dayjs(window.from).format('MMMM D')}`
         : 'this month';
       const left = Math.max(0, limit - used);
+      const plan = `${caps.plan.plan} ${trial ? 'trial' : 'plan'}`;
       throw new SubscriptionException({
         action: AuthorizationActions.Create,
         section: Sections.PROVIDER_POSTS_PER_MONTH,
         message: `${
           left
-            ? `Only ${left} of your ${limit} ${name} posts for ${period} on the ${caps.plan.plan} plan are left, and this needs ${queued.length} (every post of a thread counts).`
-            : `You've used your ${limit} ${name} posts for ${period} on the ${caps.plan.plan} plan.`
-        } ${social?.planLimitHint || 'Upgrade your plan to post more.'}`,
+            ? `Only ${left} of your ${limit} ${name} posts for ${period} on the ${plan} are left, and this needs ${queued.length} (every post of a thread counts).`
+            : `You've used your ${limit} ${name} posts for ${period} on the ${plan}.`
+        } ${this.limitHint(trial, social?.planLimitHint)}`,
       });
     }
 
@@ -1698,8 +1711,7 @@ export class PostsService {
     }
 
     const plan = await this._subscriptionService.getProviderPostsLimits(orgId);
-    const limit = plan?.limits[providerIdentifier];
-    if (!plan || limit === undefined) {
+    if (!plan || plan.limits[providerIdentifier] === undefined) {
       return null;
     }
 
@@ -1719,15 +1731,66 @@ export class PostsService {
       window.from,
       window.until
     );
+    const { limit, trial } = await this.capFor(
+      plan,
+      providerIdentifier,
+      used + count,
+      this.liveTrial(orgId)
+    );
     if (used + count <= limit) {
       return null;
     }
 
     const social =
       this._integrationManager.getSocialIntegration(providerIdentifier);
-    return `Monthly ${social?.name || providerIdentifier} post limit reached on the ${plan.plan} plan (${limit}). ${
-      social?.planLimitHint || 'Upgrade your plan to post more.'
-    }`;
+    return `Monthly ${
+      social?.name || providerIdentifier
+    } post limit reached on the ${plan.plan} ${
+      trial ? 'trial' : 'plan'
+    } (${limit}). ${this.limitHint(trial, social?.planLimitHint)}`;
+  }
+
+  // Asks the payment provider once, and only when a check needs it, whether
+  // the workspace is really in its trial
+  private liveTrial(orgId: string) {
+    let asked: Promise<boolean> | undefined;
+    return () => (asked = asked || this._paymentService.isTrialing(orgId));
+  }
+
+  // The cap `total` posts are held to: the plan's, or the lower trial cap when
+  // only that one would refuse them and the payment provider says the
+  // subscription is trialing right now. isTrailing alone is not enough, it is
+  // also set for a paid renewal being retried, and a provider that can't be
+  // reached keeps the plan's cap
+  private async capFor(
+    plan: {
+      limits: Record<string, number>;
+      trialLimits?: Record<string, number>;
+    },
+    provider: string,
+    total: number,
+    trialing: () => Promise<boolean>
+  ) {
+    const limit = plan.limits[provider];
+    const trialLimit = plan.trialLimits?.[provider];
+    if (
+      trialLimit === undefined ||
+      trialLimit >= limit ||
+      total <= trialLimit ||
+      total > limit ||
+      !(await trialing())
+    ) {
+      return { limit, trial: false };
+    }
+    return { limit: trialLimit, trial: true };
+  }
+
+  // What to do at a network's monthly cap. A trial has the trial cap whatever
+  // plan it tries, a card and the end of the trial lift it to the plan's
+  private limitHint(trial: boolean, planLimitHint?: string) {
+    return trial
+      ? `A free trial posts here as much as the ${pricing[TRIAL_POSTS_CAP_TIER].label} plan. Add a card, then end your trial on the Billing page to get your plan's full limit.`
+      : planLimitHint || 'Upgrade your plan to post more.';
   }
 
   // the posts that went out to a capped network, what the cap counts

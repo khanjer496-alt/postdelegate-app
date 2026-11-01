@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  pricing,
+  providerPostsLimitsOf,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { SubscriptionRepository } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.repository';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
@@ -425,21 +428,28 @@ export class SubscriptionService {
 
   // The plan's monthly caps on single networks (provider_posts_per_month) and
   // the anchor of its months (planMonth), the subscription's start like
-  // posts_per_month. Without billing there are no plans to cap
+  // posts_per_month. A workspace marked isTrailing also gets the trial caps:
+  // they only apply once the payment provider confirms a real trial (the flag
+  // is also set for a paid renewal being retried). Without billing there are
+  // no plans to cap
   async getProviderPostsLimits(organizationId: string) {
     if (!process.env.STRIPE_PUBLISHABLE_KEY) {
       return null;
     }
 
-    const subscription =
-      await this._subscriptionRepository.getSubscriptionByOrganizationId(
+    const [subscription, organization] = await Promise.all([
+      this._subscriptionRepository.getSubscriptionByOrganizationId(
         organizationId
-      );
+      ),
+      this._organizationService.getOrgById(organizationId),
+    ]);
     const tier = subscription?.subscriptionTier || 'FREE';
+    const maybeTrial = !!subscription && !!organization?.isTrailing;
 
     return {
       plan: pricing[tier].label || tier,
-      limits: pricing[tier].provider_posts_per_month || {},
+      limits: providerPostsLimitsOf(tier),
+      ...(maybeTrial ? { trialLimits: providerPostsLimitsOf(tier, true) } : {}),
       // without a subscription every cap is 0, the month doesn't matter
       anchor: subscription?.createdAt || new Date(),
     };

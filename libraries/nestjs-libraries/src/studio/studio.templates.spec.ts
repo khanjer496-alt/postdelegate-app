@@ -1,5 +1,12 @@
 import 'reflect-metadata';
 import { BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import {
+  CreateStudioProjectDto,
+  StudioTranscribeDto,
+  UpdateStudioProjectDto,
+} from '@gitroom/nestjs-libraries/dtos/studio/studio.project.dto';
 import { StudioTemplateManager } from '@gitroom/nestjs-libraries/studio/studio.manager';
 import { HookOverClipTemplate } from '@gitroom/nestjs-libraries/studio/templates/hook.over.clip.template';
 import { TalkingHeadCaptionsTemplate } from '@gitroom/nestjs-libraries/studio/templates/talking.head.captions.template';
@@ -205,9 +212,165 @@ describe('Studio spec validation', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  // a new "Hook over clip" project starts with an empty hook, and the editor
+  // saves the draft as soon as a video is picked
+  it('saves a draft with an empty hook or caption word', async () => {
+    await expect(
+      manager().validateSpec(
+        'hook-over-clip',
+        { ...hookSpec, hook: { text: '', style: 'bold', position: 'top' } },
+        true
+      )
+    ).resolves.toBeTruthy();
+    await expect(
+      manager().validateSpec(
+        'talking-head-captions',
+        {
+          ...captionsSpec,
+          captions: {
+            ...captionsSpec.captions,
+            words: [{ text: '', start: 10, end: 11 }],
+          },
+        },
+        true
+      )
+    ).resolves.toBeTruthy();
+  });
+
+  const refusal = async (identifier: string, spec: any, partial = false) => {
+    try {
+      await manager().validateSpec(identifier, spec, partial);
+    } catch (err) {
+      return (err as BadRequestException).getResponse() as {
+        message: string[];
+      };
+    }
+    throw new Error('the spec was accepted');
+  };
+
+  it('tells the customer what to fix in plain words', async () => {
+    expect(
+      (await refusal('hook-over-clip', { ...hookSpec, hook: { text: '' } }))
+        .message
+    ).toEqual(['Add a hook line']);
+    expect(
+      (await refusal('hook-over-clip', { ...hookSpec, hook: undefined }))
+        .message
+    ).toEqual(['Add a hook line']);
+    expect(
+      (
+        await refusal('hook-over-clip', {
+          ...hookSpec,
+          hook: { text: 'x'.repeat(121) },
+        })
+      ).message
+    ).toEqual(['The hook is 120 characters at most']);
+    expect(
+      (await refusal('hook-over-clip', { ...hookSpec, input: undefined }))
+        .message
+    ).toEqual(['Pick a video from your media library']);
+    expect(
+      (await refusal('hook-over-clip', { ...hookSpec, trim: undefined }))
+        .message
+    ).toEqual(['Trim the clip first']);
+    expect(
+      (
+        await refusal(
+          'hook-over-clip',
+          { ...hookSpec, focus: { x: 2, y: 0 } },
+          true
+        )
+      ).message
+    ).toEqual(['Drag the crop back onto the picture']);
+    expect(
+      (
+        await refusal('talking-head-captions', {
+          ...captionsSpec,
+          captions: undefined,
+        })
+      ).message
+    ).toEqual(['Make the captions first']);
+    expect(
+      (
+        await refusal('talking-head-captions', {
+          ...captionsSpec,
+          captions: {
+            ...captionsSpec.captions,
+            style: { color: 'red;drawtext' },
+          },
+        })
+      ).message
+    ).toEqual(['Pick the caption colour with the colour picker']);
+  });
+
+  it('never shows a field path or a class-validator sentence', async () => {
+    const specs: [string, any][] = [
+      ['hook-over-clip', {}],
+      ['hook-over-clip', { ...hookSpec, speed: 3, mute: 'yes', hook: 'x' }],
+      [
+        'hook-over-clip',
+        {
+          ...hookSpec,
+          input: { mediaId: 'nope', path: 5 },
+          trim: { start: -1, end: 0 },
+          hook: { text: 5, style: 'x', position: 'x', seconds: 0 },
+        },
+      ],
+      [
+        'talking-head-captions',
+        {
+          ...captionsSpec,
+          fit: 'x',
+          captions: {
+            source: 'x',
+            script: 'x'.repeat(3001),
+            words: [{ text: 'x'.repeat(61), start: -1, end: 'x' }],
+            style: {
+              font: 'x',
+              maxWords: 9,
+              maxChars: 2,
+              position: 'x',
+              highlight: 'x',
+            },
+          },
+        },
+      ],
+      ['talking-head-captions', { ...captionsSpec, captions: 'x' }],
+    ];
+    for (const [identifier, spec] of specs) {
+      const { message } = await refusal(identifier, spec);
+      expect(message.length).toBeGreaterThan(0);
+      for (const line of message) {
+        expect(line).not.toMatch(/\.|must |should |nested property/);
+      }
+    }
+  });
+
   it('refuses an unknown template', async () => {
     await expect(
       manager().validateSpec('nope', hookSpec, false)
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('Studio project requests', () => {
+  const errors = async (dto: any, body: Record<string, unknown>) =>
+    (await validate(plainToInstance(dto, body))).flatMap((error) =>
+      Object.values(error.constraints || {})
+    );
+
+  it('words every refusal for the customer', async () => {
+    expect(
+      await errors(CreateStudioProjectDto, { name: '', template: 'x' })
+    ).toEqual(['Give the project a name']);
+    expect(
+      await errors(UpdateStudioProjectDto, { name: 'x'.repeat(101) })
+    ).toEqual(['Project names are 100 characters at most']);
+    expect(await errors(UpdateStudioProjectDto, { spec: 'x' })).toEqual([
+      'The project settings are not valid',
+    ]);
+    expect(await errors(StudioTranscribeDto, { script: '' })).toEqual([
+      'Type the script first',
+    ]);
   });
 });

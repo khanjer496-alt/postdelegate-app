@@ -11,7 +11,11 @@ import { AttachToFeedbackIcon } from '@gitroom/frontend/components/new-layout/se
 import NotificationComponent from '@gitroom/frontend/components/notifications/notification.component';
 import dynamic from 'next/dynamic';
 import { LogoTextComponent } from '@gitroom/frontend/components/ui/logo-text.component';
-import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import {
+  allowsExtraChannels,
+  MAX_EXTRA_CHANNELS,
+  pricing,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { capitalize } from 'lodash';
 import clsx from 'clsx';
 import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
@@ -388,7 +392,7 @@ export const FirstBillingComponent = () => {
               <div className="text-[24px] font-[700]">
                 {t('billing_features', 'Features')}
               </div>
-              <BillingFeatures tier={tier} />
+              <BillingFeatures tier={tier} yearly={period === 'YEARLY'} />
             </div>
             <div className="flex flex-col mobile:hidden tablet:hidden">
               {/*<div>asd</div>*/}
@@ -405,20 +409,41 @@ type FeatureItem = {
   key: string;
   defaultValue: string;
   prefix?: string | number;
+  values?: Record<string, string | number>;
 };
 
-export const useBillingFeatures = (tier: string) => {
+export const useBillingFeatures = (tier: string, yearly = false) => {
   const t = useT();
   const features = useMemo(() => {
     const currentPricing = pricing[tier];
     const channelsOr = currentPricing.channel;
     const list: FeatureItem[] = [];
 
-    list.push({
-      key: channelsOr === 1 ? 'billing_channel' : 'billing_channels',
-      defaultValue: channelsOr === 1 ? 'channel' : 'channels',
-      prefix: channelsOr,
-    });
+    // the plan that sells extra channels says what they cost, like the
+    // pricing page of the site
+    if (allowsExtraChannels(tier)) {
+      list.push({
+        key: yearly
+          ? 'billing_channels_then_extra_yearly'
+          : 'billing_channels_then_extra_monthly',
+        defaultValue: yearly
+          ? '{{channels}} channels, then ${{price}}/year per extra channel, up to {{max}}'
+          : '{{channels}} channels, then ${{price}}/month per extra channel, up to {{max}}',
+        values: {
+          channels: channelsOr!,
+          price: yearly
+            ? currentPricing.extra_channel_year_price!.toFixed(2)
+            : currentPricing.extra_channel_month_price!,
+          max: (channelsOr! + MAX_EXTRA_CHANNELS).toLocaleString('en-US'),
+        },
+      });
+    } else {
+      list.push({
+        key: channelsOr === 1 ? 'billing_channel' : 'billing_channels',
+        defaultValue: channelsOr === 1 ? 'channel' : 'channels',
+        prefix: channelsOr,
+      });
+    }
 
     list.push({
       key: 'billing_posts_per_month',
@@ -472,10 +497,12 @@ export const useBillingFeatures = (tier: string) => {
       });
     }
     return list;
-  }, [tier]);
+  }, [tier, yearly]);
 
   const renderFeature = (feature: FeatureItem) => {
-    const translatedText = t(feature.key, feature.defaultValue);
+    const translatedText = feature.values
+      ? t(feature.key, feature.defaultValue, feature.values)
+      : t(feature.key, feature.defaultValue);
     if (feature.prefix === 'unlimited') {
       return `${t('billing_unlimited', 'Unlimited')} ${translatedText}`;
     }
@@ -491,8 +518,11 @@ export const useBillingFeatures = (tier: string) => {
   }));
 };
 
-export const BillingFeatures: FC<{ tier: string }> = ({ tier }) => {
-  const features = useBillingFeatures(tier);
+export const BillingFeatures: FC<{ tier: string; yearly?: boolean }> = ({
+  tier,
+  yearly,
+}) => {
+  const features = useBillingFeatures(tier, yearly);
 
   return (
     <div className="grid grid-cols-2 mobile:grid-cols-1 gap-y-[8px] gap-x-[32px]">

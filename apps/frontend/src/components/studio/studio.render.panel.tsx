@@ -138,11 +138,12 @@ export const StudioUsageNote: FC = () => {
 export const StudioRenderPanel: FC<{
   projectId: string;
   latest?: StudioRender;
-  ready: boolean;
+  // what is still needed before a render, nothing when it can start
+  missing?: string;
   tooLong: boolean;
   save: () => Promise<boolean>;
   onRendered: () => void;
-}> = ({ projectId, latest, ready, tooLong, save, onRendered }) => {
+}> = ({ projectId, latest, missing, tooLong, save, onRendered }) => {
   const t = useT();
   const fetch = useFetch();
   const toaster = useToaster();
@@ -167,6 +168,9 @@ export const StudioRenderPanel: FC<{
   }, [render?.status]);
 
   const start = useCallback(async () => {
+    if (missing) {
+      return;
+    }
     setStarting(true);
     try {
       if (!(await save())) {
@@ -181,7 +185,7 @@ export const StudioRenderPanel: FC<{
           typeof data?.message === 'string'
             ? data.message
             : Array.isArray(data?.message)
-            ? data.message.join(', ')
+            ? data.message.join('. ')
             : t('studio_render_failed_start', 'The render could not start'),
           'warning'
         );
@@ -192,7 +196,7 @@ export const StudioRenderPanel: FC<{
     } finally {
       setStarting(false);
     }
-  }, [projectId, save]);
+  }, [projectId, save, missing]);
 
   const cancel = useCallback(async () => {
     if (!render) {
@@ -206,7 +210,8 @@ export const StudioRenderPanel: FC<{
     <div className="flex flex-col gap-[12px]">
       <button
         type="button"
-        disabled={!ready || tooLong || active || starting}
+        disabled={!!missing || tooLong || active || starting}
+        aria-describedby={missing ? `${projectId}-missing` : undefined}
         onClick={start}
         className="h-[44px] px-[16px] rounded-[10px] bg-btnCta text-btnCtaText hover:bg-btnCtaHover shadow-cta font-[600] text-[15px] disabled:opacity-50 disabled:hover:bg-btnCta"
       >
@@ -214,6 +219,14 @@ export const StudioRenderPanel: FC<{
           ? t('studio_starting', 'Starting…')
           : t('studio_render', 'Render video')}
       </button>
+      {!!missing && !active && (
+        <div
+          id={`${projectId}-missing`}
+          className="text-[13px] text-textItemBlur"
+        >
+          {missing}
+        </div>
+      )}
       {tooLong && (
         <div className="text-[13px] text-red-400">
           {t(

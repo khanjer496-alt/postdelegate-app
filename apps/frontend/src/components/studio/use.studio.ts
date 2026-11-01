@@ -90,10 +90,19 @@ export type StudioProject = StudioProjectSummary & {
 
 export const FINAL_RENDER_STATUSES = ['completed', 'failed', 'cancelled'];
 
+// An error body is not a list or a project: SWR keeps it as an error, so the
+// page renders its empty state instead of mapping over { message }
+const json = async (response: Response) => {
+  if (!response.ok) {
+    throw new Error(`Studio request failed (${response.status})`);
+  }
+  return response.json();
+};
+
 export const useStudioTemplates = () => {
   const fetch = useFetch();
   const load = useCallback(async () => {
-    return (await fetch('/studio/templates')).json();
+    return json(await fetch('/studio/templates'));
   }, []);
   return useSWR<StudioTemplate[]>('studio-templates', load, {
     revalidateOnFocus: false,
@@ -103,7 +112,7 @@ export const useStudioTemplates = () => {
 export const useStudioUsage = () => {
   const fetch = useFetch();
   const load = useCallback(async () => {
-    return (await fetch('/studio/usage')).json();
+    return json(await fetch('/studio/usage'));
   }, []);
   return useSWR<StudioUsage>('studio-usage', load, {
     revalidateOnFocus: false,
@@ -113,7 +122,7 @@ export const useStudioUsage = () => {
 export const useStudioProjects = () => {
   const fetch = useFetch();
   const load = useCallback(async () => {
-    return (await fetch('/studio/projects')).json();
+    return json(await fetch('/studio/projects'));
   }, []);
   return useSWR<StudioProjectSummary[]>('studio-projects', load, {
     revalidateOnFocus: false,
@@ -123,7 +132,7 @@ export const useStudioProjects = () => {
 export const useStudioProject = (id?: string) => {
   const fetch = useFetch();
   const load = useCallback(async () => {
-    return (await fetch(`/studio/projects/${id}`)).json();
+    return json(await fetch(`/studio/projects/${id}`));
   }, [id]);
   return useSWR<StudioProject>(id ? `studio-project-${id}` : null, load, {
     revalidateOnFocus: false,
@@ -134,7 +143,7 @@ export const useStudioProject = (id?: string) => {
 export const useStudioRender = (id?: string) => {
   const fetch = useFetch();
   const load = useCallback(async () => {
-    return (await fetch(`/studio/renders/${id}`)).json();
+    return json(await fetch(`/studio/renders/${id}`));
   }, [id]);
   return useSWR<StudioRender>(id ? `studio-render-${id}` : null, load, {
     revalidateOnFocus: false,
