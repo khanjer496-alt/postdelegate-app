@@ -5,7 +5,10 @@ import {
   SocialProvider,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
-import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import {
+  BadBody,
+  SocialAbstract,
+} from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { Integration } from '@prisma/client';
 import { DiscordDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/discord.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
@@ -62,10 +65,22 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
   }
   async generateAuthUrl() {
     const state = makeSecureId(6);
+    // Bot permissions asked for on invite (Discord permission flags), a
+    // server keeps what it was invited with, only new connections get changes:
+    // VIEW_CHANNEL             1 << 10 = 1024
+    // SEND_MESSAGES            1 << 11 = 2048
+    // EMBED_LINKS              1 << 14 = 16384
+    // ATTACH_FILES             1 << 15 = 32768
+    // READ_MESSAGE_HISTORY     1 << 16 = 65536
+    // MENTION_EVERYONE         1 << 17 = 131072 (@everyone, @here, any role)
+    // CREATE_PUBLIC_THREADS    1 << 35 = 34359738368
+    // CREATE_PRIVATE_THREADS   1 << 36 = 68719476736
+    // SEND_MESSAGES_IN_THREADS 1 << 38 = 274877906944
+    // total                             = 377957370880
     return {
       url: `https://discord.com/oauth2/authorize?client_id=${
         process.env.DISCORD_CLIENT_ID
-      }&permissions=377957124096&response_type=code&redirect_uri=${encodeURIComponent(
+      }&permissions=377957370880&response_type=code&redirect_uri=${encodeURIComponent(
         `${process.env.FRONTEND_URL}/integrations/social/discord`
       )}&integration_type=0&scope=bot+identify+guilds&state=${state}`,
       codeVerifier: makeSecureId(10),
@@ -222,29 +237,13 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
     const [commentPost] = postDetails;
     const channel = commentPost.settings.channel;
 
-    // For Discord, we create a thread from the original message for comments
-    // If we don't have a thread yet, create one
-    let threadChannel = channel;
-
-    // Create thread if this is the first comment
+    // Comments go into a thread started from the original message. Discord
+    // gives that thread the message's id, so every comment of the post is
+    // sent to postId whatever lastCommentId holds. Only the first comment
+    // starts the thread.
+    const threadChannel = postId;
     if (!lastCommentId) {
-      const { id: threadId } = await (
-        await this.fetch(
-          `https://discord.com/api/channels/${channel}/messages/${postId}/threads`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_ID}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: 'Thread',
-              auto_archive_duration: 1440,
-            }),
-          }
-        )
-      ).json();
-      threadChannel = threadId;
+      await this.startThread(channel, postId);
     }
 
     const data = await this.sendMessageWithMedia(
@@ -261,6 +260,33 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
         status: 'success',
       },
     ];
+  }
+
+  // A retry of the first comment finds the thread already started (160004),
+  // it is the same thread, so the comment carries on into it
+  private async startThread(channel: string, postId: string) {
+    try {
+      await this.fetch(
+        `https://discord.com/api/channels/${channel}/messages/${postId}/threads`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_ID}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: 'Thread',
+            auto_archive_duration: 1440,
+          }),
+        }
+      );
+    } catch (err) {
+      const json = (err as any).details?.[0]?.json || '{}';
+      if (err instanceof BadBody && json.includes('160004')) {
+        return;
+      }
+      throw err;
+    }
   }
 
   async changeNickname(id: string, accessToken: string, name: string) {
@@ -301,11 +327,17 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
       .filter((role: any) =>
         role.name.toLowerCase().includes(data.query.toLowerCase())
       )
-      .filter((f: any) => f.name !== '@everyone' && f.name !== '@here');
+      // @everyone / @here are offered as the plain entries below, the guild's
+      // @everyone role is also matched by its id (always the guild id)
+      .filter(
+        (f: any) => f.id !== id && f.name !== '@everyone' && f.name !== '@here'
+      );
 
     const list = await (
       await this.fetch(
-        `https://discord.com/api/guilds/${id}/members/search?query=${data.query}`,
+        `https://discord.com/api/guilds/${id}/members/search?query=${encodeURIComponent(
+          data.query
+        )}&limit=10`,
         {
           headers: {
             Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN_ID}`,
@@ -334,7 +366,7 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
       }),
       ...matching.map((p: any) => ({
         id: String('&' + p.id),
-        label: p.name.split('@')[1],
+        label: p.name,
         image: '',
         doNotCache: true,
       })),
@@ -342,15 +374,21 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
         id: String(p.user.id),
         label: p.user.global_name || p.user.username,
         image: `https://cdn.discordapp.com/avatars/${p.user.id}/${p.user.avatar}.png`,
+        // members of a private server, never shared with other workspaces
+        doNotCache: true,
       })),
     ];
   }
 
+  // here / everyone are sent as plain text, a role id starts with & and
+  // becomes <@&roleId>, a user id becomes <@userId> (see sendMessageWithMedia).
+  // Decided by id, so a role named "here" pings the role and not @here
   mentionFormat(idOrHandle: string, name: string) {
-    if (name === '@here' || name === '@everyone') {
-      return name;
+    const mentionId = idOrHandle.replace('@', '');
+    if (mentionId === 'here' || mentionId === 'everyone') {
+      return `@${mentionId}`;
     }
-    return `[[[@${idOrHandle.replace('@', '')}]]]`;
+    return `[[[@${mentionId}]]]`;
   }
 
   override handleErrors(
