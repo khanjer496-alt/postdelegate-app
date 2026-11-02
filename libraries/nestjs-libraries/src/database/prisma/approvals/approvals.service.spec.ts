@@ -102,6 +102,7 @@ const makeService = (opts: { post?: any; settings?: any; link?: any } = {}) => {
     getPostsRecursively: jest.fn().mockResolvedValue([]),
     getStoredPostProblem: jest.fn().mockResolvedValue(null),
     checkStoredPostLimit: jest.fn().mockResolvedValue(undefined),
+    checkStoredPostingLimits: jest.fn().mockResolvedValue(undefined),
   };
   const service = new ApprovalsService(
     repository as any,

@@ -1050,7 +1050,9 @@ export class IntegrationRepository {
     });
   }
 
-  deleteChannel(org: string, id: string) {
+  // clearCredentials: the provider revoked the grant, its stored tokens go
+  // with the channel instead of waiting for a deletion request
+  deleteChannel(org: string, id: string, clearCredentials = false) {
     return this._integration.model.integration.update({
       select: {
         id: true,
@@ -1061,6 +1063,9 @@ export class IntegrationRepository {
       },
       data: {
         deletedAt: new Date(),
+        ...(clearCredentials
+          ? { token: '', refreshToken: null, tokenExpiration: null }
+          : {}),
       },
     });
   }

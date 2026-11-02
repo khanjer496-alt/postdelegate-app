@@ -219,6 +219,7 @@
     "link": "ბმული",
     "add_subreddit": "Subreddit-ის დამატება",
     "please_add_at_least_one_subreddit": "დაამატეთ მინიმუმ ერთი Subreddit",
+    "reddit_one_subreddit_hint": "ერთი საბრედიტი თითო პოსტზე: Reddit ითხოვს, რომ ერთი და იგივე კონტენტი რამდენიმე საზოგადოებაში არ გამოქვეყნდეს.",
     "add_community": "Community-ის დამატება",
     "select_post_type": "აირჩიეთ პოსტის ტიპი...",
     "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "LinkedIn გვერდს მიერთებული ბიზნესი ვერ ვიპოვეთ.",
@@ -2326,5 +2327,10 @@
   "cookies_save": "არჩევანის შენახვა",
   "cookies_reject": "არააუცილებლის უარყოფა",
   "cookies_customize": "მორგება",
-  "cookies_accept": "ყველას მიღება"
+  "cookies_accept": "ყველას მიღება",
+  "pinterest_no_boards": "ამ Pinterest ანგარიშზე ჯერ დაფები არ არის. შექმენით დაფა, რომ გამოაქვეყნოთ.",
+  "pinterest_board_name": "დაფის სახელი",
+  "pinterest_create_board": "დაფის შექმნა",
+  "pinterest_create_board_failed": "Pinterest-მა დაფა ვერ შექმნა. გთხოვთ, სცადოთ თავიდან.",
+  "pinterest_boards_failed": "Pinterest-მა ამ ანგარიშის დაფები ვერ ჩატვირთა. გთხოვთ, სცადოთ მოგვიანებით."
 }

@@ -222,6 +222,7 @@
   "link": "رابط",
   "add_subreddit": "أضف منتدى فرعي",
   "please_add_at_least_one_subreddit": "يرجى إضافة منتدى فرعي واحد على الأقل",
+  "reddit_one_subreddit_hint": "مجتمع فرعي واحد لكل منشور: يطلب Reddit عدم نشر المحتوى نفسه في عدة مجتمعات.",
   "add_community": "أضف مجتمع",
   "select_post_type": "اختر نوع المنشور...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "لم نتمكن من العثور على أي نشاط تجاري مرتبط بصفحة لينكدإن الخاصة بك.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "حفظ الاختيارات",
   "cookies_reject": "رفض غير الضرورية",
   "cookies_customize": "تخصيص",
-  "cookies_accept": "قبول الكل"
+  "cookies_accept": "قبول الكل",
+  "pinterest_no_boards": "لا توجد لوحات في حساب Pinterest هذا بعد. أنشئ لوحة للنشر عليها.",
+  "pinterest_board_name": "اسم اللوحة",
+  "pinterest_create_board": "إنشاء لوحة",
+  "pinterest_create_board_failed": "تعذر على Pinterest إنشاء اللوحة. يرجى المحاولة مرة أخرى.",
+  "pinterest_boards_failed": "تعذر على Pinterest تحميل لوحات هذا الحساب. يرجى المحاولة لاحقًا."
 }

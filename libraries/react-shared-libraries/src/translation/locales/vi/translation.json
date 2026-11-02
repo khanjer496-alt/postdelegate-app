@@ -222,6 +222,7 @@
   "link": "Liên kết",
   "add_subreddit": "Thêm Subreddit",
   "please_add_at_least_one_subreddit": "Vui lòng thêm ít nhất một Subreddit",
+  "reddit_one_subreddit_hint": "Mỗi bài đăng một subreddit: Reddit yêu cầu không đăng cùng một nội dung lên nhiều cộng đồng.",
   "add_community": "Thêm cộng đồng",
   "select_post_type": "Chọn loại bài đăng...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "Chúng tôi không tìm thấy doanh nghiệp nào liên kết với Trang LinkedIn của bạn.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Lưu lựa chọn",
   "cookies_reject": "Từ chối loại không cần thiết",
   "cookies_customize": "Tùy chỉnh",
-  "cookies_accept": "Chấp nhận tất cả"
+  "cookies_accept": "Chấp nhận tất cả",
+  "pinterest_no_boards": "Tài khoản Pinterest này chưa có bảng nào. Hãy tạo một bảng để đăng lên.",
+  "pinterest_board_name": "Tên bảng",
+  "pinterest_create_board": "Tạo bảng",
+  "pinterest_create_board_failed": "Pinterest không thể tạo bảng. Vui lòng thử lại.",
+  "pinterest_boards_failed": "Pinterest không thể tải các bảng của tài khoản này. Vui lòng thử lại sau."
 }

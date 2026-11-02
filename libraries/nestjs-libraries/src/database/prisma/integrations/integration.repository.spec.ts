@@ -124,3 +124,30 @@ describe('IntegrationRepository.disableIntegrations', () => {
     });
   });
 });
+
+describe('IntegrationRepository.deleteChannel', () => {
+  it('keeps the stored tokens of a plain delete', async () => {
+    const { repo, integration } = makeRepo();
+    await repo.deleteChannel('org-A', 'int-1');
+
+    const args = integration.update.mock.calls[0][0];
+    expect(args.where).toEqual({ id: 'int-1', organizationId: 'org-A' });
+    expect(args.select).toEqual({ id: true });
+    expect(Object.keys(args.data)).toEqual(['deletedAt']);
+  });
+
+  it('deletes the stored tokens when the provider revoked the grant', async () => {
+    const { repo, integration } = makeRepo();
+    await repo.deleteChannel('org-A', 'int-1', true);
+
+    const args = integration.update.mock.calls[0][0];
+    expect(args.where).toEqual({ id: 'int-1', organizationId: 'org-A' });
+    expect(args.select).toEqual({ id: true });
+    expect(args.data).toMatchObject({
+      token: '',
+      refreshToken: null,
+      tokenExpiration: null,
+    });
+    expect(args.data.deletedAt).toBeInstanceOf(Date);
+  });
+});

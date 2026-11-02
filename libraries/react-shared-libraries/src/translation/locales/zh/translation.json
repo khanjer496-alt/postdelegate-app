@@ -222,6 +222,7 @@
   "link": "链接",
   "add_subreddit": "添加子版块",
   "please_add_at_least_one_subreddit": "请至少添加一个子版块",
+  "reddit_one_subreddit_hint": "每篇帖子只能选择一个子版块：Reddit 要求不要将相同内容发布到多个社区。",
   "add_community": "添加社区",
   "select_post_type": "选择帖子类型...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "我们未能找到与您的 LinkedIn 页面关联的任何企业。",
@@ -2321,5 +2322,10 @@
   "cookies_save": "保存选择",
   "cookies_reject": "拒绝非必要 Cookie",
   "cookies_customize": "自定义",
-  "cookies_accept": "全部接受"
+  "cookies_accept": "全部接受",
+  "pinterest_no_boards": "此 Pinterest 账号还没有图板。创建一个图板即可发布。",
+  "pinterest_board_name": "图板名称",
+  "pinterest_create_board": "创建图板",
+  "pinterest_create_board_failed": "Pinterest 无法创建图板，请重试。",
+  "pinterest_boards_failed": "Pinterest 无法加载此账号的图板，请稍后重试。"
 }

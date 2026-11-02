@@ -1356,6 +1356,7 @@ export class PostsService {
     }
 
     const cappedChannels = await this.checkProviderPostsLimit(orgId, body);
+    await this.checkPostingLimits(orgId, body);
 
     const postList = [];
     // posts sent for review in this save, the approvers hear about them once
@@ -1764,6 +1765,221 @@ export class PostsService {
     } (${limit}). ${this.limitHint(trial, social?.planLimitHint)}`;
   }
 
+  // The early warning of a network's posting rules for one connected account
+  // (postingLimits, e.g. Reddit's 5 a day, 10 minutes apart), for the whole
+  // save before anything is stored: each entry at the time it publishes,
+  // against the account's published and queued posts around it. The publish
+  // activity enforces the rules again when a post goes out
+  // (postingLimitProblem).
+  async checkPostingLimits(
+    orgId: string,
+    body: {
+      type: CreatePostDto['type'];
+      date?: string | Date;
+      posts: {
+        integration: { id: string };
+        date?: string | Date;
+        settings?: any;
+        value?: { id?: string }[];
+      }[];
+    }
+  ) {
+    if (body.type === 'draft') {
+      return;
+    }
+
+    for (const post of body.posts || []) {
+      const provider = this._integrationManager.getSocialIntegration(
+        post.settings?.__type
+      );
+      if (!provider?.postingLimits) {
+        continue;
+      }
+
+      const ids = (post.value || []).map((value) => value.id!).filter(Boolean);
+      // an update keeps the state of a stored post: only a queued one (or a
+      // new one) still has to go out
+      if (body.type === 'update') {
+        const [root] = await this._postRepository.getPostsState(
+          orgId,
+          ids.slice(0, 1)
+        );
+        if (root && root.state !== 'QUEUE') {
+          continue;
+        }
+      }
+
+      const integration = await this._integrationService.getIntegrationById(
+        orgId,
+        post.integration.id
+      );
+      if (
+        !integration ||
+        integration.providerIdentifier !== provider.identifier
+      ) {
+        continue;
+      }
+
+      const problem = await this.postingLimitsProblemAt(
+        integration,
+        this.publishAt(body.type, post.date || body.date),
+        true,
+        ids
+      );
+      if (problem) {
+        throw new BadRequestException(problem);
+      }
+    }
+  }
+
+  // The backstop when a post goes out, whatever path queued it: the account's
+  // posts already published leave room for this one under the network's
+  // posting rules. A published post counts at its publishDate, the time it
+  // was due, which is when it went out unless the queue was backed up.
+  // Returns why it can't go out
+  async postingLimitProblem(
+    integration: {
+      providerIdentifier: string;
+      internalId: string;
+    },
+    posts: { id: string }[]
+  ): Promise<string | null> {
+    // 30 seconds of slack: a post saved exactly 10 minutes after the last
+    // one (accepted when saved) still goes out when the worker picks it up a
+    // few seconds early or the clocks drift
+    return this.postingLimitsProblemAt(
+      integration,
+      new Date(Date.now() + 30 * 1000),
+      false,
+      posts.map((post) => post.id)
+    );
+  }
+
+  // The same check for a stored post that is queued again (a draft
+  // scheduled, a post rescheduled or approved), at its new date when it moves.
+  // Takes the post the caller already loaded: nothing is read for a network
+  // without posting rules
+  async checkStoredPostingLimits(
+    orgId: string,
+    post: {
+      id: string;
+      parentPostId?: string | null;
+      publishDate: Date;
+      integration?: {
+        id: string;
+        providerIdentifier: string;
+        internalId?: string;
+      } | null;
+    },
+    date?: string | Date
+  ) {
+    if (
+      !post.integration ||
+      post.parentPostId ||
+      !this._integrationManager.getSocialIntegration(
+        post.integration.providerIdentifier
+      )?.postingLimits
+    ) {
+      return;
+    }
+
+    const integration = post.integration.internalId
+      ? post.integration
+      : await this._integrationService.getIntegrationById(
+          orgId,
+          post.integration.id
+        );
+    if (!integration?.internalId) {
+      return;
+    }
+
+    const problem = await this.postingLimitsProblemAt(
+      {
+        providerIdentifier: integration.providerIdentifier,
+        internalId: integration.internalId,
+      },
+      this.publishAt('schedule', date || post.publishDate),
+      true,
+      [post.id]
+    );
+    if (problem) {
+      throw new BadRequestException(problem);
+    }
+  }
+
+  // Whether one more post of the account at `at` keeps at most perDay posts
+  // in any 24 hours and minSpacingMinutes between two posts, and if not, the
+  // first time it could go out
+  private async postingLimitsProblemAt(
+    integration: {
+      providerIdentifier: string;
+      internalId: string;
+    },
+    at: Date,
+    includeQueued: boolean,
+    excludeIds: string[]
+  ): Promise<string | null> {
+    const provider = this._integrationManager.getSocialIntegration(
+      integration.providerIdentifier
+    );
+    const limits = provider?.postingLimits;
+    if (!limits) {
+      return null;
+    }
+
+    const day = 24 * 60 * 60 * 1000;
+    const spacing = limits.minSpacingMinutes * 60 * 1000;
+    const dates = (
+      await this._postRepository.getAccountPostingDates(
+        integration.providerIdentifier,
+        integration.internalId,
+        new Date(at.getTime() - day),
+        // queued posts up to two days ahead: the next allowed time can be
+        // up to a day after the last post around `at`
+        new Date(at.getTime() + (includeQueued ? 2 : 1) * day),
+        includeQueued,
+        excludeIds
+      )
+    ).map((date) => date.getTime());
+
+    const fits = (time: number) => {
+      if (dates.some((date) => Math.abs(date - time) < spacing)) {
+        return false;
+      }
+      // the busiest 24 hours around `time` start at one of the posts
+      const all = [...dates, time];
+      return all
+        .filter((start) => start <= time && start > time - day)
+        .every(
+          (start) =>
+            all.filter((date) => date >= start && date < start + day).length <=
+            limits.perDay
+        );
+    };
+
+    if (fits(at.getTime())) {
+      return null;
+    }
+
+    // the first moment that fits: right after a post's spacing, or when a
+    // post leaves the 24 hours
+    const next = dates
+      .flatMap((date) => [date + spacing, date + day])
+      .filter((time) => time > at.getTime())
+      .sort((a, b) => a - b)
+      .find(fits);
+
+    return `${provider.name} allows ${limits.perDay} posts a day per account, at least ${
+      limits.minSpacingMinutes
+    } minutes apart.${
+      next
+        ? ` Next allowed at ${dayjs
+            .utc(Math.ceil(next / 60000) * 60000)
+            .format('YYYY-MM-DD HH:mm')} UTC.`
+        : ''
+    }`;
+  }
+
   // Asks the payment provider once, and only when a check needs it, whether
   // the workspace is really in its trial
   private liveTrial(orgId: string) {
@@ -2001,6 +2217,7 @@ export class PostsService {
     // for review is scheduled once approved, the check can't wait)
     if (status === 'schedule' && getPostById.state !== 'QUEUE') {
       await this.checkStoredPostLimit(orgId, id);
+      await this.checkStoredPostingLimits(orgId, getPostById);
     }
 
     if (status === 'schedule' && actor?.type === 'agent') {
@@ -2169,6 +2386,9 @@ export class PostsService {
     const queued =
       getPostById.state !== 'DRAFT' &&
       (action === 'schedule' || getPostById.state === 'QUEUE');
+    if (queued) {
+      await this.checkStoredPostingLimits(orgId, getPostById, date);
+    }
     if (
       queued &&
       (await this.checkStoredPostLimit(orgId, id, date)) &&

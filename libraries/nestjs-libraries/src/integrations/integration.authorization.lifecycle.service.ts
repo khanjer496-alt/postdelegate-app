@@ -48,7 +48,16 @@ export class IntegrationAuthorizationLifecycleService {
     if (!row) throw new HttpException('Integration not found', HttpStatus.NOT_FOUND);
     const provider = this._manager.getSocialIntegration(row.providerIdentifier);
     if (!provider?.authorizationPolicy) {
-      return this._repository.deleteChannel(organizationId, integrationId);
+      if (!provider?.revokeAuthorization) {
+        return this._repository.deleteChannel(organizationId, integrationId);
+      }
+      // A provider outside the managed lifecycle that can still revoke its
+      // grant: the channel and its stored tokens are deleted first, then the
+      // grant is revoked with the credentials already in memory - best
+      // effort, it never blocks or delays the removal.
+      const deleted = await this._repository.deleteChannel(organizationId, integrationId, true);
+      provider.revokeAuthorization(this.credentials(row)).catch(() => undefined);
+      return deleted;
     }
     this.requireEnabled();
     if (!provider.revokeAuthorization) throw new HttpException('Provider data removal is unavailable. Please contact support.', HttpStatus.SERVICE_UNAVAILABLE);
@@ -74,6 +83,18 @@ export class IntegrationAuthorizationLifecycleService {
     const rows = await this._repository.getAuthorizationIntegrationsForOrganization(organizationId);
     const owned = rows.filter((row) => !!this._manager.getSocialIntegration(row.providerIdentifier)?.authorizationPolicy);
     if (owned.length) this.requireEnabled();
+    // Providers outside the managed lifecycle that can revoke their grant:
+    // best effort before the caller erases these channels' credentials
+    for (const row of rows) {
+      const provider = this._manager.getSocialIntegration(row.providerIdentifier);
+      if (provider?.authorizationPolicy || !provider?.revokeAuthorization) continue;
+      try {
+        const full = await this._repository.getIntegrationForCleanup(organizationId, row.id);
+        if (full && (full.token || full.refreshToken)) await provider.revokeAuthorization(this.credentials(full));
+      } catch {
+        /**empty**/
+      }
+    }
     for (const row of owned) await this.requestDeletion(organizationId, row.id);
     return owned.map((row) => row.id);
   }

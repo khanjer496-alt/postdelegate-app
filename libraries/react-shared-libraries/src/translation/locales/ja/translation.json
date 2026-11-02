@@ -222,6 +222,7 @@
   "link": "リンク",
   "add_subreddit": "サブレディットを追加",
   "please_add_at_least_one_subreddit": "少なくとも1つのサブレディットを追加してください",
+  "reddit_one_subreddit_hint": "1つの投稿につき1つのサブレディット：Redditは同じコンテンツを複数のコミュニティに投稿しないよう求めています。",
   "add_community": "コミュニティを追加",
   "select_post_type": "投稿タイプを選択...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "あなたのLinkedInページに接続されているビジネスが見つかりませんでした。",
@@ -2321,5 +2322,10 @@
   "cookies_save": "選択を保存",
   "cookies_reject": "必須以外を拒否",
   "cookies_customize": "カスタマイズ",
-  "cookies_accept": "すべて許可"
+  "cookies_accept": "すべて許可",
+  "pinterest_no_boards": "このPinterestアカウントにはまだボードがありません。投稿するにはボードを作成してください。",
+  "pinterest_board_name": "ボード名",
+  "pinterest_create_board": "ボードを作成",
+  "pinterest_create_board_failed": "Pinterestでボードを作成できませんでした。もう一度お試しください。",
+  "pinterest_boards_failed": "Pinterestでこのアカウントのボードを読み込めませんでした。しばらくしてからもう一度お試しください。"
 }

@@ -222,6 +222,7 @@
   "link": "Link",
   "add_subreddit": "Aggiungi Subreddit",
   "please_add_at_least_one_subreddit": "Per favore aggiungi almeno un Subreddit",
+  "reddit_one_subreddit_hint": "Un subreddit per post: Reddit chiede di non pubblicare lo stesso contenuto in più community.",
   "add_community": "Aggiungi Comunità",
   "select_post_type": "Seleziona tipo di post...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "Non siamo riusciti a trovare nessuna azienda collegata alla tua pagina LinkedIn.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Salva le scelte",
   "cookies_reject": "Rifiuta i non essenziali",
   "cookies_customize": "Personalizza",
-  "cookies_accept": "Accetta tutti"
+  "cookies_accept": "Accetta tutti",
+  "pinterest_no_boards": "Questo account Pinterest non ha ancora bacheche. Creane una per pubblicare.",
+  "pinterest_board_name": "Nome della bacheca",
+  "pinterest_create_board": "Crea bacheca",
+  "pinterest_create_board_failed": "Pinterest non è riuscito a creare la bacheca. Riprova.",
+  "pinterest_boards_failed": "Pinterest non è riuscito a caricare le bacheche di questo account. Riprova più tardi."
 }

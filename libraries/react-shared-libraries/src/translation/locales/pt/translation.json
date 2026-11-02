@@ -222,6 +222,7 @@
   "link": "Link",
   "add_subreddit": "Adicionar Subreddit",
   "please_add_at_least_one_subreddit": "Por favor, adicione pelo menos um Subreddit",
+  "reddit_one_subreddit_hint": "Um subreddit por publicação: o Reddit pede que o mesmo conteúdo não seja publicado em várias comunidades.",
   "add_community": "Adicionar Comunidade",
   "select_post_type": "Selecionar Tipo de Postagem...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "Não conseguimos encontrar nenhum negócio conectado à sua página do LinkedIn.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Salvar escolhas",
   "cookies_reject": "Rejeitar não essenciais",
   "cookies_customize": "Personalizar",
-  "cookies_accept": "Aceitar todos"
+  "cookies_accept": "Aceitar todos",
+  "pinterest_no_boards": "Esta conta do Pinterest ainda não tem pastas. Crie uma para publicar nela.",
+  "pinterest_board_name": "Nome da pasta",
+  "pinterest_create_board": "Criar pasta",
+  "pinterest_create_board_failed": "O Pinterest não conseguiu criar a pasta. Tente novamente.",
+  "pinterest_boards_failed": "O Pinterest não conseguiu carregar as pastas desta conta. Tente novamente mais tarde."
 }

@@ -1230,3 +1230,267 @@ describe('PostsService.validatePosts text for the provider rules', () => {
     );
   });
 });
+
+// A network's posting rules for one connected account (postingLimits), like
+// Reddit's 5 posts a day, at least 10 minutes apart
+describe('PostsService posting limits', () => {
+  const now = new Date('2026-11-02T12:00:00.000Z');
+  const minutes = (n: number) => new Date(now.getTime() + n * 60 * 1000);
+  const reddit = {
+    identifier: 'reddit',
+    name: 'Reddit',
+    postingLimits: { perDay: 5, minSpacingMinutes: 10 },
+  };
+  const account = { providerIdentifier: 'reddit', internalId: 'u1' };
+
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    jest.setSystemTime(now);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const make = (dates: Date[] = [], stored: any[] = []) => {
+    const postRepository = {
+      getAccountPostingDates: jest.fn().mockResolvedValue(dates),
+      getPostsState: jest.fn().mockResolvedValue(stored),
+      getPostById: jest.fn().mockResolvedValue({
+        id: 'p-1',
+        parentPostId: null,
+        publishDate: minutes(60),
+        integration: { id: 'i-r', ...account },
+      }),
+    };
+    const integrationService = {
+      getIntegrationById: jest.fn().mockResolvedValue({
+        id: 'i-r',
+        ...account,
+      }),
+    };
+    const integrationManager = {
+      getSocialIntegration: (identifier: string) =>
+        identifier === 'reddit' ? reddit : { identifier, name: identifier },
+    };
+    const service = new PostsService(
+      postRepository as any,
+      integrationManager as any,
+      integrationService as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
+    return { service, postRepository, integrationService };
+  };
+
+  describe('when a post goes out', () => {
+    it('lets it publish when the account has room', async () => {
+      const { service, postRepository } = make([minutes(-60), minutes(-30)]);
+      expect(
+        await service.postingLimitProblem(account, [{ id: 'p-1' }])
+      ).toBeNull();
+      // the account's published posts only, around now (with 30 seconds of
+      // slack), not this post
+      expect(postRepository.getAccountPostingDates).toHaveBeenCalledWith(
+        'reddit',
+        'u1',
+        minutes(-24 * 60 + 0.5),
+        minutes(24 * 60 + 0.5),
+        false,
+        ['p-1']
+      );
+    });
+
+    it('lets a post go out a few seconds before its 10 minutes are up', async () => {
+      const { service } = make([minutes(-9.75)]);
+      expect(
+        await service.postingLimitProblem(account, [{ id: 'p-1' }])
+      ).toBeNull();
+    });
+
+    it('refuses a post less than 10 minutes after the last one', async () => {
+      const { service } = make([minutes(-4)]);
+      expect(await service.postingLimitProblem(account, [{ id: 'p-1' }])).toBe(
+        'Reddit allows 5 posts a day per account, at least 10 minutes apart. Next allowed at 2026-11-02 12:06 UTC.'
+      );
+    });
+
+    it('refuses a sixth post in 24 hours until the oldest one leaves them', async () => {
+      const { service } = make([
+        minutes(-23 * 60),
+        minutes(-600),
+        minutes(-300),
+        minutes(-120),
+        minutes(-60),
+      ]);
+      expect(await service.postingLimitProblem(account, [{ id: 'p-1' }])).toBe(
+        'Reddit allows 5 posts a day per account, at least 10 minutes apart. Next allowed at 2026-11-02 13:00 UTC.'
+      );
+    });
+
+    it('lets the sixth post go once 24 hours have passed since the first', async () => {
+      const { service } = make([
+        minutes(-24 * 60 - 1),
+        minutes(-600),
+        minutes(-300),
+        minutes(-120),
+        minutes(-60),
+      ]);
+      expect(
+        await service.postingLimitProblem(account, [{ id: 'p-1' }])
+      ).toBeNull();
+    });
+
+    it('never reads posts for a network without posting rules', async () => {
+      const { service, postRepository } = make([minutes(-1)]);
+      expect(
+        await service.postingLimitProblem(
+          { providerIdentifier: 'x', internalId: 'u1' },
+          [{ id: 'p-1' }]
+        )
+      ).toBeNull();
+      expect(postRepository.getAccountPostingDates).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('when a post is saved', () => {
+    const save = (
+      type: 'schedule' | 'now' | 'draft' | 'update',
+      date: Date,
+      id?: string
+    ) => ({
+      type,
+      date: date.toISOString(),
+      posts: [
+        {
+          integration: { id: 'i-r' },
+          settings: { __type: 'reddit' },
+          value: [{ ...(id ? { id } : {}) }],
+        },
+      ],
+    });
+
+    it('refuses a schedule 5 minutes before another queued post of the account', async () => {
+      const { service, postRepository } = make([minutes(65)]);
+      await expect(
+        service.checkPostingLimits('org-1', save('schedule', minutes(60)))
+      ).rejects.toMatchObject({
+        message:
+          'Reddit allows 5 posts a day per account, at least 10 minutes apart. Next allowed at 2026-11-02 13:15 UTC.',
+      });
+      // published and queued posts around the publish time
+      expect(postRepository.getAccountPostingDates).toHaveBeenCalledWith(
+        'reddit',
+        'u1',
+        minutes(60 - 24 * 60),
+        minutes(60 + 2 * 24 * 60),
+        true,
+        []
+      );
+    });
+
+    it('refuses a schedule that would make one 24 hours hold six posts', async () => {
+      const { service } = make([
+        minutes(120),
+        minutes(240),
+        minutes(360),
+        minutes(480),
+        minutes(600),
+      ]);
+      await expect(
+        service.checkPostingLimits('org-1', save('schedule', minutes(60)))
+      ).rejects.toMatchObject({
+        message: expect.stringContaining(
+          'Reddit allows 5 posts a day per account, at least 10 minutes apart.'
+        ),
+      });
+    });
+
+    it('accepts a schedule with room and excludes the post being edited', async () => {
+      const { service, postRepository } = make(
+        [minutes(-60)],
+        [{ id: 'p-1', state: 'QUEUE' }]
+      );
+      await expect(
+        service.checkPostingLimits('org-1', save('update', minutes(60), 'p-1'))
+      ).resolves.toBeUndefined();
+      expect(
+        postRepository.getAccountPostingDates.mock.calls[0][5]
+      ).toEqual(['p-1']);
+    });
+
+    const stored = (integration: any = { id: 'i-r', ...account }) => ({
+      id: 'p-1',
+      parentPostId: null,
+      publishDate: minutes(60),
+      integration,
+    });
+
+    it('checks a stored post moved next to another one of the account', async () => {
+      const { service, postRepository, integrationService } = make([
+        minutes(122),
+      ]);
+      await expect(
+        service.checkStoredPostingLimits('org-1', stored(), minutes(120))
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('Next allowed at 2026-11-02 14:12 UTC.'),
+      });
+      expect(postRepository.getAccountPostingDates.mock.calls[0][5]).toEqual([
+        'p-1',
+      ]);
+      // the loaded post had the account, nothing else is read
+      expect(integrationService.getIntegrationById).not.toHaveBeenCalled();
+      // at its stored date when it does not move
+      await expect(
+        service.checkStoredPostingLimits('org-1', stored())
+      ).resolves.toBeUndefined();
+    });
+
+    it('reads the account only for a network with posting rules', async () => {
+      const { service, postRepository, integrationService } = make([
+        minutes(62),
+      ]);
+      // an approval's post carries the provider but not the account
+      await expect(
+        service.checkStoredPostingLimits(
+          'org-1',
+          stored({ id: 'i-r', providerIdentifier: 'reddit' })
+        )
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('Reddit allows 5 posts a day'),
+      });
+      expect(integrationService.getIntegrationById).toHaveBeenCalledWith(
+        'org-1',
+        'i-r'
+      );
+
+      integrationService.getIntegrationById.mockClear();
+      postRepository.getAccountPostingDates.mockClear();
+      await service.checkStoredPostingLimits(
+        'org-1',
+        stored({ id: 'i-x', providerIdentifier: 'x' })
+      );
+      expect(integrationService.getIntegrationById).not.toHaveBeenCalled();
+      expect(postRepository.getAccountPostingDates).not.toHaveBeenCalled();
+    });
+
+    it('skips drafts and updates of posts that already went out', async () => {
+      const { service, postRepository } = make(
+        [minutes(1)],
+        [{ id: 'p-1', state: 'PUBLISHED' }]
+      );
+      await service.checkPostingLimits('org-1', save('draft', minutes(0)));
+      await service.checkPostingLimits(
+        'org-1',
+        save('update', minutes(0), 'p-1')
+      );
+      expect(postRepository.getAccountPostingDates).not.toHaveBeenCalled();
+    });
+  });
+});

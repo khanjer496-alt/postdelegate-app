@@ -222,6 +222,7 @@
   "link": "Link",
   "add_subreddit": "Subreddit hinzufügen",
   "please_add_at_least_one_subreddit": "Bitte fügen Sie mindestens einen Subreddit hinzu",
+  "reddit_one_subreddit_hint": "Ein Subreddit pro Beitrag: Reddit bittet darum, denselben Inhalt nicht in mehreren Communitys zu posten.",
   "add_community": "Community hinzufügen",
   "select_post_type": "Beitragstyp auswählen...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "Wir konnten kein Unternehmen finden, das mit Ihrer LinkedIn-Seite verbunden ist.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Auswahl speichern",
   "cookies_reject": "Nicht notwendige ablehnen",
   "cookies_customize": "Anpassen",
-  "cookies_accept": "Alle akzeptieren"
+  "cookies_accept": "Alle akzeptieren",
+  "pinterest_no_boards": "Dieses Pinterest-Konto hat noch keine Pinnwände. Erstelle eine, um darauf zu posten.",
+  "pinterest_board_name": "Name der Pinnwand",
+  "pinterest_create_board": "Pinnwand erstellen",
+  "pinterest_create_board_failed": "Pinterest konnte die Pinnwand nicht erstellen. Bitte versuche es erneut.",
+  "pinterest_boards_failed": "Pinterest konnte die Pinnwände dieses Kontos nicht laden. Bitte versuche es später erneut."
 }

@@ -303,6 +303,9 @@ export interface SocialProvider
   checkAuthorization?(
     credentials: ProviderAuthorizationCredentials
   ): Promise<ProviderAuthorizationCheck>;
+  // Revokes the grant at the platform. With authorizationPolicy it is part of
+  // the managed deletion lifecycle; without one it runs best effort when the
+  // channel is deleted, and the stored tokens are deleted with the channel.
   revokeAuthorization?(
     credentials: ProviderAuthorizationCredentials
   ): Promise<ProviderAuthorizationRevocation>;
@@ -328,6 +331,10 @@ export interface SocialProvider
   // why a repeating or evergreen post can't go to this network while a plan
   // caps it a month, and what lifts that
   planRepeatHint?: string;
+  // Platform rules on how often one connected account may publish: at most
+  // perDay posts in any 24 hours, at least minSpacingMinutes apart. Checked
+  // when a post is saved and again before it publishes
+  postingLimits?: { perDay: number; minSpacingMinutes: number };
   dto?: any;
   maxLength: (additionalSettings?: any, settings?: any) => number;
   checkValidity(

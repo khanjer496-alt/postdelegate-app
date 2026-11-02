@@ -20,6 +20,87 @@ jest.mock('@gitroom/nestjs-libraries/temporal/temporal.heartbeat', () => ({
 import { PostActivity } from './post.activity';
 import { BadBody } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 
+describe('PostActivity posting limits backstop', () => {
+  const integration = {
+    id: 'i-r',
+    organizationId: 'org-1',
+    providerIdentifier: 'reddit',
+    internalId: 'u1',
+    token: 'token',
+  } as any;
+  const posts = [
+    {
+      id: 'p-1',
+      parentPostId: null,
+      organizationId: 'org-1',
+      integrationId: 'i-r',
+      content: 'hi',
+      settings: '{}',
+      image: '[]',
+    },
+  ] as any;
+
+  const make = (
+    problem: string | null,
+    postingLimits: any = { perDay: 5, minSpacingMinutes: 10 }
+  ) => {
+    const provider = {
+      editor: 'normal',
+      postingLimits,
+      postPending: jest.fn().mockResolvedValue([{ id: 'p-1', status: 'pending' }]),
+      post: jest.fn(),
+    };
+    const postsService = {
+      providerPublishProblem: jest.fn().mockResolvedValue(null),
+      postingLimitProblem: jest.fn().mockResolvedValue(problem),
+      recordProviderPublish: jest.fn().mockResolvedValue(undefined),
+      updateTags: jest.fn().mockResolvedValue(posts),
+      updateMedia: jest.fn().mockResolvedValue([]),
+      getPostById: jest.fn().mockResolvedValue({ ...posts[0], integration }),
+    };
+    const activity = new PostActivity(
+      postsService as any,
+      {} as any,
+      { getSocialIntegration: () => provider } as any,
+      { getIntegrationById: jest.fn().mockResolvedValue(integration) } as any,
+      {} as any,
+      {} as any,
+      { client: { getRawClient: () => ({ workflow: { start: jest.fn() } }) } } as any,
+      {} as any
+    );
+    return { activity, provider, postsService };
+  };
+
+  it('fails a post over the limits with a terminal error before anything is sent', async () => {
+    const message =
+      'Reddit allows 5 posts a day per account, at least 10 minutes apart. Next allowed at 2026-11-02 12:06 UTC.';
+    const { activity, provider, postsService } = make(message);
+    const error = await activity
+      .postSocialPending(integration, posts)
+      .catch((err) => err);
+    expect(postsService.postingLimitProblem).toHaveBeenCalledWith(
+      integration,
+      posts
+    );
+    expect(error).toBeInstanceOf(BadBody);
+    expect(error.nonRetryable).toBe(true);
+    expect(error.message).toBe(message);
+    expect(provider.postPending).not.toHaveBeenCalled();
+    expect(provider.post).not.toHaveBeenCalled();
+  });
+
+  it('publishes within the limits, and skips the check for networks without them', async () => {
+    const limited = make(null);
+    await limited.activity.postSocialPending(integration, posts);
+    expect(limited.provider.postPending).toHaveBeenCalledTimes(1);
+
+    const free = make(null, null);
+    await free.activity.postSocialPending(integration, posts);
+    expect(free.postsService.postingLimitProblem).not.toHaveBeenCalled();
+    expect(free.provider.postPending).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PostActivity monthly cap backstop', () => {
   const integration = {
     id: 'i-x',

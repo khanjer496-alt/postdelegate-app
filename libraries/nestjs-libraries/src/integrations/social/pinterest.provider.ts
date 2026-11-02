@@ -22,6 +22,41 @@ import dayjs from 'dayjs';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { DashboardFunction } from '@gitroom/nestjs-libraries/integrations/dashboard.function.decorator';
+
+// Apps with Pinterest Trial access may only create pins in the API sandbox,
+// which has its own tokens, boards and pins - a production token is refused
+// there and production boards don't exist there
+// (https://developers.pinterest.com/docs/developer-tools/sandbox/).
+// PINTEREST_SANDBOX=true sends every API call to the sandbox, the OAuth token
+// exchange included, so connecting the channel stores a sandbox token. The
+// authorization page (www.pinterest.com/oauth) is the same for both.
+const PINTEREST_API = 'https://api.pinterest.com/v5';
+const PINTEREST_SANDBOX_API = 'https://api-sandbox.pinterest.com/v5';
+
+const isPinterestSandbox = () => process.env.PINTEREST_SANDBOX === 'true';
+
+const pinterestApi = (path: string) =>
+  `${isPinterestSandbox() ? PINTEREST_SANDBOX_API : PINTEREST_API}${path}`;
+
+// Pinterest's own error text is shown to the user, never anything that could
+// carry a credential.
+const pinterestMessage = (message: string) =>
+  message
+    // pina_ access tokens, pinr refresh tokens
+    .replace(/\bpin[ar][._-][A-Za-z0-9._-]+/g, '[redacted]')
+    .replace(/\b(Bearer|Basic)\s+\S+/gi, '$1 [redacted]')
+    .replace(
+      /"(access_token|refresh_token|client_secret)"\s*:\s*"[^"]*"/gi,
+      '"$1":"[redacted]"'
+    )
+    .replace(
+      /(access_token|refresh_token|client_secret|code)=[^&\s]+/gi,
+      '$1=[redacted]'
+    )
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
 
 // Travels through the workflow history between postPending, checkPostStatus
 // and finalizePost - keep it small JSON (the media id and the pin content).
@@ -36,6 +71,7 @@ type PinterestPendingData = {
   };
   imagePaths: string[];
   coverPath?: string;
+  altText?: string; // absent in pending data created before it was sent
   // Arm -> confirm -> publish handshake (same as the Facebook story flow):
   // finalizePost arms without mutating, checkPostStatus witnesses, and only a
   // witnessed attempt runs the create - so a create that dies with an unknown
@@ -82,6 +118,25 @@ export class PinterestProvider
     if ((firstItem?.length ?? 0) === 0) {
       return 'Requires at least one media';
     }
+    // Pinterest downloads the media itself, so it needs a full public URL
+    if (
+      firstItem?.some((item) => {
+        try {
+          return !['http:', 'https:'].includes(new URL(item?.path).protocol);
+        } catch (err) {
+          return true;
+        }
+      })
+    ) {
+      return 'Pinterest needs a public URL for every media item';
+    }
+    if (isPinterestSandbox() && isMp4) {
+      return 'Video pins are not available while Pinterest runs in sandbox mode, please post images';
+    }
+    // only the first image's alt text is sent (as the pin's alt_text)
+    if ((isPicture?.alt?.length ?? 0) > 500) {
+      return 'Pinterest alt text can be at most 500 characters';
+    }
     if ((firstItem?.length ?? 0) > 5) {
       return 'You can only have up to 5 media items';
     }
@@ -111,12 +166,24 @@ export class PinterestProvider
 
   editor = 'normal' as const;
 
-  public override handleErrors(body: string):
+  // Pinterest answers errors as { code, message }
+  public override handleErrors(
+    body: string,
+    status: number
+  ):
     | {
         type: 'refresh-token' | 'bad-body' | 'retry';
         value: string;
       }
     | undefined {
+    let error: { code?: unknown; message?: unknown } = {};
+    try {
+      const parsed = JSON.parse(body);
+      error = parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (err) {
+      error = {};
+    }
+
     if (body.indexOf('constraint: maxItems=5') > -1) {
       return {
         type: 'bad-body' as const,
@@ -167,13 +234,58 @@ export class PinterestProvider
           'When uploading a video, you must add also an image to be used as a cover image.',
       };
     }
+    if (
+      /Trial access may not create Pins/i.test(body) ||
+      (error.code === 29 && status === 403)
+    ) {
+      return {
+        type: 'bad-body' as const,
+        value:
+          'Pinterest only lets apps with Trial access create pins in its API sandbox, so the pin was not published. The Pinterest app needs Standard access to publish pins.',
+      };
+    }
+    if (/consumer type is not supported/i.test(body)) {
+      // a refresh can't fix this, it lasts until Pinterest approves the app
+      return {
+        type: 'bad-body' as const,
+        value:
+          'Pinterest has not approved API access for this app yet ("consumer type is not supported"), so it cannot post. Try again once Pinterest approves the app.',
+      };
+    }
+    if (body.indexOf('PINNER_DATA_ACCESS_DENIED') > -1) {
+      return {
+        type: 'bad-body' as const,
+        value:
+          'Pinterest refused this app access to the boards and pins of this account (PINNER_DATA_ACCESS_DENIED). Pinterest has to authorize the app for this account first.',
+      };
+    }
+
+    // Anything else Pinterest refused: show its own reason instead of the
+    // generic 'Unknown Error'. 401 stays unmapped so an expired token is still
+    // refreshed, and 429 / 5xx keep the generic retries.
+    if (
+      status >= 400 &&
+      status < 500 &&
+      status !== 401 &&
+      status !== 429 &&
+      typeof error.code === 'number' &&
+      typeof error.message === 'string' &&
+      pinterestMessage(error.message)
+    ) {
+      return {
+        type: 'bad-body' as const,
+        value: `Pinterest rejected the request: ${pinterestMessage(
+          error.message
+        )}`,
+      };
+    }
 
     return undefined;
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokenDetails> {
     const { access_token, expires_in } = await (
-      await fetch('https://api.pinterest.com/v5/oauth/token', {
+      await fetch(pinterestApi('/oauth/token'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -191,7 +303,7 @@ export class PinterestProvider
     ).json();
 
     const { id, profile_image, username } = await (
-      await fetch('https://api.pinterest.com/v5/user_account', {
+      await fetch(pinterestApi('/user_account'), {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -231,7 +343,7 @@ export class PinterestProvider
     refresh: string;
   }) {
     const { access_token, refresh_token, expires_in, scope } = await (
-      await fetch('https://api.pinterest.com/v5/oauth/token', {
+      await fetch(pinterestApi('/oauth/token'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -250,7 +362,7 @@ export class PinterestProvider
     this.checkScopes(this.scopes, scope);
 
     const { id, profile_image, username } = await (
-      await fetch('https://api.pinterest.com/v5/user_account', {
+      await fetch(pinterestApi('/user_account'), {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -271,21 +383,80 @@ export class PinterestProvider
 
   @Tool({ description: 'List of boards', dataSchema: [] })
   async boards(accessToken: string) {
-    const { items } = await (
-      await fetch('https://api.pinterest.com/v5/boards?page_size=250', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
+    // Follow the bookmark: the sandbox can answer an empty page with a
+    // bookmark even when boards exist. this.fetch so an expired token is
+    // refreshed and a refusal is an error, never an empty list.
+    const items: any[] = [];
+    let bookmark = '';
+    for (let page = 0; page < 10; page++) {
+      const { items: pageItems, bookmark: next } = await (
+        await this.fetch(
+          pinterestApi(
+            `/boards?page_size=250${
+              bookmark ? `&bookmark=${encodeURIComponent(bookmark)}` : ''
+            }`
+          ),
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        )
+      ).json();
 
-    return (
-      items?.map((item: any) => ({
-        name: item.name,
-        id: item.id,
-      })) || []
-    );
+      items.push(...(pageItems || []));
+      if (!next) {
+        break;
+      }
+      bookmark = next;
+    }
+
+    return items.map((item: any) => ({
+      name: item.name,
+      id: item.id,
+    }));
+  }
+
+  // Lets the composer create a board when the account has none - the only way
+  // to get a board in sandbox mode, as boards made on pinterest.com are
+  // production boards.
+  // A refusal comes back as { error } with Pinterest's reason, as the
+  // dashboard function route answers a bare `false` for a thrown error; an
+  // expired token still throws so the route refreshes it.
+  @DashboardFunction()
+  async createBoard(
+    accessToken: string,
+    data: { name?: string }
+  ): Promise<{ id: string; name: string } | { error: string }> {
+    const name = typeof data?.name === 'string' ? data.name.trim() : '';
+    if (!name) {
+      return { error: 'Board name is required' };
+    }
+    if (name.length > 100) {
+      return { error: 'Board name can be at most 100 characters' };
+    }
+
+    try {
+      const { id, name: boardName } = await (
+        await this.fetch(pinterestApi('/boards'), {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name }),
+        })
+      ).json();
+
+      return { id, name: boardName };
+    } catch (err) {
+      if (err instanceof BadBody) {
+        // '' lets the composer show its own generic message
+        return { error: err.message === 'Unknown Error' ? '' : err.message };
+      }
+      throw err;
+    }
   }
 
   async postPending(
@@ -306,7 +477,7 @@ export class PinterestProvider
     // irreversible - a failure leaves only an orphaned media upload.
     if (findMp4) {
       const { upload_url, media_id, upload_parameters } = await (
-        await this.fetch('https://api.pinterest.com/v5/media', {
+        await this.fetch(pinterestApi('/media'), {
           method: 'POST',
           body: JSON.stringify({
             media_type: 'video',
@@ -352,6 +523,7 @@ export class PinterestProvider
           },
           imagePaths: (postDetails?.[0]?.media || []).map((m) => m.path),
           coverPath: picture?.path,
+          ...(picture?.alt ? { altText: picture.alt } : {}),
         } as PinterestPendingData,
       },
     ];
@@ -393,7 +565,7 @@ export class PinterestProvider
     try {
       mediafile = await (
         await this.fetch(
-          'https://api.pinterest.com/v5/media/' + pendingData.mediaId,
+          pinterestApi(`/media/${pendingData.mediaId}`),
           {
             method: 'GET',
             headers: {
@@ -444,7 +616,7 @@ export class PinterestProvider
       // Image pins make no API call before the create, so an expired token
       // would 401 there and the refresh retry would hit the armed state as a
       // false duplicate: probe the token read-only before arming instead.
-      await this.fetch('https://api.pinterest.com/v5/user_account', {
+      await this.fetch(pinterestApi('/user_account'), {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -460,7 +632,7 @@ export class PinterestProvider
     const mapImages = (pendingData.imagePaths || []).map((path) => ({ path }));
 
     const { id: pId } = await (
-      await this.fetch('https://api.pinterest.com/v5/pins', {
+      await this.fetch(pinterestApi('/pins'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -474,6 +646,7 @@ export class PinterestProvider
             ? { title: pendingData.settings.title }
             : {}),
           description: pendingData.message,
+          ...(pendingData.altText ? { alt_text: pendingData.altText } : {}),
           ...(pendingData.settings.dominant_color
             ? { dominant_color: pendingData.settings.dominant_color }
             : {}),
@@ -502,7 +675,11 @@ export class PinterestProvider
     return {
       status: 'completed',
       postId: pId,
-      releaseURL: `https://www.pinterest.com/pin/${pId}`,
+      // sandbox pins have no public page (only their creator sees them on
+      // the profile), so they get no link
+      releaseURL: isPinterestSandbox()
+        ? ''
+        : `https://www.pinterest.com/pin/${pId}`,
     };
   }
 
@@ -570,7 +747,7 @@ export class PinterestProvider
   }
 
   async accountStats(id: string, accessToken: string): Promise<AccountStats> {
-    const response = await fetch('https://api.pinterest.com/v5/user_account', {
+    const response = await fetch(pinterestApi('/user_account'), {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -600,6 +777,11 @@ export class PinterestProvider
     accessToken: string,
     date: number
   ): Promise<AnalyticsData[]> {
+    // the sandbox has no analytics endpoints
+    if (isPinterestSandbox()) {
+      return [];
+    }
+
     const until = dayjs().format('YYYY-MM-DD');
     // Pinterest analytics only cover the last 90 days (89 for a UTC safety margin)
     const since = dayjs()
@@ -668,6 +850,10 @@ export class PinterestProvider
     postId: string,
     date: number
   ): Promise<AnalyticsData[]> {
+    if (isPinterestSandbox()) {
+      return [];
+    }
+
     const today = dayjs().format('YYYY-MM-DD');
     // Pinterest only serves pin analytics for the last 90 days (89 for a UTC safety margin)
     const since = dayjs().subtract(89, 'day').format('YYYY-MM-DD');

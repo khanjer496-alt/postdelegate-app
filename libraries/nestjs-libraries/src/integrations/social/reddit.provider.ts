@@ -3,6 +3,8 @@ import {
   PendingCheckResponse,
   PostDetails,
   PostResponse,
+  ProviderAuthorizationCredentials,
+  ProviderAuthorizationRevocation,
   SocialProvider,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
@@ -53,14 +55,26 @@ type RedditPendingData = {
   };
 };
 
+// Reddit's API rules ask every client for a unique, descriptive User-Agent
+// naming the platform, app id, version and the developer's Reddit username.
+// REDDIT_USER_AGENT replaces the whole string (e.g. another Reddit username).
+const redditUserAgent = () =>
+  process.env.REDDIT_USER_AGENT ||
+  'web:com.postdelegate.app:v1.0.0 (by /u/ConsciousYam1737)';
+
 export class RedditProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 1; // Reddit has strict rate limits (1 request per second)
   identifier = 'reddit';
   name = 'Reddit';
   isBetweenSteps = false;
+  // No `history`: posts are recovered from the subreddit's public listing
+  // (`read`), see findSubmittedPost
   scopes = ['read', 'identity', 'submit', 'flair'];
   editor = 'normal' as const;
   dto = RedditSettingsDto;
+  // Reddit's Responsible Builder Policy: no bursts of automated submissions
+  // from one account
+  postingLimits = { perDay: 5, minSpacingMinutes: 10 };
 
   maxLength() {
     return 10000;
@@ -98,6 +112,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           Authorization: `Basic ${Buffer.from(
             `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
           ).toString('base64')}`,
+          'User-Agent': redditUserAgent(),
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
@@ -110,6 +125,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
       await this.fetch('https://oauth.reddit.com/api/v1/me', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          'User-Agent': redditUserAgent(),
         },
       })
     ).json();
@@ -154,6 +170,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           Authorization: `Basic ${Buffer.from(
             `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
           ).toString('base64')}`,
+          'User-Agent': redditUserAgent(),
         },
         body: new URLSearchParams({
           grant_type: 'authorization_code',
@@ -169,6 +186,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
       await this.fetch('https://oauth.reddit.com/api/v1/me', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          'User-Agent': redditUserAgent(),
         },
       })
     ).json();
@@ -199,6 +217,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            'User-Agent': redditUserAgent(),
           },
           body: formData,
         },
@@ -228,7 +247,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
     });
 
     const d = await this.getSsrfSafeAxios().post('https:' + action, upload, {
-      headers: upload.getHeaders(),
+      headers: { ...upload.getHeaders(), 'User-Agent': redditUserAgent() },
     });
 
     // S3 only echoes a <Location> body when the POST succeeds with 201; guard
@@ -251,8 +270,10 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
 
   // Read-only recovery of a submission: the submit endpoint answers media
   // posts with only a websocket url, and an interrupted activity may have
-  // submitted without us seeing the response - the user's newest submissions
-  // answer both cases without ever re-submitting.
+  // submitted without us seeing the response - the subreddit's newest
+  // submissions by this user answer both cases without ever re-submitting.
+  // The subreddit listing only needs the `read` scope, the user's own
+  // /user/{name}/submitted listing would need `history` as well.
   private async findSubmittedPost(
     accessToken: string,
     username: string,
@@ -262,11 +283,12 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
   ): Promise<{ id: string; url: string } | undefined> {
     const { data } = await (
       await this.fetch(
-        `https://oauth.reddit.com/user/${username}/submitted?limit=25&sort=new`,
+        `https://oauth.reddit.com/r/${encodeURIComponent(sr)}/new?limit=100`,
         {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            'User-Agent': redditUserAgent(),
           },
         },
         'reddit',
@@ -284,6 +306,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
 
     const found = (data?.children || []).find(
       (c: any) =>
+        (c?.data?.author || '').toLowerCase() === username.toLowerCase() &&
         (c?.data?.subreddit || '').toLowerCase() === sr &&
         (!title || (c?.data?.title || '') === title) &&
         (c?.data?.created_utc || 0) * 1000 > cutoff
@@ -323,6 +346,19 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
     postDetails: PostDetails<RedditSettingsDto>[]
   ): Promise<PostResponse[]> {
     const [post] = postDetails;
+
+    // One subreddit per Reddit post (the settings DTO enforces it when the
+    // post is saved): the same content in several communities is spam under
+    // Reddit's rules. A post stored before that rule fails clearly here,
+    // nothing is submitted.
+    if ((post.settings?.subreddit?.length || 0) > 1) {
+      throw new BadBody(
+        this.identifier,
+        '{}',
+        Buffer.from('{}'),
+        'A Reddit post can go to one subreddit only. Edit the post, keep one subreddit and schedule it again.'
+      );
+    }
 
     // Nothing is submitted here: finalizePost publishes ONE subreddit per call
     // (advancing the cursor between calls), so a crashed activity can never
@@ -428,10 +464,17 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
         data.armed = { ...data.armed, lookups: data.armed.lookups + 1 };
         return { status: 'pending', pendingData: data };
       } else {
-        // Armed but no accepted response was ever seen and the in-flight
-        // window has passed: conclude the submit never landed and let
-        // finalizePost run it again.
-        data.armed = undefined;
+        // Armed but no accepted response was ever seen, the in-flight window
+        // has passed and the listing doesn't show the post: the outcome is
+        // unknown. Fail closed instead of submitting again - a post held by
+        // the spam filter can be missing from the subreddit listing, and a
+        // second submit would duplicate it.
+        throw new BadBody(
+          this.identifier,
+          '{}',
+          Buffer.from('{}'),
+          `Couldn't confirm whether Reddit published this post. Check r/${data.armed.sr} before posting again.`
+        );
       }
     }
 
@@ -512,6 +555,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': redditUserAgent(),
         },
         body: new URLSearchParams(postData),
       })
@@ -637,52 +681,53 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
     }
   }
 
-  async comment(
-    id: string,
-    postId: string,
-    lastCommentId: string | undefined,
-    accessToken: string,
-    postDetails: PostDetails<RedditSettingsDto>[],
-    integration: Integration
-  ): Promise<PostResponse[]> {
-    const [commentPost] = postDetails;
+  // No `comment` method: PostDelegate never posts comments or thread
+  // follow-ups to Reddit, so the publish workflow skips them (isCommentable)
+  // and the composer hides "Add comment" for Reddit.
 
-    // Reddit uses thing_id format like t3_xxx for posts
-    const thingId = postId.startsWith('t3_') ? postId : `t3_${postId}`;
-
-    const {
-      json: {
-        data: {
-          things: [
-            {
-              data: { id: commentId, permalink },
-            },
-          ],
-        },
-      },
-    } = await (
-      await this.fetch('https://oauth.reddit.com/api/comment', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          text: commentPost.message,
-          thing_id: thingId,
-          api_type: 'json',
-        }),
-      })
-    ).json();
-
-    return [
-      {
-        postId: commentId,
-        releaseURL: 'https://www.reddit.com' + permalink,
-        id: commentPost.id,
-        status: 'published',
-      },
+  // Revokes the grant at Reddit when the channel is deleted. Revoking the
+  // refresh token also revokes every access token issued from it; Reddit
+  // answers 204 even for a token that is no longer valid (RFC 7009).
+  async revokeAuthorization(
+    credentials: ProviderAuthorizationCredentials
+  ): Promise<ProviderAuthorizationRevocation> {
+    const tokens = [
+      ...(credentials.refreshToken
+        ? [{ token: credentials.refreshToken, hint: 'refresh_token' }]
+        : []),
+      ...(credentials.accessToken
+        ? [{ token: credentials.accessToken, hint: 'access_token' }]
+        : []),
     ];
+    if (!tokens.length) {
+      return { status: 'unknown' };
+    }
+
+    let revoked = true;
+    for (const { token, hint } of tokens) {
+      try {
+        const response = await fetch(
+          'https://www.reddit.com/api/v1/revoke_token',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Authorization: `Basic ${Buffer.from(
+                `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
+              ).toString('base64')}`,
+              'User-Agent': redditUserAgent(),
+            },
+            body: new URLSearchParams({ token, token_type_hint: hint }),
+            signal: AbortSignal.timeout(10_000),
+          }
+        );
+        revoked = revoked && (response.status === 204 || response.status === 200);
+      } catch (err) {
+        revoked = false;
+      }
+    }
+
+    return revoked ? { status: 'revoked' } : { status: 'unknown' };
   }
 
   @Tool({
@@ -714,6 +759,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': redditUserAgent(),
           },
         },
         'reddit',
@@ -750,6 +796,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
             headers: {
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': redditUserAgent(),
             },
           },
           'reddit',
@@ -816,6 +863,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': redditUserAgent(),
           },
         },
         'reddit',
@@ -834,6 +882,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': redditUserAgent(),
           },
         },
         'reddit',
@@ -854,6 +903,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
                   'Content-Type': 'application/x-www-form-urlencoded',
+                  'User-Agent': redditUserAgent(),
                 },
               },
               'reddit',

@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsBoolean,
   IsDefined,
@@ -80,6 +81,11 @@ export class RedditSettingsDto {
   @Type(() => RedditSettingsValueDto)
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
+  // Reddit asks that the same content isn't posted to several communities
+  @ArrayMaxSize(1, {
+    message:
+      'A Reddit post can go to one subreddit only. Reddit asks that the same content isn’t posted to several communities.',
+  })
   @ComposerOnly()
   subreddit: RedditSettingsValueDto[];
 }

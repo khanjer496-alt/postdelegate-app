@@ -178,3 +178,44 @@ describe('PostsRepository integration credentials', () => {
     expect(post.integration.token).toBe('plain');
   });
 });
+
+describe('PostsRepository.getAccountPostingDates', () => {
+  it('reads the published (and queued) top-level posts of one network account', async () => {
+    const findMany = jest
+      .fn()
+      .mockResolvedValue([{ publishDate: new Date('2026-11-02T10:00:00Z') }]);
+    const repo = new PostsRepository(
+      { model: { post: { findMany } } } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
+    const from = new Date('2026-11-01T12:00:00Z');
+    const until = new Date('2026-11-03T12:00:00Z');
+
+    await expect(
+      repo.getAccountPostingDates('reddit', 'u1', from, until, true, ['p-1'])
+    ).resolves.toEqual([new Date('2026-11-02T10:00:00Z')]);
+    expect(findMany.mock.calls[0][0]).toEqual({
+      where: {
+        parentPostId: null,
+        publishDate: { gte: from, lt: until },
+        integration: { providerIdentifier: 'reddit', internalId: 'u1' },
+        OR: [{ state: 'PUBLISHED' }, { state: 'QUEUE', deletedAt: null }],
+        id: { notIn: ['p-1'] },
+      },
+      select: { publishDate: true },
+      orderBy: { publishDate: 'asc' },
+    });
+
+    await repo.getAccountPostingDates('reddit', 'u1', from, until, false);
+    expect(findMany.mock.calls[1][0].where.OR).toEqual([
+      { state: 'PUBLISHED' },
+    ]);
+    expect(findMany.mock.calls[1][0].where.id).toBeUndefined();
+  });
+});

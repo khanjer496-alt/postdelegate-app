@@ -729,6 +729,48 @@ export class PostsRepository {
     });
   }
 
+  // Publish dates of one connected account's posts (a network account can be
+  // connected in several workspaces), what a provider's postingLimits count:
+  // the published posts and, with includeQueued, the queued ones. Comments
+  // are not counted, a post deleted after it went out still is
+  async getAccountPostingDates(
+    providerIdentifier: string,
+    internalId: string,
+    from: Date,
+    until: Date,
+    includeQueued: boolean,
+    excludeIds: string[] = []
+  ) {
+    return (
+      await this._post.model.post.findMany({
+        where: {
+          parentPostId: null,
+          publishDate: {
+            gte: from,
+            lt: until,
+          },
+          integration: {
+            providerIdentifier,
+            internalId,
+          },
+          OR: [
+            { state: 'PUBLISHED' },
+            ...(includeQueued
+              ? [{ state: 'QUEUE' as const, deletedAt: null }]
+              : []),
+          ],
+          ...(excludeIds.length ? { id: { notIn: excludeIds } } : {}),
+        },
+        select: {
+          publishDate: true,
+        },
+        orderBy: {
+          publishDate: 'asc',
+        },
+      })
+    ).map((post) => post.publishDate);
+  }
+
   getPostsState(orgId: string, ids: string[]) {
     if (!ids.length) {
       return Promise.resolve([]);

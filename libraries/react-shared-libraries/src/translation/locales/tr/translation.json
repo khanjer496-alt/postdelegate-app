@@ -222,6 +222,7 @@
   "link": "Bağlantı",
   "add_subreddit": "Subreddit Ekle",
   "please_add_at_least_one_subreddit": "Lütfen en az bir Subreddit ekleyin",
+  "reddit_one_subreddit_hint": "Gönderi başına bir subreddit: Reddit, aynı içeriğin birden fazla topluluğa gönderilmemesini istiyor.",
   "add_community": "Topluluk Ekle",
   "select_post_type": "Gönderi Türü Seç...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "LinkedIn Sayfanıza bağlı herhangi bir işletme bulamadık.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Seçimleri kaydet",
   "cookies_reject": "Gerekli olmayanları reddet",
   "cookies_customize": "Özelleştir",
-  "cookies_accept": "Tümünü kabul et"
+  "cookies_accept": "Tümünü kabul et",
+  "pinterest_no_boards": "Bu Pinterest hesabında henüz pano yok. Paylaşım yapmak için bir pano oluşturun.",
+  "pinterest_board_name": "Pano adı",
+  "pinterest_create_board": "Pano oluştur",
+  "pinterest_create_board_failed": "Pinterest panoyu oluşturamadı. Lütfen tekrar deneyin.",
+  "pinterest_boards_failed": "Pinterest bu hesabın panolarını yükleyemedi. Lütfen daha sonra tekrar deneyin."
 }

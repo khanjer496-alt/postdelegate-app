@@ -198,7 +198,21 @@ const RedditSettings: FC = () => {
           </div>
         ))}
       </div>
-      <Button onClick={addField}>{t('add_subreddit', 'Add Subreddit')}</Button>
+      {/* one subreddit per post, the settings DTO refuses more */}
+      {fields.length === 0 && (
+        <Button onClick={addField}>{t('add_subreddit', 'Add Subreddit')}</Button>
+      )}
+      <div
+        className={clsx(
+          'text-[14px] mt-[12px]',
+          fields.length > 1 ? 'text-red-500' : 'text-textItemBlur'
+        )}
+      >
+        {t(
+          'reddit_one_subreddit_hint',
+          'One subreddit per post: Reddit asks that the same content isn’t posted to several communities.'
+        )}
+      </div>
       {fields.length === 0 && (
         <div className="text-red-500 text-[12px] mt-[10px]">
           {t(
@@ -213,6 +227,8 @@ const RedditSettings: FC = () => {
 export default withProvider({
   postComment: PostComment.POST,
   minimumCharacters: [],
+  // PostDelegate never posts comments or thread follow-ups to Reddit
+  comments: false,
   SettingsComponent: RedditSettings,
   CustomPreviewComponent: undefined,
   dto: RedditSettingsDto,

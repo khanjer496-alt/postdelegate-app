@@ -222,6 +222,7 @@
   "link": "Link",
   "add_subreddit": "Add Subreddit",
   "please_add_at_least_one_subreddit": "Please add at least one Subreddit",
+  "reddit_one_subreddit_hint": "One subreddit per post: Reddit asks that the same content isn’t posted to several communities.",
   "add_community": "Add Community",
   "are_you_sure_you_want_to_delete_this_community": "Are you sure you want to delete this Community?",
   "please_add_at_least_one_community": "Please add at least one Community",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Save choices",
   "cookies_reject": "Reject non-essential",
   "cookies_customize": "Customize",
-  "cookies_accept": "Accept all"
+  "cookies_accept": "Accept all",
+  "pinterest_no_boards": "No boards on this Pinterest account yet. Create one to post to it.",
+  "pinterest_board_name": "Board name",
+  "pinterest_create_board": "Create board",
+  "pinterest_create_board_failed": "Pinterest could not create the board. Please try again.",
+  "pinterest_boards_failed": "Pinterest could not load the boards of this account. Please try again later."
 }

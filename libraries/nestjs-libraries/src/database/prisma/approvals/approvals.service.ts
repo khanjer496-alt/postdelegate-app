@@ -332,6 +332,13 @@ export class ApprovalsService {
     const now = new Date();
     const publishDate = dayjs(post.publishDate).isBefore(now) ? now : undefined;
 
+    // the network's posting rules for the account, at the time it goes out
+    await this._postsService.checkStoredPostingLimits(
+      organizationId,
+      post,
+      publishDate
+    );
+
     const moved = await this.moveTo(
       organizationId,
       post,

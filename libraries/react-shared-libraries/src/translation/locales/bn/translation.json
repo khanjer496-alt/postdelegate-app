@@ -222,6 +222,7 @@
   "link": "লিংক",
   "add_subreddit": "সাবরেডিট যোগ করুন",
   "please_add_at_least_one_subreddit": "অনুগ্রহ করে কমপক্ষে একটি সাবরেডিট যোগ করুন",
+  "reddit_one_subreddit_hint": "প্রতি পোস্টে একটি সাবরেডিট: Reddit চায় একই কনটেন্ট একাধিক কমিউনিটিতে পোস্ট করা না হোক।",
   "add_community": "কমিউনিটি যোগ করুন",
   "select_post_type": "পোস্টের ধরন নির্বাচন করুন...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "আমরা আপনার LinkedIn পৃষ্ঠার সাথে সংযুক্ত কোনো ব্যবসা খুঁজে পাইনি।",
@@ -2321,5 +2322,10 @@
   "cookies_save": "পছন্দ সংরক্ষণ করুন",
   "cookies_reject": "অপ্রয়োজনীয়গুলো প্রত্যাখ্যান করুন",
   "cookies_customize": "কাস্টমাইজ করুন",
-  "cookies_accept": "সব গ্রহণ করুন"
+  "cookies_accept": "সব গ্রহণ করুন",
+  "pinterest_no_boards": "এই Pinterest অ্যাকাউন্টে এখনও কোনো বোর্ড নেই। পোস্ট করতে একটি বোর্ড তৈরি করুন।",
+  "pinterest_board_name": "বোর্ডের নাম",
+  "pinterest_create_board": "বোর্ড তৈরি করুন",
+  "pinterest_create_board_failed": "Pinterest বোর্ডটি তৈরি করতে পারেনি। আবার চেষ্টা করুন।",
+  "pinterest_boards_failed": "Pinterest এই অ্যাকাউন্টের বোর্ডগুলো লোড করতে পারেনি। পরে আবার চেষ্টা করুন।"
 }

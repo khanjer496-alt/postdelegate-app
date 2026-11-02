@@ -222,6 +222,7 @@
   "link": "Lien",
   "add_subreddit": "Ajouter un subreddit",
   "please_add_at_least_one_subreddit": "Veuillez ajouter au moins un subreddit",
+  "reddit_one_subreddit_hint": "Un subreddit par publication : Reddit demande de ne pas publier le même contenu dans plusieurs communautés.",
   "add_community": "Ajouter une communauté",
   "select_post_type": "Sélectionner le type de publication...",
   "we_couldn_t_find_any_business_connected_to_your_linkedin_page": "Nous n'avons trouvé aucune entreprise liée à votre page LinkedIn.",
@@ -2321,5 +2322,10 @@
   "cookies_save": "Enregistrer mes choix",
   "cookies_reject": "Refuser les non essentiels",
   "cookies_customize": "Personnaliser",
-  "cookies_accept": "Tout accepter"
+  "cookies_accept": "Tout accepter",
+  "pinterest_no_boards": "Ce compte Pinterest n'a pas encore de tableau. Créez-en un pour y publier.",
+  "pinterest_board_name": "Nom du tableau",
+  "pinterest_create_board": "Créer un tableau",
+  "pinterest_create_board_failed": "Pinterest n'a pas pu créer le tableau. Veuillez réessayer.",
+  "pinterest_boards_failed": "Pinterest n'a pas pu charger les tableaux de ce compte. Veuillez réessayer plus tard."
 }

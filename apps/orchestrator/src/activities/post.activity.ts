@@ -453,6 +453,24 @@ export class PostActivity {
       );
     }
 
+    // the network's posting rules for one account (postingLimits), checked
+    // against what the account already published: terminal like the plan cap
+    if (getIntegration.postingLimits) {
+      setHeartbeatDetails('posting limits');
+      const pace = await this._postService.postingLimitProblem(
+        integration,
+        posts
+      );
+      if (pace) {
+        throw new BadBody(
+          integration.providerIdentifier,
+          JSON.stringify({}),
+          Buffer.from('{}'),
+          pace
+        );
+      }
+    }
+
     setHeartbeatDetails('update tags');
     const newPosts = await this._postService.updateTags(
       integration.organizationId,
