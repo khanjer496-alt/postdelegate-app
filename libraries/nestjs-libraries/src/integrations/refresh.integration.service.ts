@@ -100,11 +100,14 @@ export class RefreshIntegrationService {
     if (!refresh || !refresh.accessToken) {
       const current = await this._integrationService.getActiveIntegrationById(integration.organizationId, integration.id);
       if (!current || current.token !== integration.token) return false;
-      if (refreshError) {
-        console.error(
-          `Could not refresh ${integration.providerIdentifier} integration ${integration.id}`
-        );
-      }
+      // also logged when the provider returned no access token without
+      // throwing, which otherwise left no trace (no error details, they can
+      // carry provider token payloads)
+      console.error(
+        `Could not refresh ${integration.providerIdentifier} integration ${integration.id}${
+          refreshError ? '' : ': no access token returned'
+        }`
+      );
 
       // informAboutRefreshError (with the failure cause) already notifies
       // the user, and refreshNeeded sets the same flag disconnectChannel

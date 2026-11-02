@@ -1,14 +1,4 @@
 <!doctype html>
-<!--
-  DRAFT for owner review. Not legal advice. Review the figures against the
-  AFFILIATE_* values of the production environment (30 percent, 12 months,
-  30 day hold, 50 USD minimum) and have counsel check it before it is linked
-  from the application or announced. Remove this comment when approved.
-  OWNER CONFIRM: the figures in this page match the code defaults in
-  libraries/nestjs-libraries/src/database/prisma/affiliates/affiliate.config.ts
-  (30 percent, 12 months, 30 day hold, 50 USD minimum, 60 day cookie); confirm
-  production does not override them with AFFILIATE_* environment values.
--->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -39,7 +29,7 @@
     <h2>2. Hold period, approval and payouts</h2>
     <ul>
       <li>A commission is held for 30 days after the customer's payment. After the hold it becomes approved, unless it was reversed.</li>
-      <li>Approved commissions are paid manually, once a month, once your approved balance reaches 50 USD. Smaller balances roll over to the next month. <!-- OWNER CONFIRM: payouts are manual and monthly per the brief and the code ledger (PENDING, PAID, REVERSED); confirm the monthly cadence and the PayPal-only method you intend to operate. --></li>
+      <li>Approved commissions are paid manually, once a month, once your approved balance reaches 50 USD. Smaller balances roll over to the next month.</li>
       <li>We pay to the PayPal address you provide on the Affiliates page, or by another method we agree with you. You are responsible for keeping the payout details correct. We may delay a payout until we can verify them.</li>
       <li>Payouts are made in US dollars. Fees charged by your payment provider or bank are yours.</li>
     </ul>
@@ -73,7 +63,7 @@
     <p>These terms are governed by the laws of the State of Wyoming, USA, in the same way as the <a href="/legal/terms/">Terms of Service</a>.</p>
 
     <h2>10. Contact</h2>
-    <p>Nasida Apps LLC<br><a href="mailto:support@postdelegate.com">support@postdelegate.com</a></p>
+    <p>Nasida Apps LLC<br><!--email_off--><a href="mailto:support@postdelegate.com">support@postdelegate.com</a><!--/email_off--></p>
     <p>Related documents: <a href="/legal/terms/">Terms of Service</a>, <a href="/legal/privacy/">Privacy Policy</a>.</p>
   </main>
   <footer>PostDelegate includes open-source software licensed under AGPL-3.0; see <a href="https://postdelegate.com/licenses">Licenses</a> and the application's <a href="/source">source code</a>.</footer>

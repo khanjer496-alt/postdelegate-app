@@ -14,31 +14,33 @@ import { MediaDto } from '@gitroom/nestjs-libraries/dtos/media/media.dto';
 import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class HashnodeTagsSettings {
-  @IsString()
+  @IsString({ message: 'Choose the tags from the list' })
   value: string;
 
-  @IsString()
+  @IsString({ message: 'Choose the tags from the list' })
   label: string;
 }
 
 export class HashnodeSettingsDto {
-  @IsString()
-  @MinLength(6)
-  @IsDefined()
+  @IsString({ message: 'Add a title of at least 6 characters' })
+  @MinLength(6, { message: 'Add a title of at least 6 characters' })
+  @IsDefined({ message: 'Add a title of at least 6 characters' })
   title: string;
 
-  @IsString()
-  @MinLength(2)
+  // optional: an empty field, as the composer sends it, is no subtitle
+  @IsString({ message: 'The subtitle must be at least 2 characters' })
+  @MinLength(2, { message: 'The subtitle must be at least 2 characters' })
   @IsOptional()
+  @ValidateIf((o) => !!o.subtitle)
   subtitle: string;
 
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ message: 'Choose the cover picture from the media library' })
   @Type(() => MediaDto)
   main_image?: MediaDto;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Invalid URL' })
   @ValidateIf((o) => o.canonical && o.canonical.indexOf('(post:') === -1)
   @Matches(
     /^(|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})$/,
@@ -48,15 +50,15 @@ export class HashnodeSettingsDto {
   )
   canonical?: string;
 
-  @IsString()
-  @IsDefined()
+  @IsString({ message: 'Choose a Hashnode publication' })
+  @IsDefined({ message: 'Choose a Hashnode publication' })
   @ComposerOnly()
   publication?: string;
 
-  @IsArray()
-  @ArrayMinSize(1)
+  @IsArray({ message: 'Add at least one tag' })
+  @ArrayMinSize(1, { message: 'Add at least one tag' })
   @Type(() => HashnodeTagsSettings)
-  @ValidateNested({ each: true })
+  @ValidateNested({ each: true, message: 'Choose the tags from the list' })
   @ComposerOnly()
   tags: HashnodeTagsSettings[];
 }

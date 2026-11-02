@@ -6,7 +6,10 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
 import dayjs from 'dayjs';
-import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import {
+  BadBody,
+  SocialAbstract,
+} from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { getPublicKey, Relay, finalizeEvent, SimplePool } from 'nostr-tools';
 
 import WebSocket from 'ws';
@@ -102,37 +105,36 @@ export class NostrProvider extends SocialAbstract implements SocialProvider {
     return {};
   }
 
-  private async publish(pubkey: string, event: any) {
-    let id = '';
-    for (const relay of list) {
-      try {
+  // Sends the note to every relay and returns its id once at least one relay
+  // acknowledged it. The id is the note's own: reading the author's feed back
+  // returned whatever note a relay sent first, usually the previous one.
+  private async publish(event: { id: string }) {
+    const results = await Promise.allSettled(
+      list.map(async (relay) => {
         const relayInstance = await Relay.connect(relay);
-        const value = new Promise<any>((resolve) => {
-          relayInstance.subscribe([{ kinds: [1], authors: [pubkey] }], {
-            eoseTimeout: 6000,
-            onevent: (event) => {
-              resolve(event);
-            },
-            oneose: () => {
-              resolve({});
-            },
-            onclose: () => {
-              resolve({});
-            },
-          });
-        });
+        try {
+          // resolves on the relay's OK, rejects when it refuses the note
+          await relayInstance.publish(event as any);
+        } finally {
+          relayInstance.close();
+        }
+      })
+    );
 
-        await relayInstance.publish(event);
-        const all = await value;
-        relayInstance.close();
-        // relayInstance.close();
-        id = id || all?.id;
-      } catch (err) {
-        /**empty**/
-      }
+    if (!results.some((result) => result.status === 'fulfilled')) {
+      throw new BadBody(
+        this.identifier,
+        JSON.stringify(
+          results.map((result) =>
+            result.status === 'rejected' ? String(result.reason) : 'ok'
+          )
+        ),
+        Buffer.from('{}'),
+        'No Nostr relay accepted the note, please try again later'
+      );
     }
 
-    return id;
+    return event.id;
   }
 
   async authenticate(params: {
@@ -187,7 +189,7 @@ export class NostrProvider extends SocialAbstract implements SocialProvider {
       this.secretKey(password)
     );
 
-    const eventId = await this.publish(id, textEvent);
+    const eventId = await this.publish(textEvent);
 
     return [
       {
@@ -224,7 +226,7 @@ export class NostrProvider extends SocialAbstract implements SocialProvider {
       this.secretKey(password)
     );
 
-    const eventId = await this.publish(id, textEvent);
+    const eventId = await this.publish(textEvent);
 
     return [
       {

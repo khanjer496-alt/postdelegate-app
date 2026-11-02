@@ -41,7 +41,7 @@ export const WhopExperienceSelect: FC<{
     }
     customFunc
       .get('experiences', { id: companyId })
-      .then((data) => setExperiences(data));
+      .then((data) => setExperiences(Array.isArray(data) ? data : []));
   }, [companyId]);
   useEffect(() => {
     const settings = getValues()[name];

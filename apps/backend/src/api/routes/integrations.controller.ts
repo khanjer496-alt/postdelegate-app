@@ -108,6 +108,14 @@ export class IntegrationsController {
     return this._integrationService.updateCustomName(org.id, id, body.name);
   }
 
+  // The add-channel list of the signed-in workspace: the no-auth GET
+  // /integrations has no org, so only this one can include the hidden
+  // providers for PREVIEW_PROVIDER_ORGS.
+  @Get('/available')
+  getAvailableIntegrations(@GetOrgFromRequest() org: Organization) {
+    return this._integrationManager.getAllIntegrations(org.id);
+  }
+
   @Get('/list')
   async getIntegrationList(@GetOrgFromRequest() org: Organization) {
     return {
@@ -233,6 +241,12 @@ export class IntegrationsController {
     ) {
       throw new Error('Integration not allowed');
     }
+
+    await this._integrationService.checkProviderAvailable(
+      org.id,
+      integration,
+      refresh
+    );
 
     // A provider migrated via MIGRATE_PROVIDERS reconnects through its target
     // provider's OAuth: the callback lands on the target and the channel is
@@ -520,8 +534,10 @@ export class IntegrationsController {
     }
   }
 
-  @Get('/moltbook/status')
-  async moltbookStatus(@Query('apiKey') apiKey: string) {
+  // the API key travels in the body: a query string ends up in access logs
+  @Post('/moltbook/status')
+  async moltbookStatus(@Body() body: { apiKey: string }) {
+    const apiKey = body?.apiKey;
     try {
       const provider = new MoltbookProvider();
       const result = await provider.checkAgentStatus(apiKey);

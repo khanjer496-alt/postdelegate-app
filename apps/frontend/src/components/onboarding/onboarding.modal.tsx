@@ -115,7 +115,7 @@ const OnboardingStep1: FC<{ onNext: () => void; onSkip: () => void }> = ({
   const t = useT();
 
   const getIntegrations = useCallback(async () => {
-    return (await fetch('/integrations')).json();
+    return (await fetch('/integrations/available')).json();
   }, []);
 
   const load = useCallback(async (path: string) => {

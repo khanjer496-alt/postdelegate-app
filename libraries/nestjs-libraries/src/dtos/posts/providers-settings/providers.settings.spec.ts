@@ -11,6 +11,25 @@ import {
   EmptySettings,
 } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/all.providers.settings';
 import { TumblrDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/tumblr.dto';
+import { DiscordDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/discord.dto';
+import { SlackDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/slack.dto';
+import { WordpressDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/wordpress.dto';
+import { ListmonkDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/listmonk.dto';
+import {
+  LemmySettingsDto,
+  LemmySettingsDtoInner,
+  LemmySettingsValueDto,
+} from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/lemmy.dto';
+import { WhopDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/whop.dto';
+import {
+  YoutubeSettingsDto,
+  YoutubeTagsSettings,
+} from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
+import {
+  HashnodeSettingsDto,
+  HashnodeTagsSettings,
+} from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/hashnode.settings.dto';
+import { MediumSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/medium.settings.dto';
 
 const messages = (errors: ValidationError[]): string[] =>
   errors.flatMap((error) => [
@@ -95,5 +114,136 @@ describe('Tumblr post settings', () => {
         await validate(plainToInstance(TumblrDto, { title: 'x'.repeat(4097) }))
       )
     ).toHaveLength(1);
+  });
+});
+
+// the composer shows the first message as it is (posts.service
+// firstValidationError), so none may be class-validator's own wording
+describe('Channel settings messages', () => {
+  const dtos = [
+    DiscordDto,
+    SlackDto,
+    WordpressDto,
+    ListmonkDto,
+    LemmySettingsDto,
+    LemmySettingsValueDto,
+    LemmySettingsDtoInner,
+    WhopDto,
+    YoutubeSettingsDto,
+    YoutubeTagsSettings,
+    HashnodeSettingsDto,
+    HashnodeTagsSettings,
+  ];
+
+  it.each(dtos.map((dto) => [dto.name, dto]))(
+    'gives every rule of %s a message in plain words',
+    (_, dto) => {
+      const rules = getMetadataStorage()
+        .getTargetValidationMetadatas(dto as any, '', true, false)
+        // IsOptional / ValidateIf only skip rules; the YouTube publish time
+        // and tags length rules word their own message
+        .filter(
+          (rule) =>
+            rule.type !== 'conditionalValidation' &&
+            rule.name !== 'youtubePublishAt' &&
+            (rule.constraintCls as any)?.name !== 'IsYoutubeTagsLengthConstraint'
+        );
+      expect(rules.length).toBeGreaterThan(0);
+      expect(
+        rules
+          .filter((rule) => !rule.message)
+          .map((rule) => `${rule.propertyName}: ${rule.name || rule.type}`)
+      ).toEqual([]);
+    }
+  );
+
+  const firstMessage = async (dto: any, value: Record<string, unknown>) =>
+    messages(await validate(plainToInstance(dto, value)))[0];
+
+  it('words an empty Discord or Slack channel', async () => {
+    expect(await firstMessage(DiscordDto, {})).toBe('Choose a Discord channel');
+    expect(await firstMessage(SlackDto, { channel: '' })).toBe(
+      'Choose a Slack channel'
+    );
+  });
+
+  it('calls Lemmy places communities', async () => {
+    const all = messages(
+      await validate(
+        plainToInstance(LemmySettingsDto, {
+          subreddit: [{ value: { subreddit: '', id: '', title: '' } }],
+        })
+      )
+    );
+    expect(all).toContain('Choose a Lemmy community');
+    expect(all.join(' ')).not.toMatch(/subreddit/i);
+    expect(await firstMessage(LemmySettingsDto, { subreddit: [] })).toBe(
+      'Add at least one Lemmy community'
+    );
+  });
+});
+
+describe('Required pickers', () => {
+  const wordpress = { title: 'Hello world', type: '' };
+  const listmonk = { subject: 'News', preview: '', list: '' };
+
+  // the pickers start on "--Select--", an empty value
+  it('refuses a WordPress post type left on --Select--', async () => {
+    expect(messages(await validate(plainToInstance(WordpressDto, wordpress)))).toEqual([
+      'Choose a post type',
+    ]);
+    expect(
+      messages(
+        await validate(plainToInstance(WordpressDto, { ...wordpress, type: 'post' }))
+      )
+    ).toEqual([]);
+  });
+
+  it('refuses a Listmonk list left on --Select--', async () => {
+    expect(messages(await validate(plainToInstance(ListmonkDto, listmonk)))).toEqual([
+      'Choose a list to send the email to',
+    ]);
+    expect(
+      messages(
+        await validate(plainToInstance(ListmonkDto, { ...listmonk, list: '3' }))
+      )
+    ).toEqual([]);
+  });
+});
+
+describe('Hashnode subtitle', () => {
+  const settings = {
+    title: 'A long enough title',
+    publication: 'pub-1',
+    tags: [{ value: 't', label: 'T' }],
+  };
+
+  // the composer sends the empty box as ''
+  it('is optional when left empty', async () => {
+    expect(
+      messages(
+        await validate(plainToInstance(HashnodeSettingsDto, { ...settings, subtitle: '' }))
+      )
+    ).toEqual([]);
+    expect(
+      messages(await validate(plainToInstance(HashnodeSettingsDto, settings)))
+    ).toEqual([]);
+  });
+
+  it('still needs 2 characters once filled', async () => {
+    expect(
+      messages(
+        await validate(plainToInstance(HashnodeSettingsDto, { ...settings, subtitle: 'a' }))
+      )
+    ).toEqual(['The subtitle must be at least 2 characters']);
+  });
+});
+
+describe('Medium settings', () => {
+  // Medium's API has no subtitle, the field was required and never sent
+  it('no longer asks for a subtitle', async () => {
+    expect(
+      messages(await validate(plainToInstance(MediumSettingsDto, { title: 'Hi there' })))
+    ).toEqual([]);
   });
 });

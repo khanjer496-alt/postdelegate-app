@@ -242,8 +242,10 @@ export class ApprovalsService {
     organizationId: string,
     post: RootPost,
     by: ActedBy,
-    // a shared link waits for the client, the approvers are not asked
-    notify = true
+    // a shared link waits for the client: the approvers are not asked, and
+    // the sharer is not written as a submitter (LINK_CREATED is the record),
+    // so the decision emails still go to the post's author
+    shared = false
   ): Promise<boolean> {
     if (post.approvalStatus === 'IN_REVIEW' && post.state === 'DRAFT') {
       return false;
@@ -262,19 +264,20 @@ export class ApprovalsService {
     if (!moved) {
       return false;
     }
+    if (shared) {
+      return true;
+    }
     await this._activityLogService.recordSafely({
       organizationId,
       postId: post.id,
       action: 'SUBMITTED',
       ...by,
     });
-    if (notify) {
-      await this._approvalPolicyService.notifyApprovers(
-        organizationId,
-        this.notifyPost(post),
-        by.actorName
-      );
-    }
+    await this._approvalPolicyService.notifyApprovers(
+      organizationId,
+      this.notifyPost(post),
+      by.actorName
+    );
     return true;
   }
 
@@ -510,7 +513,7 @@ export class ApprovalsService {
 
     // shared posts wait for the client, they don't publish on their own
     for (const post of posts) {
-      await this.hold(organizationId, post!, byUser(actor), false);
+      await this.hold(organizationId, post!, byUser(actor), true);
       await this._activityLogService.recordSafely({
         organizationId,
         postId: post!.id,
@@ -581,6 +584,26 @@ export class ApprovalsService {
     return link;
   }
 
+  // A decision on a post after the link was shared (the client asked for
+  // changes, the team sent it back or approved it) means a later version
+  // went back to review: the link can't approve that version, only a new link
+  // the team shares after its own review
+  private async outdatedForLink(
+    link: { organizationId: string; createdAt: Date },
+    postIds: string[]
+  ) {
+    const decisions = await this._activityLogService.latestForPosts(
+      link.organizationId,
+      postIds,
+      ['APPROVED', 'CHANGES_REQUESTED', 'REJECTED']
+    );
+    return new Set(
+      decisions
+        .filter((p) => p.postId && p.createdAt > link.createdAt)
+        .map((p) => p.postId as string)
+    );
+  }
+
   private clientStatus(post: { state: State; approvalStatus: ApprovalStatus }) {
     if (post.state === 'PUBLISHED') return 'published';
     if (post.approvalStatus === 'APPROVED') return 'approved';
@@ -625,6 +648,10 @@ export class ApprovalsService {
     const organization = await this._approvalsRepository.getOrganizationName(
       link.organizationId
     );
+    const outdated = await this.outdatedForLink(
+      link,
+      posts.map(([root]) => root.id)
+    );
 
     // unauthenticated: only what the page renders, never tokens or settings
     return {
@@ -634,7 +661,10 @@ export class ApprovalsService {
       posts: posts.map(([root, ...comments]) => ({
         id: root.id,
         publishDate: root.publishDate,
-        status: this.clientStatus(root),
+        status:
+          this.clientStatus(root) === 'waiting' && outdated.has(root.id)
+            ? 'outdated'
+            : this.clientStatus(root),
         integration: root.integration
           ? {
               name: root.integration.name,
@@ -677,6 +707,12 @@ export class ApprovalsService {
     if (post.approvalStatus !== 'IN_REVIEW') {
       throw new BadRequestException(
         'This post is no longer waiting for your approval.'
+      );
+    }
+
+    if ((await this.outdatedForLink(link, [post.id])).has(post.id)) {
+      throw new BadRequestException(
+        'This post changed since this link was shared. Ask the team for a new link.'
       );
     }
 

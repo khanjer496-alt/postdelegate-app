@@ -73,7 +73,7 @@ export const studioFontStyle = (
   };
 };
 
-const TextLayer: FC<{
+export const TextLayer: FC<{
   position: StudioPosition;
   scale: number;
   children: React.ReactNode;

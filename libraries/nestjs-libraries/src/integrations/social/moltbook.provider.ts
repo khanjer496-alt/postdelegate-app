@@ -5,7 +5,10 @@ import {
   SocialProvider,
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
-import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import {
+  SocialAbstract,
+  ValidityMedia,
+} from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { MoltbookDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/moltbook.dto';
 import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
@@ -24,6 +27,69 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
 
   maxLength() {
     return 300;
+  }
+
+  // Moltbook posts and comments are text only, attached media would be
+  // dropped without a word
+  override async checkValidity(
+    posts: Array<ValidityMedia[]>
+  ): Promise<string | true> {
+    if ((posts || []).some((media) => (media || []).length > 0)) {
+      return 'Moltbook posts are text only, remove the media';
+    }
+    return true;
+  }
+
+  // Moltbook answers { success: false, error } with the HTTP status
+  override handleErrors(
+    body: string,
+    status: number
+  ):
+    | {
+        type: 'refresh-token' | 'bad-body';
+        value: string;
+      }
+    | undefined {
+    let error = '';
+    try {
+      error = JSON.parse(body)?.error || '';
+    } catch (err) {
+      error = '';
+    }
+
+    if (status === 401 || status === 403 || /api key/i.test(error)) {
+      return {
+        type: 'refresh-token',
+        value: 'Moltbook no longer accepts the API key, please reconnect the channel',
+      };
+    }
+
+    if (status === 429) {
+      return {
+        type: 'bad-body',
+        value: `Moltbook limits how often an agent can post${
+          error ? `: ${error}` : ''
+        }`,
+      };
+    }
+
+    if (status >= 400 && status < 500) {
+      return {
+        type: 'bad-body',
+        value: `Moltbook rejected the post${error ? `: ${error}` : ''}`,
+      };
+    }
+
+    // creating a post is not idempotent: Moltbook may have created it before
+    // failing, a retry could post it twice (a 429 is still retried)
+    if (status >= 500) {
+      return {
+        type: 'bad-body',
+        value: 'Moltbook had a problem with the post, check the agent before trying again',
+      };
+    }
+
+    return undefined;
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokenDetails> {
@@ -48,11 +114,23 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
   }
 
   async registerAgent(name: string, description: string) {
-    const response = await this.getSsrfSafeAxios().post(
-      `${MOLTBOOK_API_BASE}/agents/register`,
-      { name, description },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    const response = await this.getSsrfSafeAxios()
+      .post(
+        `${MOLTBOOK_API_BASE}/agents/register`,
+        { name, description },
+        { headers: { 'Content-Type': 'application/json' } }
+      )
+      .catch((err) => {
+        // 409: another agent already has the name
+        if (err?.response?.status === 409) {
+          throw new Error(
+            'That agent name is already taken on Moltbook, please choose another one'
+          );
+        }
+        throw new Error(
+          err?.response?.data?.error || 'Moltbook could not register the agent'
+        );
+      });
 
     if (!response.data.success) {
       throw new Error(response.data.error || 'Registration failed');
@@ -127,22 +205,27 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
         content: post.message,
       };
 
-      const response = await this.getSsrfSafeAxios().post(
-        `${MOLTBOOK_API_BASE}/posts`,
-        postData,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+      // this.fetch turns a refused API key into a reconnect of the channel
+      const data = await (
+        await this.fetch(
+          `${MOLTBOOK_API_BASE}/posts`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(postData),
           },
-        }
-      );
+          this.identifier
+        )
+      ).json();
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to create post');
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create post');
       }
 
-      const postId = response.data.post.id;
+      const postId = data.post.id;
       results.push({
         id: post.id,
         postId: String(postId),
@@ -173,22 +256,26 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
         commentData.parent_id = lastCommentId;
       }
 
-      const response = await this.getSsrfSafeAxios().post(
-        `${MOLTBOOK_API_BASE}/posts/${postId}/comments`,
-        commentData,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+      const data = await (
+        await this.fetch(
+          `${MOLTBOOK_API_BASE}/posts/${postId}/comments`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(commentData),
           },
-        }
-      );
+          this.identifier
+        )
+      ).json();
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to create comment');
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create comment');
       }
 
-      const commentId = response.data.comment.id;
+      const commentId = data.comment.id;
       results.push({
         id: post.id,
         postId: String(commentId),

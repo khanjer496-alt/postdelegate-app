@@ -25,7 +25,7 @@ export const useAddProvider = (update?: () => void, invite?: boolean) => {
   const modal = useModals();
   const fetch = useFetch();
   return useCallback(async () => {
-    const data = await (await fetch('/integrations')).json();
+    const data = await (await fetch('/integrations/available')).json();
     modal.openModal({
       title: 'Add Channel',
       withCloseButton: true,
@@ -171,8 +171,10 @@ export const CustomVariables: FC<{
   identifier: string;
   gotoUrl(url: string): void;
   onboarding?: boolean;
+  // internalId of the channel being reconnected
+  refresh?: string;
 }> = (props) => {
-  const { close, gotoUrl, identifier, variables, onboarding } = props;
+  const { close, gotoUrl, identifier, variables, onboarding, refresh } = props;
   const fetch = useFetch();
   const modals = useModals();
   const schema = useMemo(() => {
@@ -209,10 +211,14 @@ export const CustomVariables: FC<{
   });
   const submit = useCallback(
     async (data: FieldValues) => {
+      const params = [
+        onboarding ? 'onboarding=true' : '',
+        refresh ? `refresh=${encodeURIComponent(refresh)}` : '',
+      ]
+        .filter(Boolean)
+        .join('&');
       const response = await fetch(
-        `/integrations/social/${identifier}${
-          onboarding ? '?onboarding=true' : ''
-        }`
+        `/integrations/social/${identifier}${params ? `?${params}` : ''}`
       );
       if (response.status === 402) {
         return;
@@ -225,7 +231,7 @@ export const CustomVariables: FC<{
         ).toString('base64')}${onboarding ? '&onboarding=true' : ''}`
       );
     },
-    [variables, onboarding]
+    [variables, onboarding, refresh]
   );
 
   const t = useT();

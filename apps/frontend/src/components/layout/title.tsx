@@ -10,5 +10,7 @@ export const Title = () => {
     return menuItems.find((item) => path.indexOf(item.path) > -1)?.name;
   }, [path]);
 
-  return <h1 className="truncate">{currentTitle}</h1>;
+  // truncate hides the overflow, so the line must be tall enough for the
+  // tops and tails of the letters
+  return <h1 className="truncate leading-[1.4]">{currentTitle}</h1>;
 };

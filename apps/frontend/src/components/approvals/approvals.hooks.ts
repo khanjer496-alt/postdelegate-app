@@ -170,3 +170,61 @@ export const readError = async (response: Response, fallback: string) => {
     : body?.message || body?.msg;
   return typeof message === 'string' && message ? message : fallback;
 };
+
+// The root post of one channel, as the editor holds it
+export interface ChannelPost {
+  id: string;
+  state?: string;
+  approvalStatus?: ApprovalStatus | string | null;
+  publishDate?: string | Date | null;
+  integration?: { name?: string | null } | null;
+}
+
+export type ReviewAction =
+  | 'approve'
+  | 'request_changes'
+  | 'reject'
+  | 'submit'
+  | 'share';
+
+// A post made for several channels is one post per channel. An action on the
+// channel in view also covers the other channels at exactly the same review
+// step (a channel the client sent back is not approved along with one still in
+// review), never one that went out or is going out now
+export const channelsToActOn = (
+  siblings: ChannelPost[],
+  action: ReviewAction,
+  current: ApprovalStatus | string | null | undefined,
+  now: Date = new Date()
+) =>
+  siblings.filter((post) => {
+    const status = post.approvalStatus || 'NONE';
+    if (action !== 'share' && status !== (current || 'NONE')) {
+      return false;
+    }
+    if (post.state === 'PUBLISHED' || post.state === 'ERROR') {
+      return false;
+    }
+    if (
+      post.state === 'QUEUE' &&
+      !!post.publishDate &&
+      new Date(post.publishDate) < now
+    ) {
+      return false;
+    }
+    switch (action) {
+      case 'approve':
+      case 'reject':
+        return status === 'IN_REVIEW' || status === 'CHANGES_REQUESTED';
+      case 'request_changes':
+        return status === 'IN_REVIEW';
+      case 'submit':
+        return (
+          status === 'CHANGES_REQUESTED' ||
+          status === 'REJECTED' ||
+          (status === 'NONE' && post.state === 'DRAFT')
+        );
+      case 'share':
+        return true;
+    }
+  });

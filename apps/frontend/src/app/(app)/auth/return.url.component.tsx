@@ -10,7 +10,8 @@ const sameOriginUrl = (url: string | null) => {
     return null;
   }
   try {
-    const parsed = new URL(url);
+    // a path (/launches?x=1) is read against this app
+    const parsed = new URL(url, window.location.origin);
     return parsed.origin === window.location.origin &&
       parsed.protocol === window.location.protocol
       ? parsed.toString()

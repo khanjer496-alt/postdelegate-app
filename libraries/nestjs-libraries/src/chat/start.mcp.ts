@@ -10,10 +10,21 @@ import {
 } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { runWithContext } from './async.storage';
 import { createOAuthMiddleware } from './oauth-middleware';
+import {
+  extractBearerOrBareToken,
+  generateWWWAuthenticateHeader,
+} from './oauth-types';
 import { UPLOAD_WIDGET_URI, uploadWidgetHtml } from '@gitroom/nestjs-libraries/chat/ui/upload.widget';
 import { CLIPPING_WIDGET_URI, clippingWidgetHtml } from '@gitroom/nestjs-libraries/chat/ui/clipping.widget';
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { McpRelayService } from '@gitroom/nestjs-libraries/chat/mcp.relay.service';
+import {
+  subscriptionProblem,
+} from '@gitroom/nestjs-libraries/chat/auth.context';
+import {
+  ASK_AGENT_TOOL_NAME,
+  askAgentTool,
+} from '@gitroom/nestjs-libraries/chat/tools/ask.agent.tool';
 const fixAcceptHeader = (req: Request) => {
   const value = 'application/json, text/event-stream';
   req.headers.accept = value;
@@ -36,6 +47,29 @@ const endListenStream = (req: Request, res: Response) => {
   const timer = setTimeout(() => res.end(), 10000);
   res.on('close', () => clearTimeout(timer));
 };
+
+// Browser-based MCP clients (directory playgrounds, inspectors) call every MCP
+// route and discovery document cross-origin. Authorization is listed on its
+// own because the * wildcard never covers it. Returns true when it answered
+// a preflight
+const mcpCors = (req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*, Authorization');
+  res.setHeader('Access-Control-Expose-Headers', '*');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  if (req.method !== 'OPTIONS') {
+    return false;
+  }
+
+  res.sendStatus(204);
+  return true;
+};
+
+const mcpProtocolVersion = '2026-07-28';
+const mcpWebsiteUrl = 'https://postdelegate.com';
+const mcpDocumentationUrl = `${mcpWebsiteUrl}/docs/mcp`;
 
 const openAiOAuthClientId = process.env.OPENAI_OAUTH_CLIENT_ID?.trim();
 const enableOidcEmailClaims = Boolean(openAiOAuthClientId);
@@ -87,6 +121,11 @@ export const startMcp = async (app: INestApplication) => {
     ...agentTools,
     // tools that only make sense inside an MCP host (ui:// widgets)
     ...(await loadToolsService.loadTools(true)),
+  };
+  // the API key server (/mcp, /mcp/:id, /sse/:id) also offers the agent itself
+  const apiKeyTools = {
+    ...tools,
+    [ASK_AGENT_TOOL_NAME]: askAgentTool(agent),
   };
 
   // The Claude connector directory does not accept AI media generation tools,
@@ -155,20 +194,18 @@ export const startMcp = async (app: INestApplication) => {
   const serverConfig = {
     name: 'PostDelegate MCP',
     version: '1.0.0',
-    tools,
-    agents: { postdelegate: agent },
+    tools: apiKeyTools,
     appResources,
   };
 
-  const server = new MCPServer({ ...serverConfig, protocolVersion: '2026-07-28' });
+  const server = new MCPServer({ ...serverConfig, protocolVersion: mcpProtocolVersion });
 
-  // The directory-facing servers don't register the agent - it would be
-  // exposed as an annotation-less catch-all ask_postdelegate tool, which the
-  // ChatGPT and Claude directory reviews reject
+  // The directory-facing OAuth servers don't offer the agent - a catch-all
+  // ask_postdelegate tool is rejected by the ChatGPT and Claude directory reviews
   const oauthServer = new MCPServer({
     name: 'PostDelegate MCP',
     version: '1.0.0',
-    protocolVersion: '2026-07-28',
+    protocolVersion: mcpProtocolVersion,
     tools,
     appResources,
   });
@@ -179,7 +216,7 @@ export const startMcp = async (app: INestApplication) => {
   const claudeOauthServer = new MCPServer({
     name: 'PostDelegate MCP',
     version: '1.0.0',
-    protocolVersion: '2026-07-28',
+    protocolVersion: mcpProtocolVersion,
     tools: claudeTools,
     appResources: claudeAppResources,
   });
@@ -193,13 +230,13 @@ export const startMcp = async (app: INestApplication) => {
     selfHostedServer = new MCPServer({
       name: 'PostDelegate MCP',
       version: '1.0.0',
-      protocolVersion: '2026-07-28',
+      protocolVersion: mcpProtocolVersion,
       tools: selfHostedTools,
     });
     claudeSelfHostedServer = new MCPServer({
       name: 'PostDelegate MCP',
       version: '1.0.0',
-      protocolVersion: '2026-07-28',
+      protocolVersion: mcpProtocolVersion,
       tools: withoutClaudeHidden(selfHostedTools),
     });
   }
@@ -261,10 +298,14 @@ export const startMcp = async (app: INestApplication) => {
   // Every OAuth-protected MCP path is its own RFC 9728 protected resource
   // (the token endpoint ignores the RFC 8707 resource param, so the issuers
   // above cover all of them)
-  const createResourceMiddleware = (mcpPath: string, authorizationServer: string) =>
+  const createResourceMiddleware = (
+    mcpPath: string,
+    authorizationServer: string,
+    resource = new URL(mcpPath, process.env.NEXT_PUBLIC_BACKEND_URL!).toString()
+  ) =>
     createOAuthMiddleware({
       oauth: {
-        resource: new URL(mcpPath, process.env.NEXT_PUBLIC_BACKEND_URL!).toString(),
+        resource,
         authorizationServers: [authorizationServers[authorizationServer].issuer],
         scopesSupported: oauthScopes,
         validateToken: async (token: string) => {
@@ -299,25 +340,149 @@ export const startMcp = async (app: INestApplication) => {
     '/mcp-oauth-dynamic': { middleware: createResourceMiddleware('/mcp-oauth-dynamic', '/mcp-oauth-dynamic'), mcpServer: oauthServer, selfHostedServer },
   };
 
-  if (process.env.OPENAI_APP_CHALLANGE) {
+  // /mcp (public url <backend>/mcp, e.g. https://app.postdelegate.com/api/mcp)
+  // takes an API key, but also the OAuth tokens of the DCR issuer, so it is
+  // an RFC 9728 protected resource as well. Its metadata is served at the
+  // path-inserted well-known only, which its WWW-Authenticate points at: the
+  // root stays unanswered, or clients probing it would demand OAuth for the
+  // /mcp/:id urls that carry their key
+  const apiKeyMcpUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/mcp`;
+  const apiKeyMcpPath = new URL(apiKeyMcpUrl).pathname;
+  const apiKeyResourceMetadataUrl = new URL(
+    '/.well-known/oauth-protected-resource' + apiKeyMcpPath,
+    apiKeyMcpUrl
+  ).toString();
+  const apiKeyResourceMiddleware = createResourceMiddleware(
+    '/mcp',
+    '/mcp-oauth-dynamic',
+    apiKeyMcpUrl
+  );
+
+  // The server card (/.well-known/mcp/server-card.json, also served as
+  // /.well-known/mcp.json) that MCP directories read to list the server
+  // without connecting: endpoints, how to authenticate and the tools. The
+  // tools are the directory-safe ones (the Claude list: no agent, no AI media
+  // generation, no clipping), which every endpoint offers
+  const dynamicIssuer = authorizationServers['/mcp-oauth-dynamic'].issuer;
+  const oauthMcpUrl = new URL('/mcp-oauth-dynamic', process.env.NEXT_PUBLIC_BACKEND_URL!).toString();
+  // MCP lists a tool under its id, which is not always its key in claudeTools
+  const annotationsById = Object.fromEntries(
+    Object.values(claudeTools as Record<string, { id: string; mcp?: { annotations?: { title?: string } } }>).map(
+      (tool) => [tool.id, tool.mcp?.annotations]
+    )
+  );
+  const serverCardTools = (await claudeOauthServer.getToolListInfo()).tools.map((tool) => {
+    const annotations = annotationsById[tool.name];
+    return {
+      name: tool.name,
+      ...(annotations?.title ? { title: annotations.title } : {}),
+      description: tool.description?.replace(/\s+/g, ' ').trim(),
+      inputSchema: tool.inputSchema,
+      ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
+      ...(annotations ? { annotations } : {}),
+    };
+  });
+  const serverCard = {
+    name: 'PostDelegate',
+    serverInfo: {
+      name: 'PostDelegate',
+      title: 'PostDelegate',
+      version: '1.0.0',
+    },
+    description:
+      'Schedule, list, update and delete social media posts on the channels connected to a PostDelegate workspace, and upload the media they use.',
+    version: '1.0.0',
+    protocolVersion: mcpProtocolVersion,
+    websiteUrl: mcpWebsiteUrl,
+    documentationUrl: mcpDocumentationUrl,
+    iconUrl: `${mcpWebsiteUrl}/postdelegate-icon-512.png`,
+    transport: {
+      type: 'streamable-http',
+      endpoint: apiKeyMcpUrl,
+    },
+    endpoints: [
+      {
+        type: 'streamable-http',
+        url: apiKeyMcpUrl,
+        authentication: ['apiKey', 'oauth2'],
+      },
+      {
+        type: 'streamable-http',
+        url: oauthMcpUrl,
+        authentication: ['oauth2'],
+      },
+    ],
+    authentication: {
+      required: true,
+      schemes: ['bearer', 'oauth2'],
+      apiKey: {
+        in: 'header',
+        name: 'Authorization',
+        // the bare key is accepted too
+        format: 'Bearer <API key>',
+        documentationUrl: mcpDocumentationUrl,
+      },
+      oauth2: {
+        protectedResourceMetadata: apiKeyResourceMetadataUrl,
+        authorizationServers: [dynamicIssuer],
+        authorizationServerMetadata: new URL(
+          '/.well-known/oauth-authorization-server/mcp-oauth-dynamic',
+          dynamicIssuer
+        ).toString(),
+        dynamicClientRegistration: true,
+        scopes: oauthScopes,
+      },
+    },
+    capabilities: {
+      tools: { listChanged: false },
+      resources: {},
+    },
+    tools: serverCardTools,
+  };
+
+  app.use(['/.well-known/mcp.json', '/.well-known/mcp/server-card.json'], (req: Request, res: Response, next: () => void) => {
+    if (
+      (req.path !== '/' && req.path !== '') ||
+      !['GET', 'HEAD', 'OPTIONS'].includes(req.method)
+    ) {
+      next();
+      return;
+    }
+
+    if (mcpCors(req, res)) return;
+    res.setHeader('Cache-Control', 'max-age=3600');
+    res.json(serverCard);
+  });
+
+  // The domain verification of the ChatGPT app (OPENAI_APP_CHALLANGE is the
+  // name it was first installed under)
+  const openAiAppsChallenge =
+    process.env.OPENAI_APPS_CHALLENGE?.trim() ||
+    process.env.OPENAI_APP_CHALLANGE;
+  if (openAiAppsChallenge) {
     app.use('/.well-known/openai-apps-challenge', (req: Request, res: Response) => {
       res.setHeader('Content-Type', 'text/plain');
-      res.send(process.env.OPENAI_APP_CHALLANGE);
+      res.send(openAiAppsChallenge);
     });
   }
 
   app.use('/.well-known/oauth-protected-resource', async (req: Request, res: Response, next: () => void) => {
-    // Only the paths in oauthResources are OAuth-protected.
-    // Answering discovery on any other path (including the root, which clients
-    // fall back to) makes them demand OAuth for /mcp/:id too
-    const resource = oauthResources[req.path];
-    if (!resource) {
+    // The paths in oauthResources are OAuth-only resources; the
+    // path-inserted form of /mcp describes the API key server above. The
+    // middleware only answers GET and OPTIONS, anything else moves on
+    const middleware =
+      oauthResources[req.path]?.middleware ||
+      (req.path === apiKeyMcpPath ? apiKeyResourceMiddleware : undefined);
+    if (!middleware || !['GET', 'OPTIONS'].includes(req.method)) {
       next();
       return;
     }
 
     const url = new URL('/.well-known/oauth-protected-resource', process.env.NEXT_PUBLIC_BACKEND_URL);
-    await resource.middleware(req, res, url);
+    const result = await middleware(req, res, url);
+    if (!result.handled) {
+      next();
+    }
   });
 
   app.use('/.well-known/oauth-authorization-server', async (req: Request, res: Response, next: () => void) => {
@@ -372,6 +537,8 @@ export const startMcp = async (app: INestApplication) => {
       return;
     }
 
+    if (mcpCors(req, res)) return;
+
     // baseUrl is the mount path that matched, e.g. /mcp-oauth-claude
     const { middleware, mcpServer, selfHostedServer } = oauthResources[req.baseUrl];
     const url = new URL(req.baseUrl, process.env.NEXT_PUBLIC_BACKEND_URL);
@@ -388,6 +555,14 @@ export const startMcp = async (app: INestApplication) => {
       : await resolveAuthWithSource(token!);
     if (!auth && !(relay && selfHostedServer)) {
       res.status(401).json({ error: 'invalid_token', error_description: 'Could not resolve organization' });
+      return;
+    }
+
+    // 403, not 401: the token is fine, a 401 would send the client back
+    // through OAuth for nothing
+    const problem = subscriptionProblem(auth);
+    if (problem) {
+      res.status(403).json({ error: 'subscription_required', error_description: problem });
       return;
     }
 
@@ -413,19 +588,15 @@ export const startMcp = async (app: INestApplication) => {
       return;
     }
 
-    // @ts-ignore
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', '*');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Expose-Headers', '*');
+    if (mcpCors(req, res)) return;
 
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-      return;
-    }
-
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = extractBearerOrBareToken(req.headers.authorization);
     if (!token) {
+      // points OAuth clients at the metadata of this resource (RFC 9728)
+      res.setHeader(
+        'WWW-Authenticate',
+        generateWWWAuthenticateHeader({ resourceMetadataUrl: apiKeyResourceMetadataUrl })
+      );
       res.status(401).send('Missing Authorization header');
       return;
     }
@@ -435,7 +606,25 @@ export const startMcp = async (app: INestApplication) => {
     req.auth = resolved.auth;
     // @ts-ignore
     if (!req.auth) {
+      // RFC 6750: a wrong, rotated or revoked key or token
+      res.setHeader(
+        'WWW-Authenticate',
+        generateWWWAuthenticateHeader({
+          resourceMetadataUrl: apiKeyResourceMetadataUrl,
+          additionalParams: {
+            error: 'invalid_token',
+            error_description: 'Invalid API Key or OAuth token',
+          },
+        })
+      );
       res.status(401).send('Invalid API Key or OAuth token');
+      return;
+    }
+
+    // @ts-ignore
+    const problem = subscriptionProblem(req.auth);
+    if (problem) {
+      res.status(403).send(problem);
       return;
     }
 
@@ -458,22 +647,20 @@ export const startMcp = async (app: INestApplication) => {
   });
 
   app.use('/mcp/:id', async (req: Request, res: Response) => {
-    // @ts-ignore
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', '*');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Expose-Headers', '*');
-
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-      return;
-    }
+    if (mcpCors(req, res)) return;
 
     // @ts-ignore
     req.auth = await organizationService.getOrgByApiKey(req.params.id);
     // @ts-ignore
     if (!req.auth) {
       res.status(400).send('Invalid API Key');
+      return;
+    }
+
+    // @ts-ignore
+    const problem = subscriptionProblem(req.auth);
+    if (problem) {
+      res.status(403).send(problem);
       return;
     }
 
@@ -502,22 +689,20 @@ export const startMcp = async (app: INestApplication) => {
   });
 
   app.use(['/sse/:id', '/message/:id'], async (req: Request, res: Response) => {
-    // @ts-ignore
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', '*');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Expose-Headers', '*');
-
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-      return;
-    }
+    if (mcpCors(req, res)) return;
 
     // @ts-ignore
     req.auth = await organizationService.getOrgByApiKey(req.params.id);
     // @ts-ignore
     if (!req.auth) {
       res.status(400).send('Invalid API Key');
+      return;
+    }
+
+    // @ts-ignore
+    const problem = subscriptionProblem(req.auth);
+    if (problem) {
+      res.status(403).send(problem);
       return;
     }
 

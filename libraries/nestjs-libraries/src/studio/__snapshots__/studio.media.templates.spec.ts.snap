@@ -1,0 +1,287 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Studio picture and clip templates Before/after plans a wipe with the labels swapping, muted under music: filter 1`] = `"[0:v]setpts=PTS-STARTPTS,fps=30,tpad=stop_mode=clone:stop_duration=3.6,trim=duration=3.6,setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,format=yuv420p[side0];[1:v]setpts=PTS-STARTPTS,fps=30,tpad=stop_mode=clone:stop_duration=3.6,trim=duration=3.6,setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,format=yuv420p[side1];[side0][side1]xfade=transition=wiperight:duration=1.2:offset=2.4,ass=filename=labels.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[2:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=0:6,asetpts=PTS-STARTPTS,afade=t=out:st=4:d=2,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]"`;
+
+exports[`Studio picture and clip templates Before/after plans a wipe with the labels swapping, muted under music: labels.ass 1`] = `
+"[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Label,Montserrat ExtraBold,80,&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,8,80,80,300,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:03.00,Label,,0,0,0,,{\\fad(150,150)}Before
+Dialogue: 0,0:00:03.00,0:00:06.00,Label,,0,0,0,,{\\fad(150,150)}After
+"
+`;
+
+exports[`Studio picture and clip templates Before/after plans two halves stacked with a label on each: filter 1`] = `"[0:v]scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960:x=(iw-1080)*0.5:y=(ih-960)*0.5,setsar=1,loop=loop=179:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[side0];[1:v]setpts=PTS-STARTPTS,fps=30,tpad=stop_mode=clone:stop_duration=6,trim=duration=6,setpts=PTS-STARTPTS,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960:x=(iw-1080)*0.5:y=(ih-960)*0.5,setsar=1,format=yuv420p[side1];[side0][side1]vstack=inputs=2,ass=filename=labels.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[1:a]asetpts=PTS-STARTPTS,aresample=48000,apad,atrim=duration=6[aout]"`;
+
+exports[`Studio picture and clip templates Before/after plans two halves stacked with a label on each: inputs 1`] = `
+[
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "image2",
+    "-threads",
+    "2",
+    "-f",
+    "image2",
+    "-pattern_type",
+    "none",
+    "-framerate",
+    "30",
+    "-i",
+    "source-0.png",
+  ],
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "mov,mp4,m4a,3gp,3g2,mj2",
+    "-threads",
+    "2",
+    "-ss",
+    "2",
+    "-t",
+    "6",
+    "-i",
+    "source-1.mp4",
+  ],
+]
+`;
+
+exports[`Studio picture and clip templates Before/after plans two halves stacked with a label on each: labels.ass 1`] = `
+"[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Label,Montserrat ExtraBold,80,&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,8,80,80,300,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:06.00,Label,,0,0,0,,{\\an8\\pos(540,90)}Before
+Dialogue: 0,0:00:00.00,0:00:06.00,Label,,0,0,0,,{\\an8\\pos(540,1050)}After
+"
+`;
+
+exports[`Studio picture and clip templates Image slideshow cuts without a transition or a pan, with music: filter 1`] = `"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.2:y=(ih-1920)*0.5,setsar=1,loop=loop=89:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[s0];[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=74:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[s1];[2:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=119:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[s2];[s0][s1][s2]concat=n=3:v=1:a=0[slides];[slides]ass=filename=slides.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[3:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=0:9.5,asetpts=PTS-STARTPTS,afade=t=out:st=7.5:d=2,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]"`;
+
+exports[`Studio picture and clip templates Image slideshow plans the pan, the xfade chain and the slide texts: filter 1`] = `"[0:v]scale=1242:2208:force_original_aspect_ratio=increase,crop=1242:2208:x=(iw-1242)*0.2:y=(ih-2208)*0.5,setsar=1,loop=loop=89:size=1:start=0,settb=1/30,setpts=N,crop=1080:1920:x=(iw-ow)*t/3:y=(ih-oh)*t/3,format=yuv420p[s0];[1:v]scale=1242:2208:force_original_aspect_ratio=increase,crop=1242:2208:x=(iw-1242)*0.5:y=(ih-2208)*0.5,setsar=1,loop=loop=74:size=1:start=0,settb=1/30,setpts=N,crop=1080:1920:x=(iw-ow)*(1-t/2.5):y=(ih-oh)*(1-t/2.5),format=yuv420p[s1];[2:v]scale=1242:2208:force_original_aspect_ratio=increase,crop=1242:2208:x=(iw-1242)*0.5:y=(ih-2208)*0.5,setsar=1,loop=loop=119:size=1:start=0,settb=1/30,setpts=N,crop=1080:1920:x=(iw-ow)*t/4:y=(ih-oh)*t/4,format=yuv420p[s2];[s0][s1]xfade=transition=fade:duration=0.5:offset=2.5[x1];[x1][s2]xfade=transition=fade:duration=0.5:offset=4.5[x2];[x2]ass=filename=slides.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[3:a]anull[aout]"`;
+
+exports[`Studio picture and clip templates Image slideshow plans the pan, the xfade chain and the slide texts: inputs 1`] = `
+[
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "image2",
+    "-threads",
+    "2",
+    "-f",
+    "image2",
+    "-pattern_type",
+    "none",
+    "-framerate",
+    "30",
+    "-i",
+    "source-0.png",
+  ],
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "image2",
+    "-threads",
+    "2",
+    "-f",
+    "image2",
+    "-pattern_type",
+    "none",
+    "-framerate",
+    "30",
+    "-i",
+    "source-1.jpg",
+  ],
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "image2",
+    "-threads",
+    "2",
+    "-f",
+    "image2",
+    "-pattern_type",
+    "none",
+    "-framerate",
+    "30",
+    "-i",
+    "source-2.webp",
+  ],
+  [
+    "-f",
+    "lavfi",
+    "-t",
+    "8.5",
+    "-i",
+    "anullsrc=r=48000:cl=stereo",
+  ],
+]
+`;
+
+exports[`Studio picture and clip templates Image slideshow plans the pan, the xfade chain and the slide texts: slides.ass 1`] = `
+"[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Slide,Anton,100,&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,5,80,80,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:02.50,Slide,,0,0,0,,{\\fad(200,200)}First light
+Dialogue: 0,0:00:02.50,0:00:04.50,Slide,,0,0,0,,{\\fad(200,200)}Second
+"
+`;
+
+exports[`Studio picture and clip templates Music ducks the music under the sound of the clip and normalises it: filter 1`] = `"[0:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,ass=filename=hook.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=0:10,asetpts=PTS-STARTPTS,afade=t=out:st=8:d=2,volume=0.2[mixmusic];[0:a]asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asplit=2[mixvoice][mixkey];[mixmusic][mixkey]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=350[mixducked];[mixvoice][mixducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]"`;
+
+exports[`Studio picture and clip templates Quote card plans a colour background with the words fading in: filter 1`] = `"[0:v]setsar=1,ass=filename=quote.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[1:a]anull[aout]"`;
+
+exports[`Studio picture and clip templates Quote card plans a colour background with the words fading in: inputs 1`] = `
+[
+  [
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=0x1E3A8A:s=1080x1920:r=30:d=8",
+  ],
+  [
+    "-f",
+    "lavfi",
+    "-t",
+    "8",
+    "-i",
+    "anullsrc=r=48000:cl=stereo",
+  ],
+]
+`;
+
+exports[`Studio picture and clip templates Quote card plans a colour background with the words fading in: quote.ass 1`] = `
+"[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Quote,Montserrat ExtraBold,84,&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,5,80,80,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:08.00,Quote,,0,0,0,,{\\fad(0,300)}{\\alpha&HFF&\\t(0,300,\\alpha&H00&)}Make {\\alpha&HFF&\\t(180,480,\\alpha&H00&)}it {\\alpha&HFF&\\t(360,660,\\alpha&H00&)}work, {\\alpha&HFF&\\t(540,840,\\alpha&H00&)}then {\\alpha&HFF&\\t(720,1020,\\alpha&H00&)}make {\\alpha&HFF&\\t(900,1200,\\alpha&H00&)}it {\\alpha&HFF&\\t(1080,1380,\\alpha&H00&)}good\\N{\\fs50\\alpha&HFF&\\t(1260,1660,\\alpha&H00&)}— A builder
+"
+`;
+
+exports[`Studio picture and clip templates Quote card plans a dimmed picture or video background with music: filter 1`] = `"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.7:y=(ih-1920)*0.5,setsar=1,loop=loop=239:size=1:start=0,settb=1/30,setpts=N,drawbox=x=0:y=0:w=iw:h=ih:color=black@0.45:t=fill,ass=filename=quote.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=0:8,asetpts=PTS-STARTPTS,afade=t=out:st=6:d=2,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]"`;
+
+exports[`Studio picture and clip templates Top-N list counts up, and pictures only concat without sound under music: filter 1`] = `"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=59:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=104:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[v1];[2:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=89:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[v2];[v0][v1][v2]concat=n=3:v=1:a=0[list];[list]ass=filename=list.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[3:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=0:8.5,asetpts=PTS-STARTPTS,afade=t=out:st=6.5:d=2,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]"`;
+
+exports[`Studio picture and clip templates Top-N list plans every item numbered over a title, with the clip sound: filter 1`] = `"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=59:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[v0];anullsrc=r=48000:cl=stereo,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=duration=2[a0];[1:v]setpts=PTS-STARTPTS,fps=30,tpad=stop_mode=clone:stop_duration=3.5,trim=duration=3.5,setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,format=yuv420p[v1];[1:a]asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad,atrim=duration=3.5[a1];[2:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,loop=loop=89:size=1:start=0,settb=1/30,setpts=N,format=yuv420p[v2];anullsrc=r=48000:cl=stereo,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=duration=3[a2];[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[list][listaudio];[list]ass=filename=list.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[listaudio]asetpts=PTS-STARTPTS[aout]"`;
+
+exports[`Studio picture and clip templates Top-N list plans every item numbered over a title, with the clip sound: inputs 1`] = `
+[
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "image2",
+    "-threads",
+    "2",
+    "-f",
+    "image2",
+    "-pattern_type",
+    "none",
+    "-framerate",
+    "30",
+    "-i",
+    "source-0.png",
+  ],
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "mov,mp4,m4a,3gp,3g2,mj2",
+    "-threads",
+    "2",
+    "-ss",
+    "1",
+    "-t",
+    "3.5",
+    "-i",
+    "source-1.mp4",
+  ],
+  [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "image2",
+    "-threads",
+    "2",
+    "-f",
+    "image2",
+    "-pattern_type",
+    "none",
+    "-framerate",
+    "30",
+    "-i",
+    "source-2.jpg",
+  ],
+]
+`;
+
+exports[`Studio picture and clip templates Top-N list plans every item numbered over a title, with the clip sound: list.ass 1`] = `
+"[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Title,Montserrat ExtraBold,88,&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,8,80,80,300,1
+Style: Item,Montserrat ExtraBold,80,&H0000D4FF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,2,80,80,420,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:08.50,Title,,0,0,0,,Top 3 tools
+Dialogue: 0,0:00:00.00,0:00:02.00,Item,,0,0,0,,{\\fad(150,150)}#3 Hammer
+Dialogue: 0,0:00:02.00,0:00:05.50,Item,,0,0,0,,{\\fad(150,150)}#2 Saw
+Dialogue: 0,0:00:05.50,0:00:08.50,Item,,0,0,0,,{\\fad(150,150)}#1 Drill
+"
+`;

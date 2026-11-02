@@ -3,6 +3,7 @@ import { Activity, ActivityMethod } from 'nestjs-temporal-core';
 import { Context } from '@temporalio/activity';
 import { CancelledFailure } from '@temporalio/common';
 import { StudioService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.service';
+import { StudioAiService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.ai.service';
 import {
   setHeartbeatDetails,
   withHeartbeat,
@@ -14,7 +15,10 @@ import {
 @Injectable()
 @Activity()
 export class StudioActivity implements OnModuleInit {
-  constructor(private _studioService: StudioService) {}
+  constructor(
+    private _studioService: StudioService,
+    private _studioAiService: StudioAiService
+  ) {}
 
   // folders a worker that crashed mid render left behind
   async onModuleInit() {
@@ -50,6 +54,28 @@ export class StudioActivity implements OnModuleInit {
     });
   }
 
+  // What the template asks the workspace's own AI for (a voice, stills), made
+  // before the render on the main queue: it waits on the AI, not on the CPU,
+  // so it never holds a render slot. Heartbeats carry a cancel to the calls
+  @ActivityMethod()
+  async prepareStudioAiV1({ renderId }: { renderId: string }) {
+    const context = Context.current();
+    return withHeartbeat(async () => {
+      try {
+        setHeartbeatDetails('prepareStudioAiV1: generating');
+        await this._studioAiService.generateForRender(
+          renderId,
+          context.cancellationSignal
+        );
+      } catch (err) {
+        if (context.cancellationSignal.aborted) {
+          throw new CancelledFailure('The render was cancelled');
+        }
+        throw err;
+      }
+    });
+  }
+
   @ActivityMethod()
   async finishStudioRenderV1({ renderId }: { renderId: string }) {
     return this._studioService.finishRender(renderId);
@@ -69,5 +95,24 @@ export class StudioActivity implements OnModuleInit {
     cancelled?: boolean;
   }) {
     return this._studioService.failRender(renderId, error, customer, cancelled);
+  }
+
+  // The daily cleanup of studioCleanupWorkflowV1: stored music of deleted
+  // projects and music unused for a week, and render records older than 90
+  // days. STUDIO_CLEANUP_DISABLED=true switches it off, and the workflow then
+  // ends. Takes an empty object so fields can be added later
+  @ActivityMethod()
+  async cleanupStudioV1(_args: Record<string, never> = {}) {
+    if (process.env.STUDIO_CLEANUP_DISABLED === 'true') {
+      return { enabled: false, assets: 0, renders: 0 };
+    }
+    const context = Context.current();
+    const removed = await withHeartbeat(() =>
+      this._studioService.cleanup((details) => {
+        setHeartbeatDetails(`cleanupStudioV1: ${details}`);
+        context.heartbeat(details);
+      })
+    );
+    return { enabled: true, ...removed };
   }
 }

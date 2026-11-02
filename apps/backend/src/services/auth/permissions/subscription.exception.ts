@@ -16,6 +16,10 @@ import { MISSING_AI_KEY } from '@gitroom/nestjs-libraries/database/prisma/ai-cre
 const ASK_ADMIN_FOR_AI_KEY =
   'Ask a workspace admin to add an OpenAI key in Settings → AI.';
 
+// an admin-only action is about the member's role, never about paying
+export const ASK_ADMIN =
+  'Only workspace admins can do this. Ask a workspace admin.';
+
 @Catch(SubscriptionException)
 export class SubscriptionExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {
@@ -31,16 +35,30 @@ export class SubscriptionExceptionFilter implements ExceptionFilter {
     } = exception.getResponse() as any;
 
     const isMember = request?.org?.users?.[0]?.role === 'USER';
+
+    if (error.section === Sections.ADMIN) {
+      response.status(403).json({
+        statusCode: 403,
+        message: ASK_ADMIN,
+        section: error.section,
+      });
+      return;
+    }
+
     // a full plan that sells extra channels adds them instead of upgrading,
     // priced for the subscription's billing period
     const offer = error.extraChannels;
-    const message = offer
-      ? `You have used all ${offer.totalChannels} channels of your ${
-          offer.plan
-        } plan. Add extra channels for $${offer.price.toFixed(
-          offer.price % 1 ? 2 : 0
-        )} a ${offer.period === 'YEARLY' ? 'year' : 'month'} each.`
-      : getErrorMessage(error, isMember);
+    // a channel limit filled by channels to reconnect says that first
+    const message =
+      error.section === Sections.CHANNEL && error.message
+        ? error.message
+        : offer
+        ? `You have used all ${offer.totalChannels} channels of your ${
+            offer.plan
+          } plan. Add extra channels for $${offer.price.toFixed(
+            offer.price % 1 ? 2 : 0
+          )} a ${offer.period === 'YEARLY' ? 'year' : 'month'} each.`
+        : getErrorMessage(error, isMember);
 
     // AI is denied only when the workspace has no OpenAI key of its own, which
     // is fixed in Settings → AI, not by paying. A member gets no link, as the
@@ -106,6 +124,11 @@ const getErrorMessage = (
       switch (error.action) {
         default:
           return isMember ? ASK_ADMIN_FOR_AI_KEY : MISSING_AI_KEY;
+      }
+    case Sections.AUTO_POST:
+      switch (error.action) {
+        default:
+          return 'AutoPost is not included in your plan. Please upgrade your subscription to use AutoPost.';
       }
     case Sections.CLIPPING_MINUTES:
       switch (error.action) {

@@ -972,7 +972,7 @@ describe('StripeService cardless trial', () => {
     });
   });
 
-  it('does not remind when a card was added', async () => {
+  it('tells a trial with a card when it will be charged, not to add a card', async () => {
     mockStripe.customers.retrieve.mockResolvedValue({
       invoice_settings: { default_payment_method: 'pm_1' },
     });
@@ -985,7 +985,29 @@ describe('StripeService cardless trial', () => {
       })
     );
 
-    expect(notificationService.inAppNotification).not.toHaveBeenCalled();
+    const [, subject, email] =
+      notificationService.sendEmailsToOrgAdmins.mock.calls[0];
+    expect(subject).toBe('Your free trial ends soon');
+    expect(email).toContain('the card on file will then be charged');
+    expect(email).toContain('Starter');
+    expect(email).not.toContain('What a card keeps going');
+    expect(notificationService.inAppNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not tell a trial with a card that is set to cancel it will be charged', async () => {
+    mockStripe.customers.retrieve.mockResolvedValue({
+      invoice_settings: { default_payment_method: 'pm_1' },
+    });
+
+    await service.processWebhook(
+      subscriptionEvent('customer.subscription.trial_will_end', {
+        status: 'trialing',
+        trial_end: 1793664000,
+        cancel_at_period_end: true,
+        ...cardless,
+      })
+    );
+
     expect(notificationService.sendEmailsToOrgAdmins).not.toHaveBeenCalled();
   });
 
@@ -1988,90 +2010,6 @@ describe('extra channels', () => {
       expect(subscriptionService.deleteSubscription).toHaveBeenCalledWith(
         'cus_1',
         'stripe'
-      );
-    });
-  });
-
-  describe('refund preview', () => {
-    const now = Math.floor(Date.now() / 1000);
-    const charge = (id: string, amount: number, created: number) => ({
-      id: `ch_${id}`,
-      status: 'succeeded',
-      amount,
-      currency: 'usd',
-      created,
-      invoice: `in_${id}`,
-      amount_refunded: 0,
-    });
-    const line = (price: string) => ({
-      pricing: { price_details: { price, product: 'prod_x' } },
-    });
-    const invoices = (lines: Record<string, string[]>) =>
-      mockStripe.invoices.retrieve.mockImplementation(async (id: string) => ({
-        id,
-        billing_reason: 'subscription_update',
-        parent: { subscription_details: { subscription: 'sub_1' } },
-        lines: { data: (lines[id] || []).map(line) },
-      }));
-
-    beforeEach(() => {
-      subscriptionService.getSubscriptionByOrganizationId.mockResolvedValue({
-        subscriptionTier: 'ULTIMATE',
-        period: 'MONTHLY',
-      });
-      // the lookup of the extra channel prices
-      mockStripe.prices.list.mockResolvedValue({
-        data: [{ id: 'price_extra_month' }, { id: 'price_extra_year' }],
-      });
-    });
-
-    it('refunds a mid-month upgrade on a subscription without extra channels', async () => {
-      live(stripeSubscription({ items: { data: [planItem()] } }));
-      mockStripe.charges.list.mockResolvedValue({
-        data: [charge('upgrade', 4000, now), charge('cycle', 3900, now - 100)],
-      });
-      invoices({
-        in_upgrade: ['price_pro_month', 'price_ultimate_month'],
-        in_cycle: ['price_pro_month'],
-      });
-
-      expect(await service.chatbaseRefundPreview('org_1')).toEqual(
-        expect.objectContaining({ eligible: true, chargeId: 'ch_upgrade' })
-      );
-    });
-
-    it('refunds the first payment of a trial ended early', async () => {
-      live(stripeSubscription({ items: { data: [planItem()] } }));
-      mockStripe.charges.list.mockResolvedValue({
-        data: [charge('trial_end', 7900, now)],
-      });
-      invoices({ in_trial_end: ['price_ultimate_month'] });
-
-      expect(await service.chatbaseRefundPreview('org_1')).toEqual(
-        expect.objectContaining({
-          eligible: true,
-          chargeId: 'ch_trial_end',
-          amount: 79,
-        })
-      );
-    });
-
-    it('skips a charge for extra channels only and refunds the plan payment', async () => {
-      live(stripeSubscription({ items: { data: [planItem(), extraItem(5)] } }));
-      mockStripe.charges.list.mockResolvedValue({
-        data: [charge('extra', 500, now), charge('plan', 7900, now - 100)],
-      });
-      invoices({
-        in_extra: ['price_extra_month', 'price_extra_month'],
-        in_plan: ['price_ultimate_month', 'price_extra_month'],
-      });
-
-      expect(await service.chatbaseRefundPreview('org_1')).toEqual(
-        expect.objectContaining({
-          eligible: true,
-          chargeId: 'ch_plan',
-          amount: 79,
-        })
       );
     });
   });

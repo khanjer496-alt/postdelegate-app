@@ -11,7 +11,8 @@ import { HookOverClipDto } from '@gitroom/nestjs-libraries/dtos/studio/hook.over
 
 const HOOK_FILE = 'hook.ass';
 
-// TRIM → COVER → hook text that pops in and fades out → the clip's sound
+// TRIM → COVER → hook text that pops in and fades out → the clip's sound,
+// with the music under it when one is picked (MIX)
 @StudioTemplate({
   identifier: 'hook-over-clip',
   title: 'Hook over clip',
@@ -49,7 +50,7 @@ export class HookOverClipTemplate extends StudioTemplateAbstract<HookOverClipDto
   }
 
   plan(spec: HookOverClipDto, context: StudioPlanContext): StudioPlan {
-    const audio = this.audio(spec, context, 1);
+    const audio = this.audio(spec, context, 1, spec.music);
     return {
       inputs: [
         this.trimmedInput(spec, context.inputs[0].file),

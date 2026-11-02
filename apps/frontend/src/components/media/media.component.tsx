@@ -15,6 +15,7 @@ import { Button } from '@gitroom/react/form/button';
 import useSWR from 'swr';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { isAttachablePath } from '@gitroom/helpers/utils/valid.url.path';
 import { Media } from '@prisma/client';
 import { useMediaDirectory } from '@gitroom/react/helpers/use.media.directory';
 import { useSettings } from '@gitroom/frontend/components/launches/helpers/use.values';
@@ -22,7 +23,10 @@ import EventEmitter from 'events';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import clsx from 'clsx';
 import { VideoFrame } from '@gitroom/react/helpers/video.frame';
-import { useUppyUploader } from '@gitroom/frontend/components/media/new.uploader';
+import {
+  UploadProcessing,
+  useUppyUploader,
+} from '@gitroom/frontend/components/media/new.uploader';
 import dynamic from 'next/dynamic';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { AiImage } from '@gitroom/frontend/components/launches/ai.image';
@@ -252,6 +256,10 @@ export const MediaBox: FC<{
         ? 'image/jpeg,image/png'
         : type == 'video'
         ? 'video/mp4'
+        : standalone
+        ? // the library stores AVIF and BMP too, posts can't attach them
+          // (TIFF is left out: browsers can't preview it)
+          'image/*,image/avif,image/bmp,video/mp4'
         : 'image/*,video/mp4',
     onUploadSuccess: async (arr) => {
       await mutate();
@@ -281,7 +289,8 @@ export const MediaBox: FC<{
 
   const addRemoveSelected = useCallback(
     (media: any) => () => {
-      if (standalone) {
+      // AVIF / BMP stay in the library, a post refuses them
+      if (standalone || !isAttachablePath(media.path)) {
         return;
       }
       const exists = selected.find((p: any) => p.id === media.id);
@@ -508,6 +517,10 @@ export const MediaBox: FC<{
               {t(
                 'select_or_upload_pictures_max_1gb',
                 'Select or upload pictures (maximum 1 GB per upload).'
+              )}{' '}
+              {t(
+                'media_size_limits',
+                'Pictures up to 10 MB, videos up to 1 GB.'
               )}
             </div>
           )}
@@ -540,6 +553,7 @@ export const MediaBox: FC<{
               hideCancelButton={true}
               hideProgressAfterFinish={true}
             />
+            <UploadProcessing uppy={uppy} />
           </div>
           <div className="w-full h-[46px] uppyChange" />
         </div>
@@ -577,6 +591,10 @@ export const MediaBox: FC<{
                   {t(
                     'select_or_upload_pictures_max_1gb',
                     'Select or upload pictures (maximum 1 GB per upload).'
+                  )}{' '}
+                  {t(
+                    'media_size_limits',
+                    'Pictures up to 10 MB, videos up to 1 GB.'
                   )}{' '}
                   {'\n'}
                   {t(
@@ -621,8 +639,19 @@ export const MediaBox: FC<{
                 <div
                   className={clsx(
                     'group px-[3px] py-[3px] mobile:p-[6px] float-left rounded-[6px] w8-max mobile:!w-1/2 mobile:!max-w-[50%] aspect-square',
-                    !standalone && 'cursor-pointer'
+                    !standalone &&
+                      (isAttachablePath(media.path)
+                        ? 'cursor-pointer'
+                        : 'cursor-not-allowed opacity-50')
                   )}
+                  title={
+                    !standalone && !isAttachablePath(media.path)
+                      ? t(
+                          'media_library_only',
+                          'Library only: posts take PNG, JPG, GIF, WebP and MP4'
+                        )
+                      : undefined
+                  }
                   key={media.id}
                 >
                   <div
@@ -656,6 +685,11 @@ export const MediaBox: FC<{
                     >
                       {media.originalName}
                     </div>
+                    {!standalone && !isAttachablePath(media.path) && (
+                      <div className="absolute top-[10px] start-[10px] z-[100] rounded-[4px] px-[6px] text-[12px] bg-black/60 text-white">
+                        {t('library_only', 'Library only')}
+                      </div>
+                    )}
                     <div className="w-full h-full rounded-[6px] overflow-hidden relative">
                       <div className="absolute z-[20] left-[50%] top-[50%] -translate-x-[50%] -translate-y-[50%]">
                         <div
@@ -974,19 +1008,23 @@ export const MultiMediaComponent: FC<{
                     </div>
                   </div>
                 </div>
-                <div
-                  onClick={designMedia}
-                  className="cursor-pointer h-[30px] rounded-[6px] justify-center items-center flex bg-newColColor px-[8px] mobile:hidden"
-                >
-                  <div className="flex gap-[5px] items-center">
-                    <div>
-                      <DesignMediaIcon />
-                    </div>
-                    <div className="text-[10px] font-[600] iconBreak:hidden block">
-                      {t('design_media', 'Design Media')}
+                {/* the design editor opens only on a plan with it (none
+                    today), so the button shows only there */}
+                {!!user?.tier?.ai && !dummy && (
+                  <div
+                    onClick={designMedia}
+                    className="cursor-pointer h-[30px] rounded-[6px] justify-center items-center flex bg-newColColor px-[8px] mobile:hidden"
+                  >
+                    <div className="flex gap-[5px] items-center">
+                      <div>
+                        <DesignMediaIcon />
+                      </div>
+                      <div className="text-[10px] font-[600] iconBreak:hidden block">
+                        {t('design_media', 'Design Media')}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {!insertInContent && (
                   <ThirdPartyMedia allData={allData} onChange={changeMedia} />

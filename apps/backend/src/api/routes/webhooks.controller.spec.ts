@@ -37,7 +37,7 @@ describe('WebhookController.sendWebhook', () => {
 
     await expect(
       controller.sendWebhook({ a: 1 }, { url: 'https://8.8.8.8/hook' })
-    ).resolves.toEqual({ send: true });
+    ).resolves.toEqual({ send: true, status: 200 });
 
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
       method: 'POST',
@@ -57,5 +57,40 @@ describe('WebhookController.sendWebhook', () => {
     await controller.sendWebhook({ a: 1 }, { url: 'https://8.8.8.8/hook' });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an endpoint that refused the test', async () => {
+    fetchMock.mockResolvedValue(new Response('nope', { status: 500 }));
+    const controller = new WebhookController({} as any);
+
+    await expect(
+      controller.sendWebhook({ a: 1 }, { url: 'https://8.8.8.8/hook' })
+    ).resolves.toMatchObject({ send: false, status: 500 });
+  });
+
+  it('reports an endpoint that could not be reached', async () => {
+    fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
+    const controller = new WebhookController({} as any);
+
+    await expect(
+      controller.sendWebhook({ a: 1 }, { url: 'https://8.8.8.8/hook' })
+    ).resolves.toMatchObject({ send: false });
+  });
+});
+
+describe('WebhookController.updateWebhook', () => {
+  it('updates through the service, never creates', async () => {
+    const service = {
+      createWebhook: jest.fn(),
+      updateWebhook: jest.fn(async () => ({ id: 'w1' })),
+    };
+    const controller = new WebhookController(service as any);
+    const body = { id: 'w1', name: 'n', url: 'https://8.8.8.8', integrations: [] };
+
+    await expect(
+      controller.updateWebhook({ id: 'org-1' } as any, body as any)
+    ).resolves.toEqual({ id: 'w1' });
+    expect(service.updateWebhook).toHaveBeenCalledWith('org-1', body);
+    expect(service.createWebhook).not.toHaveBeenCalled();
   });
 });

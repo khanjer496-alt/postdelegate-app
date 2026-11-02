@@ -175,3 +175,62 @@ describe('ClientIp', () => {
     }
   });
 });
+
+describe('ThrottlerBehindProxyGuard', () => {
+  // starting a Studio render is capped per workspace like creating posts;
+  // reading or cancelling a render is not
+  it('limits starting Studio renders and nothing else of Studio', async () => {
+    const { Controller, Get, Param, Post } = await import('@nestjs/common');
+    const { APP_GUARD } = await import('@nestjs/core');
+    const { Test } = await import('@nestjs/testing');
+    const { Throttle, ThrottlerModule } = await import('@nestjs/throttler');
+    const { ThrottlerBehindProxyGuard } = await import('./throttler.provider');
+
+    @Controller('/public/v1')
+    class StudioRoutes {
+      @Throttle({ default: { limit: 2, ttl: 60000 } })
+      @Post('/studio/renders')
+      start() {
+        return { id: 'render-1' };
+      }
+
+      @Get('/studio/renders/:id')
+      get(@Param('id') id: string) {
+        return { id };
+      }
+
+      @Post('/studio/renders/:id/cancel')
+      cancel(@Param('id') id: string) {
+        return { id };
+      }
+    }
+
+    const module = await Test.createTestingModule({
+      imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 1 }])],
+      controllers: [StudioRoutes],
+      providers: [{ provide: APP_GUARD, useClass: ThrottlerBehindProxyGuard }],
+    }).compile();
+    const app = module.createNestApplication();
+    await app.listen(0, '127.0.0.1');
+    const base = (await app.getUrl()).replace('[::1]', '127.0.0.1');
+    const call = async (method: string, path: string) =>
+      (await fetch(base + path, { method })).status;
+
+    try {
+      expect(await call('POST', '/public/v1/studio/renders')).toBe(201);
+      expect(await call('POST', '/public/v1/studio/renders')).toBe(201);
+      expect(await call('POST', '/public/v1/studio/renders')).toBe(429);
+      // the default limit is 1, so these would be refused if they were counted
+      for (let i = 0; i < 3; i++) {
+        expect(await call('GET', '/public/v1/studio/renders/render-1')).toBe(
+          200
+        );
+        expect(
+          await call('POST', '/public/v1/studio/renders/render-1/cancel')
+        ).toBe(201);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+});

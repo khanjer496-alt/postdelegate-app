@@ -78,6 +78,13 @@ export class PublicAuthMiddleware implements NestMiddleware {
       const overrideOrgId = (req.headers['x-postiz-org'] as string)?.trim();
 
       if (overrideOrgId) {
+        // acting as another organization is part of the operator-only API,
+        // which does not exist unless ENABLE_SUPER_ADMIN_API=true
+        if (process.env.ENABLE_SUPER_ADMIN_API !== 'true') {
+          res.status(HttpStatus.NOT_FOUND).json({ msg: 'Not Found' });
+          return;
+        }
+
         if (
           isOAuthApp ||
           !(await this._organizationService.canUseSuperAdminApi(org.id))

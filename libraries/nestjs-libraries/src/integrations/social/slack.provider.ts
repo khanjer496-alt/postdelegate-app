@@ -16,6 +16,31 @@ import { Integration } from '@prisma/client';
 import { SlackDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/slack.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 
+// Slack cuts a message at 40,000 characters and recommends at most 4,000,
+// the limit the composer and the site use too. A section block holds at most
+// 3,000 of them.
+const SLACK_MAX_LENGTH = 4000;
+const SLACK_SECTION_LENGTH = 3000;
+
+// what the user is told for the errors a post can get from chat.postMessage
+const SLACK_ERRORS: Record<string, string> = {
+  channel_not_found:
+    'Slack could not find the channel, pick the channel again in the settings',
+  not_in_channel:
+    'The app is not in this Slack channel, invite it to the channel and try again',
+  is_archived: 'The Slack channel is archived, pick another channel',
+  msg_too_long: 'The message is too long for Slack',
+  no_text: 'The post is empty, add a text or a picture',
+  invalid_blocks:
+    'Slack could not show the post, check that the pictures are public PNG, JPG or GIF files',
+  invalid_blocks_format:
+    'Slack could not show the post, check that the pictures are public PNG, JPG or GIF files',
+  restricted_action:
+    'The Slack workspace does not allow the app to post in this channel',
+  thread_not_found:
+    'The Slack message to reply to no longer exists, so the reply was not sent',
+};
+
 export class SlackProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 10; // Slack limits are per workspace
   identifier = 'slack';
@@ -47,7 +72,49 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
   }
 
   maxLength() {
-    return 400000;
+    return SLACK_MAX_LENGTH;
+  }
+
+  // the text in sections of at most 3,000 characters (cut at a line break or
+  // a space when there is one), no section when there is no text, then the
+  // pictures
+  blocks(message: string, media: PostDetails['media']) {
+    const sections: string[] = [];
+    let rest = (message || '').trim();
+    while (rest.length) {
+      if (rest.length <= SLACK_SECTION_LENGTH) {
+        sections.push(rest);
+        break;
+      }
+
+      const window = rest.slice(0, SLACK_SECTION_LENGTH);
+      const breakAt = Math.max(window.lastIndexOf('\n'), window.lastIndexOf(' '));
+      let end = breakAt > SLACK_SECTION_LENGTH / 2 ? breakAt : SLACK_SECTION_LENGTH;
+      // never split an emoji (a surrogate pair) in two
+      const code = rest.charCodeAt(end - 1);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        end -= 1;
+      }
+      sections.push(rest.slice(0, end).trim());
+      rest = rest.slice(end).trim();
+    }
+
+    return [
+      ...sections
+        .filter((text) => text.length)
+        .map((text) => ({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text,
+          },
+        })),
+      ...(media || []).map((m) => ({
+        type: 'image',
+        image_url: m.path,
+        alt_text: (m.alt || '').slice(0, 2000),
+      })),
+    ];
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokenDetails> {
@@ -132,22 +199,42 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
     dataSchema: [],
   })
   async channels(accessToken: string, params: any, id: string) {
-    const list = await (
-      await fetch(
-        `https://slack.com/api/conversations.list?types=public_channel,private_channel`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      )
-    ).json();
+    // conversations.list pages its answer (100 by default): read every page,
+    // archived channels can't be posted to. A rate limit part way keeps the
+    // channels read so far.
+    const channels: { id: string; name: string }[] = [];
+    let cursor = '';
+    do {
+      const list = await (
+        await fetch(
+          `https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=1000${
+            cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
+          }`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        )
+      ).json();
+      if (list?.error === 'ratelimited' && channels.length) {
+        break;
+      }
+      this.checkApiError(list);
 
-    return list.channels.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-    }));
+      channels.push(
+        ...(list.channels || [])
+          .filter((p: any) => !p.is_archived)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name,
+          }))
+      );
+      cursor = list.response_metadata?.next_cursor || '';
+    } while (cursor);
+
+    return channels;
   }
 
   // Slack answers HTTP 200 with { ok: false, error } on failures, so the post
@@ -158,8 +245,11 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
     }
     const json = JSON.stringify(all);
     const message =
-      [all.error, ...(all.errors || [])].filter(Boolean).join(': ') ||
-      'Slack rejected the request';
+      SLACK_ERRORS[all.error] ||
+      `Slack rejected the post: ${
+        [all.error, ...(all.errors || [])].filter(Boolean).join(': ') ||
+        'unknown error'
+      }`;
     if (
       [
         'invalid_auth',
@@ -209,22 +299,7 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
           channel,
           username: integration.name,
           icon_url: integration.picture,
-          blocks: [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: firstPost.message,
-              },
-            },
-            ...(firstPost.media?.length
-              ? firstPost.media.map((m) => ({
-                  type: 'image',
-                  image_url: m.path,
-                  alt_text: '',
-                }))
-              : []),
-          ],
+          blocks: this.blocks(firstPost.message, firstPost.media),
         }),
       })
     ).json();
@@ -279,22 +354,7 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
           username: integration.name,
           icon_url: integration.picture,
           thread_ts: threadTs,
-          blocks: [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: commentPost.message,
-              },
-            },
-            ...(commentPost.media?.length
-              ? commentPost.media.map((m) => ({
-                  type: 'image',
-                  image_url: m.path,
-                  alt_text: '',
-                }))
-              : []),
-          ],
+          blocks: this.blocks(commentPost.message, commentPost.media),
         }),
       })
     ).json();

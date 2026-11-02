@@ -10,6 +10,10 @@ import { isIP } from 'net';
 const isPublicComment = (method: string, url: string) =>
   method === 'POST' && /^\/public\/posts\/[^/]+\/comments/.test(url);
 
+// Starting a Studio render, not cancelling one
+const isStudioRender = (method: string, url: string) =>
+  method === 'POST' && /\/public\/v1\/studio\/renders\/?(\?.*)?$/.test(url);
+
 // Internal hops (the nginx inside the container, Caddy or another reverse
 // proxy on the same host or Docker network) are never the visitor
 const isPrivateIp = (ip: string) => {
@@ -115,6 +119,7 @@ export class ThrottlerBehindProxyGuard extends ThrottlerGuard {
     const { url, method } = context.switchToHttp().getRequest<Request>();
     if (
       (method === 'POST' && url.includes('/public/v1/posts')) ||
+      isStudioRender(method, url) ||
       isPublicComment(method, url)
     ) {
       return super.canActivate(context);

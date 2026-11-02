@@ -307,14 +307,18 @@ export const StudioEditor: FC<{
 
       <div className="flex-1 min-w-0 flex flex-col gap-[18px]">
         <div className="flex flex-wrap items-center gap-[10px]">
-          <input
-            value={name}
-            maxLength={100}
-            aria-label={t('studio_project_name', 'Project name')}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={rename}
-            className="flex-1 min-w-[200px] h-[42px] bg-transparent text-[20px] font-[600] text-textColor outline-none border-b border-transparent focus:border-newTableBorder"
-          />
+          <label className="flex-1 min-w-[200px] flex flex-col">
+            <span className="text-[12px] text-textItemBlur">
+              {t('studio_project_title', 'Project title')}
+            </span>
+            <input
+              value={name}
+              maxLength={100}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={rename}
+              className="w-full h-[42px] bg-transparent text-[20px] leading-[1.4] font-[600] text-textColor outline-none border-b border-transparent focus:border-newTableBorder"
+            />
+          </label>
           {!!template && (
             <span className="text-[13px] text-textItemBlur px-[10px] py-[4px] rounded-full bg-newBgLineColor">
               {template.title}

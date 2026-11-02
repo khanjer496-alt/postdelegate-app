@@ -111,3 +111,53 @@ describe('AuthController referral cookie', () => {
     }
   );
 });
+
+describe('AuthController invite cookie', () => {
+  const response = () => {
+    const res: any = {
+      cookie: jest.fn(),
+      clearCookie: jest.fn(),
+      header: jest.fn(),
+      json: jest.fn(),
+      send: jest.fn(),
+    };
+    res.status = jest.fn(() => res);
+    return res;
+  };
+  const login = (addedOrg: unknown) =>
+    new AuthController(
+      {
+        getOrgFromCookie: jest.fn(() => ({ id: 'i1', orgId: 'o1', role: 'USER' })),
+        routeAuth: jest.fn(async () => ({ jwt: 'jwt', addedOrg })),
+      } as any,
+      {} as any
+    );
+
+  it.each([
+    ['joined', { organizationId: 'o1' }],
+    ['already a member', { failed: 'already_member' }],
+    ['refused', { failed: 'wrong_email' }],
+  ])('spends the invite cookie on a sign in that %s', async (_, addedOrg) => {
+    const res = response();
+    await login(addedOrg).login(
+      { cookies: { org: 'invite-token' } } as any,
+      { provider: 'LOCAL' } as any,
+      res,
+      '1.1.1.1',
+      'agent'
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith('org', expect.objectContaining({ path: '/' }));
+  });
+
+  it('does not warn a member that their accepted invite was used', async () => {
+    const res = response();
+    await login({ failed: 'already_member' }).login(
+      { cookies: { org: 'invite-token' } } as any,
+      { provider: 'LOCAL' } as any,
+      res,
+      '1.1.1.1',
+      'agent'
+    );
+    expect(res.cookie).not.toHaveBeenCalledWith('invite_error', expect.anything(), expect.anything());
+  });
+});

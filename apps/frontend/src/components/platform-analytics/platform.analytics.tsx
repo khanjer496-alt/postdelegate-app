@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { useCallback, useMemo, useState } from 'react';
-import { capitalize, orderBy } from 'lodash';
+import { capitalize, orderBy, uniq } from 'lodash';
 import clsx from 'clsx';
 import ImageWithFallback from '@gitroom/react/helpers/image.with.fallback';
 import SafeImage from '@gitroom/react/helpers/safe.image';
@@ -33,6 +33,17 @@ const allowedIntegrations = [
   'x',
   'x-own-key',
 ];
+// the networks this server can connect right now (GET /integrations), so
+// the empty state never lists one that can't be added
+const useConnectableIntegrations = () => {
+  const fetch = useFetch();
+  return useSWR<{ identifier: string; name: string }[]>(
+    'analytics-connectable-integrations',
+    async () => (await (await fetch('/integrations')).json())?.social || [],
+    { revalidateOnFocus: false, fallbackData: [] }
+  );
+};
+
 export const PlatformAnalytics = () => {
   const fetch = useFetch();
   const t = useT();
@@ -64,6 +75,22 @@ export const PlatformAnalytics = () => {
     refreshWhenOffline: false,
     fallbackData: [],
   });
+  const { data: connectable } = useConnectableIntegrations();
+  const supportedNames = useMemo(
+    () =>
+      uniq(
+        (Array.isArray(connectable) ? connectable : [])
+          .filter(
+            (p) =>
+              allowedIntegrations.includes(p.identifier) &&
+              !(
+                ['x', 'x-own-key'].includes(p.identifier) && disableXAnalytics
+              )
+          )
+          .map((p) => p.name || capitalize(p.identifier))
+      ),
+    [connectable, disableXAnalytics]
+  );
   const sortedIntegrations = useMemo(() => {
     return orderBy(
       data,
@@ -171,10 +198,11 @@ export const PlatformAnalytics = () => {
             'You have to add Social Media channels'
           )}
         </div>
-        <div className="text-[20px]">
-          {t('supported', 'Supported:')}
-          {allowedIntegrations.map((p) => capitalize(p)).join(', ')}
-        </div>
+        {!!supportedNames.length && (
+          <div className="text-[20px]">
+            {t('supported', 'Supported:')} {supportedNames.join(', ')}
+          </div>
+        )}
         <Button onClick={() => router.push('/launches')}>
           {t(
             'go_to_the_calendar_to_add_channels',

@@ -71,4 +71,15 @@ describe('RefreshIntegrationService soft refresh', () => {
     expect(integrationService.refreshNeeded).toHaveBeenCalledWith('org-A', 'int-1', 'old');
     expect(integrationService.informAboutRefreshError).toHaveBeenCalled();
   });
+
+  it('does not notify again when the channel was already flagged', async () => {
+    const { service, integrationService } = make(
+      jest.fn().mockResolvedValue({ accessToken: '' })
+    );
+    integrationService.refreshNeeded.mockResolvedValue({ count: 0 });
+
+    expect(await service.refresh(integration)).toBe(false);
+    expect(integrationService.refreshNeeded).toHaveBeenCalled();
+    expect(integrationService.informAboutRefreshError).not.toHaveBeenCalled();
+  });
 });

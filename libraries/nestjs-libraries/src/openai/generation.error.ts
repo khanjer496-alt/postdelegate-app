@@ -6,7 +6,7 @@ const SAFETY_VIOLATIONS_REGEX = /safety_violations=\[([^\]]*)\]/i;
 // Match genuine content-safety rejections by message, NOT by a bare 400 status:
 // a 400 can just as easily be an invalid-parameter error, which must not be
 // reported to the user as a safety violation.
-const SAFETY_MESSAGE_REGEX =
+export const SAFETY_MESSAGE_REGEX =
   /safety system|safety_violations|content[ _]policy|rejected as a result of our safety|moderation/i;
 
 /**

@@ -3,18 +3,18 @@ import { JSONSchema } from 'class-validator-jsonschema';
 import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
 export class WhopDto {
-  @MinLength(1)
-  @IsDefined()
-  @IsString()
+  @MinLength(1, { message: 'Choose a Whop company' })
+  @IsDefined({ message: 'Choose a Whop company' })
+  @IsString({ message: 'Choose a Whop company' })
   @JSONSchema({
     description: 'Company ID',
   })
   @ComposerOnly()
   company: string;
 
-  @MinLength(1)
-  @IsDefined()
-  @IsString()
+  @MinLength(1, { message: 'Choose a Whop forum' })
+  @IsDefined({ message: 'Choose a Whop forum' })
+  @IsString({ message: 'Choose a Whop forum' })
   @JSONSchema({
     description: 'Experience ID for the Whop forum',
   })
@@ -22,6 +22,6 @@ export class WhopDto {
   experience: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'The title must be text' })
   title?: string;
 }

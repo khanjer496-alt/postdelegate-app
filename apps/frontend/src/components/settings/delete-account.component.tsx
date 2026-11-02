@@ -10,10 +10,13 @@ import { setCookie } from '@gitroom/frontend/components/layout/layout.context';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { TrashIcon } from '@gitroom/frontend/components/ui/icons';
+import { areYouSure } from '@gitroom/frontend/components/layout/new-modal';
 
 interface DeleteAccountInfo {
   hasSubscription: boolean;
   hasAdditionalMembers: boolean;
+  // workspaces other people use that only this account owns
+  sharedWorkspaces?: string[];
 }
 
 export const useDeleteAccountInfo = () => {
@@ -43,6 +46,28 @@ const DeleteAccountComponent: FC<{ isLink?: boolean }> = ({ isLink }) => {
 
   const deleteAccount = useCallback(async () => {
     const info = await mutate();
+    // a shared workspace stays with its members, someone else owns it first
+    if (info?.sharedWorkspaces?.length) {
+      const names = info.sharedWorkspaces;
+      await areYouSure({
+        title: t('delete_account_blocked_title', 'Transfer your workspace first'),
+        description: t(
+          'delete_account_blocked',
+          'You own {{workspaces}} and other people use it. Make another member the owner in Settings → Team, or remove the other members, then delete your account.',
+          {
+            workspaces:
+              names.length === 1
+                ? names[0]
+                : `${names.slice(0, -1).join(', ')} ${t('and', 'and')} ${
+                    names[names.length - 1]
+                  }`,
+          }
+        ),
+        approveLabel: t('ok', 'OK'),
+        onlyApprove: true,
+      });
+      return;
+    }
     const message =
       info?.hasSubscription && info?.hasAdditionalMembers
         ? t(

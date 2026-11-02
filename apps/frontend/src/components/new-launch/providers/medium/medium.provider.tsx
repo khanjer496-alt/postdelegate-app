@@ -19,7 +19,6 @@ const MediumSettings: FC = () => {
   return (
     <>
       <Input label="Title" {...form.register('title')} />
-      <Input label="Subtitle" {...form.register('subtitle')} />
       <Canonical
         date={date}
         label="Canonical Link"
@@ -37,6 +36,8 @@ const MediumSettings: FC = () => {
 export default withProvider({
   postComment: PostComment.POST,
   minimumCharacters: [],
+  // no follow-ups: the network has no comment endpoint, they would be dropped
+  comments: false,
   SettingsComponent: MediumSettings,
   CustomPreviewComponent: undefined, //MediumPreview,
   dto: MediumSettingsDto,

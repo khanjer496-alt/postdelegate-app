@@ -27,6 +27,7 @@ model Organization {
   clippings           Clipping[]
   studioProjects      StudioProject[]
   studioRenders       StudioRender[]
+  studioAssets        StudioAsset[]
   customers           Customer[]
   errors              Errors[]
   github              GitHub[]
@@ -353,11 +354,14 @@ model StudioProject {
   name           String
   template       String
   spec           String
+  // "api" for a project an assistant or the public API made, null for the app
+  source         String?
   deletedAt      DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   organization   Organization   @relation(fields: [organizationId], references: [id])
   renders        StudioRender[]
+  assets         StudioAsset[]
 
   @@index([organizationId, deletedAt])
 }
@@ -368,7 +372,7 @@ model StudioRender {
   id             String        @id @default(uuid())
   organizationId String
   projectId      String
-  // queued | rendering | uploading | completed | failed | cancelled
+  // queued | generating | rendering | uploading | completed | failed | cancelled
   status         String        @default("queued")
   progress       Int           @default(0)
   seconds        Int
@@ -385,6 +389,33 @@ model StudioRender {
   @@index([organizationId, createdAt])
   @@index([projectId])
   @@index([status])
+}
+
+// A file of a Studio project that is not a Media row, so the media library
+// and the composer never show it: music the workspace uploaded, and the
+// voices and stills its own AI key made (kind voice or image). "projectId" is
+// the project whose settings use it; one no project uses is removed with its
+// stored file after 7 days, and with the project when that is deleted
+model StudioAsset {
+  id             String         @id @default(uuid())
+  organizationId String
+  projectId      String?
+  kind           String         @default("music")
+  name           String
+  path           String
+  originalName   String?
+  // a voice or still Studio's AI made on the workspace's key (kind voice or
+  // image): the hash of what it was made from, and for a voice its length
+  // and word times, as JSON
+  data           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  project        StudioProject? @relation(fields: [projectId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([updatedAt])
 }
 
 model ClippingClip {

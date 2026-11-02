@@ -106,6 +106,37 @@ export class PermissionsService {
     );
   }
 
+  // whether the plan allows a section, for a check that depends on the
+  // request body or the provider's answer (always with billing off)
+  async allows(orgId: string, created_at: Date, section: Sections) {
+    return (
+      await this.check(orgId, created_at, 'SUPERADMIN', [
+        [AuthorizationActions.Create, section],
+      ])
+    ).can(AuthorizationActions.Create, section);
+  }
+
+  // whether one more channel fits the plan
+  canAddChannel(orgId: string, created_at: Date) {
+    return this.allows(orgId, created_at, Sections.CHANNEL);
+  }
+
+  // When channels that need a reconnect or are turned off fill the plan's
+  // slots, fixing or removing one of those comes before upgrading
+  async channelLimitMessage(orgId: string) {
+    const stuck = (
+      await this._integrationService.getIntegrationsList(orgId)
+    ).filter((channel) => channel.refreshNeeded || channel.disabled).length;
+    if (!stuck) {
+      return undefined;
+    }
+    return `All the channels of your plan are in use, and ${stuck} of them ${
+      stuck === 1 ? 'needs' : 'need'
+    } a reconnect or ${
+      stuck === 1 ? 'is' : 'are'
+    } turned off. Reconnect or remove a channel first, or upgrade your plan to add more channels.`;
+  }
+
   async check(
     orgId: string,
     created_at: Date,
@@ -168,9 +199,11 @@ export class PermissionsService {
           }
         }
 
+        // every channel the workspace keeps counts, also one that waits to
+        // be reconnected or is turned off
         const totalChannels = (
           await this._integrationService.getIntegrationsList(orgId)
-        ).filter((f) => !f.refreshNeeded).length;
+        ).length;
 
         if (
           (options.channel && options.channel > totalChannels) ||
@@ -234,6 +267,11 @@ export class PermissionsService {
         section === Sections.ANALYTICS_REPORTS &&
         options.analytics_reports
       ) {
+        can(action, section);
+        continue;
+      }
+
+      if (section === Sections.AUTO_POST && options.autoPost) {
         can(action, section);
         continue;
       }

@@ -11,6 +11,23 @@ jest.mock(
   () => ({ OrganizationRepository: class {} })
 );
 jest.mock('nestjs-temporal-core', () => ({ TemporalService: class {} }));
+jest.mock('@gitroom/nestjs-libraries/redis/redis.service', () => {
+  const keys = new Set<string>();
+  return {
+    ioRedis: {
+      keys,
+      // honours NX like Redis does
+      set: jest.fn(async (key: string, ...args: string[]) => {
+        if (args.includes('NX') && keys.has(key)) {
+          return null;
+        }
+        keys.add(key);
+        return 'OK';
+      }),
+      del: jest.fn(async (key: string) => keys.delete(key)),
+    },
+  };
+});
 jest.mock('@temporalio/activity', () => ({
   Context: {
     current: () => ({
@@ -322,5 +339,74 @@ describe('NotificationService digest queue', () => {
     expect(entry.provider).toBeUndefined();
     expect(entry.publishedLabel).toBeUndefined();
     expect(entry.message).not.toContain('youtu.be');
+  });
+});
+
+describe('NotificationService turned off channel notices', () => {
+  const { ioRedis } = require('@gitroom/nestjs-libraries/redis/redis.service');
+  const repo = {
+    getPostNotificationContext: jest.fn().mockResolvedValue({
+      id: 'p1',
+      integrationId: 'i1',
+      deletedAt: null,
+      settings: '{}',
+      integration: { providerIdentifier: 'x', deletedAt: null },
+    }),
+    createScopedNotification: jest.fn().mockResolvedValue(true),
+  };
+  const organizations = {
+    getAllUsersOrgs: jest.fn().mockResolvedValue({
+      users: [
+        { user: { email: 'wants@example.com', sendFailureEmails: true } },
+        { user: { email: 'opted-out@example.com', sendFailureEmails: false } },
+      ],
+    }),
+  };
+  const emails = { sendEmail: jest.fn() };
+  const disabledService = new NotificationService(
+    repo as any,
+    emails as any,
+    organizations as any,
+    {} as any,
+    { getSocialIntegration: () => ({ identifier: 'x', name: 'X' }) } as any
+  );
+  const held = () =>
+    disabledService.inAppNotification(
+      'org-paused',
+      "We couldn't post to x for My X",
+      "We couldn't post to x for My X because it's disabled. Please enable it and try again.",
+      true,
+      false,
+      'info'
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ioRedis.keys.clear();
+  });
+
+  it('emails one notice a day however many posts were held', async () => {
+    await held();
+    await held();
+    await held();
+
+    expect(emails.sendEmail).toHaveBeenCalledTimes(1);
+    // every held post still shows in the app
+    expect(repo.createScopedNotification).toHaveBeenCalledTimes(3);
+  });
+
+  it('tries again with the next held post when the notice could not be sent', async () => {
+    emails.sendEmail.mockRejectedValueOnce(new Error('smtp down'));
+    await expect(held()).rejects.toThrow('smtp down');
+    await held();
+    // the failed attempt and the retry
+    expect(emails.sendEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it('respects the failure email preference', async () => {
+    await held();
+    expect(emails.sendEmail.mock.calls.map((call) => call[0])).toEqual([
+      'wants@example.com',
+    ]);
   });
 });

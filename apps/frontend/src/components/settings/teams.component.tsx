@@ -118,6 +118,7 @@ export const TeamsComponent = () => {
   const user = useUser();
   const modals = useModals();
   const t = useT();
+  const toaster = useToaster();
   const myLevel = user?.role === 'USER' ? 0 : user?.role === 'ADMIN' ? 1 : 2;
   const getLevel = useCallback(
     (role: 'USER' | 'ADMIN' | 'SUPERADMIN') =>
@@ -128,6 +129,7 @@ export const TeamsComponent = () => {
     return (await (await fetch('/settings/team')).json()).users as Array<{
       id: string;
       role: 'SUPERADMIN' | 'ADMIN' | 'USER';
+      disabled?: boolean;
       user: {
         email: string;
         id: string;
@@ -163,13 +165,80 @@ export const TeamsComponent = () => {
         ) {
           return;
         }
-        await fetch(`/settings/team/${toRemove.user.id}`, {
+        const response = await fetch(`/settings/team/${toRemove.user.id}`, {
           method: 'DELETE',
         });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          toaster.show(
+            typeof body?.message === 'string' && body.message
+              ? body.message
+              : t('could_not_remove_member', 'Could not remove this member'),
+            'warning'
+          );
+        }
         await mutate();
       },
     [t]
   );
+
+  // a Super Admin hands the workspace to another member, or steps down to
+  // Admin once someone else owns it. Billing stays with the workspace
+  const changeRole = useCallback(
+    (member: { user: { id: string; email: string } }, role: 'SUPERADMIN' | 'ADMIN') =>
+      async () => {
+        const self = member.user.id === user?.id;
+        if (
+          !(await deleteDialog(
+            role === 'SUPERADMIN'
+              ? t(
+                  'make_owner_confirm',
+                  '{{email}} becomes a Super Admin and can manage the team and billing. Billing stays with the workspace. The new owner can update the card in Billing.',
+                  { email: member.user.email }
+                )
+              : t(
+                  'step_down_confirm',
+                  'You become an Admin of this workspace. The other Super Admin keeps owning it and its billing.'
+                ),
+            role === 'SUPERADMIN'
+              ? t('make_owner', 'Make owner')
+              : t('step_down', 'Step down to Admin'),
+            role === 'SUPERADMIN'
+              ? t('make_owner_title', 'Make this member an owner?')
+              : t('step_down_title', 'Step down to Admin?'),
+            t('cancel', 'Cancel'),
+            false
+          ))
+        ) {
+          return;
+        }
+        const response = await fetch(`/settings/team/${member.user.id}/role`, {
+          method: 'PUT',
+          body: JSON.stringify({ role }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          toaster.show(
+            typeof body?.message === 'string' && body.message
+              ? body.message
+              : t('could_not_change_role', 'Could not change the role'),
+            'warning'
+          );
+          return;
+        }
+        // stepping down changes what this page shows you
+        if (self) {
+          window.location.reload();
+          return;
+        }
+        toaster.show(t('owner_added', 'Owner added'), 'success');
+        await mutate();
+      },
+    [t, user?.id]
+  );
+  const superAdmins = (data || []).filter(
+    (p) => p.role === 'SUPERADMIN' && !p.disabled
+  ).length;
 
   return (
     <div className="flex flex-col">
@@ -194,6 +263,30 @@ export const TeamsComponent = () => {
                   ? t('admin', 'Admin')
                   : t('super_admin', 'Super Admin')}
               </div>
+              {user?.role === 'SUPERADMIN' && (
+                <div className="flex-1 flex justify-end gap-[8px]">
+                  {p.role !== 'SUPERADMIN' && !p.disabled && (
+                    <Button
+                      className="!h-[24px] rounded-[4px] text-[12px]"
+                      onClick={changeRole(p, 'SUPERADMIN')}
+                      secondary={true}
+                    >
+                      {t('make_owner', 'Make owner')}
+                    </Button>
+                  )}
+                  {p.role === 'SUPERADMIN' &&
+                    p.user.id === user?.id &&
+                    superAdmins > 1 && (
+                      <Button
+                        className="!h-[24px] rounded-[4px] text-[12px]"
+                        onClick={changeRole(p, 'ADMIN')}
+                        secondary={true}
+                      >
+                        {t('step_down', 'Step down to Admin')}
+                      </Button>
+                    )}
+                </div>
+              )}
               {+myLevel > +getLevel(p.role) ? (
                 <div className="flex-1 flex justify-end">
                   <Button
@@ -226,6 +319,14 @@ export const TeamsComponent = () => {
             </div>
           ))}
         </div>
+        {user?.role === 'SUPERADMIN' && (
+          <p className="text-[13px] text-textItemBlur">
+            {t(
+              'owner_billing_note',
+              'Billing stays with the workspace. The new owner can update the card in Billing.'
+            )}
+          </p>
+        )}
         <div>
           <Button onClick={addMember}>
             {t('add_another_member', 'Add another member')}

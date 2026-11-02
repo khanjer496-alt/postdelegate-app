@@ -132,3 +132,19 @@ export function extractBearerToken(authHeader: string | null | undefined): strin
   const token = authHeader.slice(prefix.length).trim();
   return token || undefined;
 }
+
+// The API key MCP route (/mcp) takes "Bearer <token>" and the bare key alike:
+// MCP directories such as Smithery and Glama send the key without the prefix,
+// the same way the public REST API expects it
+export function extractBearerOrBareToken(
+  authHeader: string | null | undefined,
+): string | undefined {
+  const value = authHeader?.trim();
+  if (!value) return undefined;
+
+  if (/^bearer(\s|$)/i.test(value)) {
+    return extractBearerToken(value);
+  }
+
+  return value;
+}

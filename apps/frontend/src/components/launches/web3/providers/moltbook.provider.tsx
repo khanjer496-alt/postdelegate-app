@@ -65,7 +65,10 @@ export const MoltbookProvider: FC<Web3ProviderInterface> = (props) => {
 
     while (!stop.current) {
       try {
-        const response = await fetch(`/integrations/moltbook/status?apiKey=${encodeURIComponent(key)}`);
+        const response = await fetch('/integrations/moltbook/status', {
+          method: 'POST',
+          body: JSON.stringify({ apiKey: key }),
+        });
         const data = await response.json();
 
         if (data.claimed) {

@@ -4,6 +4,7 @@ import { OrganizationRepository } from '@gitroom/nestjs-libraries/database/prism
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { AddTeamMemberDto } from '@gitroom/nestjs-libraries/dtos/settings/add.team.member.dto';
 import { AdminAddTeamMemberDto } from '@gitroom/nestjs-libraries/dtos/settings/admin.add.team.member.dto';
+import { ChangeTeamMemberRoleDto } from '@gitroom/nestjs-libraries/dtos/settings/change.team.member.role.dto';
 import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import dayjs from 'dayjs';
@@ -97,6 +98,10 @@ export class OrganizationService {
     return this._organizationRepository.getTeam(orgId);
   }
 
+  getActiveTeam(orgId: string) {
+    return this._organizationRepository.getActiveTeam(orgId);
+  }
+
   async setStreak(organizationId: string, type: 'start' | 'end') {
     return this._organizationRepository.setStreak(organizationId, type);
   }
@@ -186,7 +191,7 @@ export class OrganizationService {
       body.role as 'USER' | 'ADMIN'
     );
 
-    if (!added) {
+    if ('failed' in added) {
       throw new HttpException(
         'Could not add the user to the organization',
         400
@@ -196,11 +201,22 @@ export class OrganizationService {
     return { added: true };
   }
 
-  async deleteTeamMember(org: Organization, userId: string) {
+  async deleteTeamMember(
+    org: Organization,
+    userId: string,
+    actingUserId?: string
+  ) {
+    if (actingUserId && actingUserId === userId) {
+      throw new HttpException(
+        "You can't remove yourself from the workspace.",
+        400
+      );
+    }
+
     const userOrgs = await this._organizationRepository.getOrgsByUserId(userId);
     const findOrgToDelete = userOrgs.find((orgUser) => orgUser.id === org.id);
     if (!findOrgToDelete) {
-      throw new Error('User is not part of this organization');
+      throw new HttpException('User is not part of this organization', 404);
     }
 
     // @ts-ignore
@@ -209,11 +225,75 @@ export class OrganizationService {
     const myLevel = myRole === 'USER' ? 0 : myRole === 'ADMIN' ? 1 : 2;
     const userLevel = userRole === 'USER' ? 0 : userRole === 'ADMIN' ? 1 : 2;
 
-    if (myLevel < userLevel) {
-      throw new Error('You do not have permission to delete this user');
+    // only someone above a member can remove them (an admin removes users,
+    // a super admin removes admins and users), like the team page offers
+    if (myLevel <= userLevel) {
+      throw new HttpException(
+        'You do not have permission to remove this member',
+        403
+      );
     }
 
     return this._organizationRepository.deleteTeamMember(org.id, userId);
+  }
+
+  // A Super Admin makes another active member a Super Admin (transferring
+  // the workspace), or steps down to Admin once someone else owns it. Billing
+  // belongs to the workspace, so nothing changes in Stripe
+  async changeTeamMemberRole(
+    org: Organization,
+    userId: string,
+    body: ChangeTeamMemberRoleDto
+  ) {
+    // @ts-ignore
+    if (org.users?.[0]?.role !== 'SUPERADMIN') {
+      throw new HttpException(
+        'Only a Super Admin can change who owns the workspace.',
+        403
+      );
+    }
+
+    const member = await this._organizationRepository.getTeamMember(
+      org.id,
+      userId
+    );
+    if (!member || member.disabled || member.user?.deletedAt) {
+      throw new HttpException(
+        'Pick an active member of this workspace.',
+        404
+      );
+    }
+
+    if (member.role === body.role) {
+      return { role: member.role };
+    }
+
+    let changed: { role: string } | null;
+    try {
+      changed = await this._organizationRepository.changeTeamMemberRole(
+        org.id,
+        userId,
+        body.role
+      );
+    } catch (err) {
+      // another role change in the workspace ran at the same moment
+      if ((err as { code?: string })?.code === 'P2034') {
+        throw new HttpException(
+          'The team changed at the same time. Refresh and try again.',
+          409
+        );
+      }
+      throw err;
+    }
+
+    if (!changed) {
+      throw new HttpException(
+        'A workspace needs at least one Super Admin. Make another member the owner first.',
+        400
+      );
+    }
+
+    return changed;
   }
 
   disableOrEnableNonSuperAdminUsers(orgId: string, disable: boolean) {

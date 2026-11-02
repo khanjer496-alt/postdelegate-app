@@ -39,6 +39,7 @@ export const stripQuery = (url: string) => {
 export type ValidityMedia = {
   path: string;
   thumbnail?: string;
+  alt?: string;
 };
 
 // Temporal serializes the whole ApplicationFailure (message + details) into the
@@ -191,13 +192,17 @@ export abstract class SocialAbstract {
    * `posts` mirrors the client shape: the outer array is the main post followed
    * by each comment, the inner array is the media items for that entry.
    *
+   * `texts` holds the text of each of them as `post` receives it, for the
+   * rules that depend on the text (e.g. a caption limit with media).
+   *
    * Note: video-duration validations that used to run in the browser are not
    * re-implemented here (no ffmpeg dependency). Image-dimension checks use sharp.
    */
   async checkValidity(
     posts: Array<ValidityMedia[]>,
     settings: any,
-    additionalSettings: any[]
+    additionalSettings: any[],
+    texts?: string[]
   ): Promise<string | true> {
     return true;
   }
@@ -553,6 +558,15 @@ export abstract class SocialAbstract {
     try {
       value = await func();
     } catch (err) {
+      // Already classified by the provider (e.g. mediaSize/mediaChunk): keep
+      // its message instead of re-wrapping it as 'Unknown Error'.
+      if (
+        err instanceof BadBody ||
+        err instanceof RefreshToken ||
+        err instanceof Disconnect
+      ) {
+        throw err;
+      }
       const handle = this.handleErrors(safeStringify(err), 200);
       value = { err: true, value: 'Unknown Error', ...(handle || {}) };
       globalErr = err;

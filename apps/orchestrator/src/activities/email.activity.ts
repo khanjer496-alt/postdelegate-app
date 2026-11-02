@@ -31,7 +31,8 @@ export class EmailActivity {
 
   @ActivityMethod()
   async getUserOrgs(id: string) {
-    return this._organizationService.getTeam(id);
+    // digests and streak emails skip disabled members
+    return this._organizationService.getActiveTeam(id);
   }
 
   @ActivityMethod()

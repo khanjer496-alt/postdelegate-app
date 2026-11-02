@@ -164,4 +164,31 @@ describe('SubscriptionExceptionFilter', () => {
       url: 'https://app.example.com/billing',
     });
   });
+
+  it('answers 403 and asks a member to ask an admin for an admin-only action', () => {
+    role = 'USER';
+    deny(Sections.ADMIN);
+
+    expect(status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith({
+      statusCode: 403,
+      message: 'Only workspace admins can do this. Ask a workspace admin.',
+      section: Sections.ADMIN,
+    });
+  });
+
+  it('puts the reconnect-first wording before the extra channels offer', () => {
+    new SubscriptionExceptionFilter().catch(
+      new SubscriptionException({
+        section: Sections.CHANNEL,
+        action: AuthorizationActions.Create,
+        message: 'Reconnect or remove a channel first, or upgrade your plan to add more channels.',
+        extraChannels: { plan: 'Pro', totalChannels: 10, price: 5, period: 'MONTHLY' },
+      }),
+      host
+    );
+    expect(json.mock.calls[0][0].message).toBe(
+      'Reconnect or remove a channel first, or upgrade your plan to add more channels.'
+    );
+  });
 });

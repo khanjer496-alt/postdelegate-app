@@ -1,3 +1,4 @@
+jest.mock('@gitroom/backend/services/auth/permissions/permissions.service', () => ({ PermissionsService: class {} }));
 jest.mock('@gitroom/nestjs-libraries/integrations/integration.manager', () => ({ IntegrationManager: class {} }));
 jest.mock('@gitroom/nestjs-libraries/database/prisma/integrations/integration.service', () => ({ IntegrationService: class {} }));
 jest.mock('@gitroom/nestjs-libraries/integrations/refresh.integration.service', () => ({ RefreshIntegrationService: class {} }));
@@ -22,12 +23,21 @@ import { NoAuthIntegrationsController } from './no.auth.integrations.controller'
 
 const redis = ioRedis as any;
 
-const make = (provider: object) => {
+const make = (
+  provider: object,
+  limits: { existing?: object | null; canAdd?: boolean } = {}
+) => {
   const org = { id: 'org-1', apiKey: 'api', isTrailing: false };
+  const permissions = {
+    canAddChannel: jest.fn(async () => limits.canAdd ?? true),
+    channelLimitMessage: jest.fn(async (): Promise<string | undefined> => undefined),
+  };
   const integrationService = {
+    getIntegrationByInternalId: jest.fn(async () => limits.existing ?? null),
     createOrUpdateIntegration: jest.fn(async () => ({ id: 'int-1', name: 'x' })),
     migrateIntegrationOnConnect: jest.fn(),
     checkCappedProviderSwitch: jest.fn(),
+    checkProviderAvailable: jest.fn(),
     saveProviderPage: jest.fn(async () => ({ saved: true })),
   };
   const controller = new NoAuthIntegrationsController(
@@ -37,9 +47,10 @@ const make = (provider: object) => {
     } as any,
     integrationService as any,
     { startRefreshWorkflow: jest.fn(async () => undefined) } as any,
-    { getOrgById: jest.fn(async () => org) } as any
+    { getOrgById: jest.fn(async () => org) } as any,
+    permissions as any
   );
-  return { controller, integrationService };
+  return { controller, integrationService, permissions };
 };
 
 const authenticated = {
@@ -98,5 +109,35 @@ describe('NoAuthIntegrationsController state keys', () => {
       controller.saveProviderPage('int-1', { state: 's1', page: 'p' })
     ).rejects.toThrow('bad page');
     expect(redis.data.get('organization:s1')).toBe('org-1');
+  });
+});
+
+describe('NoAuthIntegrationsController channel limit', () => {
+  beforeEach(() => {
+    redis.data.clear();
+    redis.data.set('login:s1', 'verifier');
+    redis.data.set('organization:s1', 'org-1');
+  });
+
+  it('refuses a new channel over the plan limit', async () => {
+    const { controller, integrationService } = make(
+      { ...authenticated },
+      { canAdd: false }
+    );
+    await expect(
+      controller.connectSocialMedia('demo', { state: 's1', code: 'c', timezone: 0 } as any)
+    ).rejects.toMatchObject({ response: { section: 'channel' } });
+    expect(integrationService.createOrUpdateIntegration).not.toHaveBeenCalled();
+  });
+
+  it('lets a channel the workspace already has reconnect at the limit', async () => {
+    const { controller, integrationService, permissions } = make(
+      { ...authenticated },
+      { canAdd: false, existing: { id: 'int-1' } }
+    );
+    await controller.connectSocialMedia('demo', { state: 's1', code: 'c', timezone: 0 } as any);
+    expect(integrationService.getIntegrationByInternalId).toHaveBeenCalledWith('org-1', '1');
+    expect(permissions.canAddChannel).not.toHaveBeenCalled();
+    expect(integrationService.createOrUpdateIntegration).toHaveBeenCalled();
   });
 });

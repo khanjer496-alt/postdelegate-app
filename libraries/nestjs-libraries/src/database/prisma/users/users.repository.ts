@@ -136,6 +136,25 @@ export class UsersRepository {
     });
   }
 
+  // an account of this email that signs in with a provider (Google, GitHub...)
+  getProviderUserByEmail(email: string) {
+    return this._user.model.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: 'insensitive',
+        },
+        providerName: { not: Provider.LOCAL },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        providerName: true,
+      },
+    });
+  }
+
   getUserWithActiveSubscriptionByEmail(email: string, excludeUserId: string) {
     return this._user.model.user.findFirst({
       where: {

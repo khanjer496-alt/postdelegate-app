@@ -1,5 +1,11 @@
 import { createHash } from 'crypto';
-import { mkdtempSync, readdirSync, readFileSync, statSync } from 'fs';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -474,12 +480,15 @@ describe('ErasureService', () => {
 
     it('falls back to the temp directory when the receipt directory is not writable', async () => {
       const s = setup();
-      process.env.ERASURE_RECEIPT_DIR = '/proc/nope/not-writable';
+      // a path below a regular file can never be created, on any OS
+      const blocker = join(mkdtempSync(join(tmpdir(), 'erasure-')), 'file');
+      writeFileSync(blocker, '');
+      process.env.ERASURE_RECEIPT_DIR = join(blocker, 'not-writable');
 
       const report = s.service.run({
         email: EMAIL,
         confirm: EMAIL,
-        receiptDir: '/proc/nope/also-not-writable',
+        receiptDir: join(blocker, 'also-not-writable'),
       });
 
       await expect(report).resolves.toMatchObject({ status: 'completed' });

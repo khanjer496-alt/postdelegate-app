@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
+import { ConnectAiKey } from '@gitroom/frontend/components/settings/connect.ai.key';
 
 export const MediaPortal: FC<{
   media: { path: string; id: string }[];
@@ -202,47 +203,6 @@ export const AgentList: FC<{ onChange: (arr: any[]) => void }> = ({
 };
 
 export const PropertiesContext = createContext({ properties: [] });
-
-// Also shown by Studio, with its own title and description, where AI is an
-// option rather than a requirement
-export const ConnectAiKey: FC<{ title?: string; description?: string }> = ({
-  title,
-  description,
-}) => {
-  const t = useT();
-  const user = useUser();
-
-  return (
-    <div className="bg-newBgColorInner p-[20px] mobile:p-[12px] flex flex-1 flex-col gap-[16px] items-center justify-center text-center">
-      <h2 className="text-[20px] font-[500]">
-        {title ||
-          t('agent_connect_key_title', 'Connect your OpenAI key to start')}
-      </h2>
-      <div className="text-textItemBlur max-w-[440px]">
-        {description ||
-          t(
-            'agent_connect_key_description',
-            'The Agent runs on your own OpenAI account, so usage is billed to you by OpenAI, not by PostDelegate.'
-          )}
-      </div>
-      {user?.role !== 'USER' ? (
-        <Link
-          href="/settings?tab=ai"
-          className="text-btnCtaText font-[600] whitespace-nowrap pt-[12px] pb-[14px] ps-[16px] pe-[20px] min-h-[44px] rounded-[10px] bg-btnCta shadow-cta hover:bg-btnCtaHover transition-colors flex justify-center items-center outline-none"
-        >
-          {t('agent_connect_key_button', 'Add your OpenAI key')}
-        </Link>
-      ) : (
-        <div className="text-[14px]">
-          {t(
-            'agent_connect_key_ask_admin',
-            'Ask your workspace admin to add a key'
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const Agent: FC<{ children: ReactNode }> = ({ children }) => {
   const [properties, setProperties] = useState([]);

@@ -23,7 +23,12 @@ import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/for
 import { ForgotPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot.password.dto';
 import { ResendActivationDto } from '@gitroom/nestjs-libraries/dtos/auth/resend-activation.dto';
 import { ApiTags } from '@nestjs/swagger';
-import { getAuthCookieOptions } from '@gitroom/helpers/subdomain/subdomain.management';
+import {
+  getAuthCookieOptions,
+  getCookieSameSite,
+  getCookieUrlFromDomain,
+} from '@gitroom/helpers/subdomain/subdomain.management';
+import { InviteFailure } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.repository';
 import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
 import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { Provider } from '@prisma/client';
@@ -45,6 +50,55 @@ export class AuthController {
     private _authService: AuthService,
     private _emailService: EmailService
   ) {}
+
+  // The invite in the cookie: its workspace opens, or the app says why it
+  // could not be joined (the invite_error cookie is read once by the app)
+  private applyInvite(
+    response: Response,
+    addedOrg: false | { organizationId: string } | { failed: InviteFailure }
+  ) {
+    if (!addedOrg) {
+      return;
+    }
+
+    if ('failed' in addedOrg) {
+      // already a member is not a problem worth telling
+      if (addedOrg.failed !== 'already_member') {
+        response.cookie('invite_error', addedOrg.failed, {
+          domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+          ...(!process.env.NOT_SECURED
+            ? { secure: true, sameSite: getCookieSameSite() }
+            : {}),
+          expires: new Date(Date.now() + 1000 * 60 * 5),
+        });
+      }
+      return;
+    }
+
+    response.cookie('showorg', addedOrg.organizationId, {
+      ...getAuthCookieOptions(),
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+    });
+
+    if (process.env.NOT_SECURED) {
+      response.header('showorg', addedOrg.organizationId);
+    }
+  }
+
+  // An invite cookie is spent by the first sign up or sign in that tries it,
+  // whatever the outcome, so it can't keep warning that it was used, and a
+  // copy-link invite on a shared browser can't add the next person
+  private clearInviteCookie(req: Request, response: Response) {
+    if (!req?.cookies?.org) {
+      return;
+    }
+    response.clearCookie('org', {
+      path: '/',
+      ...(!process.env.NOT_SECURED
+        ? { domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!) }
+        : {}),
+    });
+  }
 
   @Get('/can-register')
   async canRegister() {
@@ -77,6 +131,8 @@ export class AuthController {
         req?.cookies?.[AFFILIATE_COOKIE_NAME]
       );
 
+      this.clearInviteCookie(req, response);
+
       const activationRequired =
         body.provider === 'LOCAL' && this._emailService.hasProvider();
 
@@ -95,16 +151,7 @@ export class AuthController {
         response.header('auth', jwt);
       }
 
-      if (typeof addedOrg !== 'boolean' && addedOrg?.organizationId) {
-        response.cookie('showorg', addedOrg.organizationId, {
-          ...getAuthCookieOptions(),
-          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-        });
-
-        if (process.env.NOT_SECURED) {
-          response.header('showorg', addedOrg.organizationId);
-        }
-      }
+      this.applyInvite(response, addedOrg);
 
       Sentry.metrics.count('new_user', 1);
       response.header('onboarding', 'true');
@@ -140,6 +187,8 @@ export class AuthController {
         req?.cookies?.[AFFILIATE_COOKIE_NAME]
       );
 
+      this.clearInviteCookie(req, response);
+
       response.cookie('auth', jwt, {
         ...getAuthCookieOptions(),
         expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
@@ -149,16 +198,7 @@ export class AuthController {
         response.header('auth', jwt);
       }
 
-      if (typeof addedOrg !== 'boolean' && addedOrg?.organizationId) {
-        response.cookie('showorg', addedOrg.organizationId, {
-          ...getAuthCookieOptions(),
-          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-        });
-
-        if (process.env.NOT_SECURED) {
-          response.header('showorg', addedOrg.organizationId);
-        }
-      }
+      this.applyInvite(response, addedOrg);
 
       response.header('reload', 'true');
       response.status(200).json({
@@ -235,17 +275,17 @@ export class AuthController {
       code,
       datafast_visitor_id
     );
-    if (!activate) {
-      return response.status(200).json({ can: false });
+    if ('failed' in activate) {
+      return response.status(200).json({ can: false, reason: activate.failed });
     }
 
-    response.cookie('auth', activate, {
+    response.cookie('auth', activate.jwt, {
       ...getAuthCookieOptions(),
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
     });
 
     if (process.env.NOT_SECURED) {
-      response.header('auth', activate);
+      response.header('auth', activate.jwt);
     }
 
     response.header('onboarding', 'true');
@@ -328,17 +368,21 @@ export class AuthController {
       return response.status(400).send('Invalid request');
     }
 
-    const { jwt, token } = await this._authService.checkExists(
+    const { jwt, token, addedOrg } = await this._authService.checkExists(
       provider,
       code,
       redirect_uri,
       state,
-      req?.cookies?.oauth_state
+      req?.cookies?.oauth_state,
+      this._authService.getOrgFromCookie(req?.cookies?.org)
     );
 
     if (token) {
       return response.json({ token });
     }
+
+    this.clearInviteCookie(req, response);
+    this.applyInvite(response, addedOrg || false);
 
     response.cookie('auth', jwt, {
       ...getAuthCookieOptions(),

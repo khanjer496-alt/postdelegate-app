@@ -244,6 +244,16 @@ If validation fails, or the workspace limits what agents can do (allowed channel
             };
           }
 
+          // a turned off channel would only fail at publish, a draft never
+          // publishes from here
+          if (validation.disabled && platform.type !== 'draft') {
+            return {
+              output: {
+                errors: `${validation.name} is turned off. Turn it on from the channel menu in the PostDelegate calendar, or pick another channel.`,
+              },
+            };
+          }
+
           if (platform.type !== 'draft') {
             if (!validation.valid) {
               return {

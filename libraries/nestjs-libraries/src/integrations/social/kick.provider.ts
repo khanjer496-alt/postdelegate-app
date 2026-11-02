@@ -6,7 +6,10 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
-import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import {
+  BadBody,
+  SocialAbstract,
+} from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
@@ -152,6 +155,23 @@ export class KickProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
+  // Kick answers 200 with is_sent false when the message is not delivered to
+  // the chat, it must fail instead of showing as published
+  private checkSent(data: any) {
+    if (data?.data?.is_sent || data?.is_sent) {
+      return;
+    }
+
+    throw new BadBody(
+      this.identifier,
+      JSON.stringify(data || {}),
+      Buffer.from('{}'),
+      `Kick did not send the message${
+        data?.message ? `: ${data.message}` : ''
+      }`
+    );
+  }
+
   async post(
     id: string,
     accessToken: string,
@@ -176,13 +196,14 @@ export class KickProvider extends SocialAbstract implements SocialProvider {
     });
 
     const data = await response.json();
+    this.checkSent(data);
 
     return [
       {
         id: firstPost.id,
         postId: data.data?.message_id || data.message_id || makeId(10),
         releaseURL: `https://kick.com/${integration.profile || 'channel'}`,
-        status: data.data?.is_sent || data.is_sent ? 'posted' : 'error',
+        status: 'posted',
       },
     ];
   }
@@ -213,13 +234,14 @@ export class KickProvider extends SocialAbstract implements SocialProvider {
     });
 
     const data = await response.json();
+    this.checkSent(data);
 
     return [
       {
         id: commentPost.id,
         postId: data.data?.message_id || data.message_id || makeId(10),
         releaseURL: `https://kick.com/${integration.profile || 'channel'}`,
-        status: data.data?.is_sent || data.is_sent ? 'posted' : 'error',
+        status: 'posted',
       },
     ];
   }

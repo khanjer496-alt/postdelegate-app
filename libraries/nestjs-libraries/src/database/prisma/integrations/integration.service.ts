@@ -149,6 +149,38 @@ export class IntegrationService {
     );
   }
 
+  // HIDDEN_PROVIDERS stops new channels on every connect path, not only on the
+  // add-channel screen (PREVIEW_PROVIDER_ORGS are let through). A reconnect of
+  // a channel the org already has keeps working - `refresh` is its internalId -
+  // including one that lands on its MIGRATE_PROVIDERS target.
+  async checkProviderAvailable(org: string, provider: string, refresh?: string) {
+    if (!this._integrationManager.isHiddenFor(provider, org)) {
+      return;
+    }
+
+    const existing = refresh
+      ? await this._integrationRepository.getIntegrationByInternalId(
+          org,
+          refresh
+        )
+      : undefined;
+
+    if (
+      existing &&
+      (existing.providerIdentifier === provider ||
+        this._integrationManager.getMigrationTarget(
+          existing.providerIdentifier
+        ) === provider)
+    ) {
+      return;
+    }
+
+    throw new HttpException(
+      "This network isn't available yet",
+      HttpStatus.BAD_REQUEST
+    );
+  }
+
   async createOrUpdateIntegration(
     additionalSettings:
       | {
@@ -431,7 +463,17 @@ export class IntegrationService {
   async refreshTokens() {
     const integrations = await this._integrationRepository.needsToBeRefreshed();
     for (const integration of integrations) {
-      await this._refreshIntegrationService.refresh(integration);
+      // a failed refresh returns false and the loop moves on; one that throws
+      // (e.g. reConnect after a successful refresh) must not leave every later
+      // channel unrefreshed either
+      await this._refreshIntegrationService
+        .refresh(integration)
+        .catch(() => {
+          // no error details, they can carry provider token payloads
+          console.error(
+            `Could not refresh ${integration.providerIdentifier} integration ${integration.id}`
+          );
+        });
     }
   }
 
@@ -447,7 +489,10 @@ export class IntegrationService {
       !!process.env.STRIPE_PUBLISHABLE_KEY &&
       integrations.length >= totalChannels
     ) {
-      throw new Error('You have reached the maximum number of channels');
+      throw new HttpException(
+        'You have reached the maximum number of channels on your plan. Turn off or remove another channel, or upgrade, to enable this one.',
+        400
+      );
     }
 
     return this._integrationRepository.enableChannel(org, id);
@@ -532,8 +577,15 @@ export class IntegrationService {
     const days = Number(date) > 0 ? Number(date) : 7;
     const getIntegration = await this.getIntegrationById(org.id, integration);
 
-    if (!getIntegration || getIntegration.deletedAt || getIntegration.disabled || getIntegration.inBetweenSteps) {
-      throw new Error('Invalid integration');
+    // an id that is not a channel of this workspace
+    if (!getIntegration) {
+      throw new HttpException('Integration not found', HttpStatus.NOT_FOUND);
+    }
+
+    // a disabled, removed or half-connected channel has no analytics: `[]`,
+    // as the API documents, instead of an error the analytics page can't read
+    if (getIntegration.deletedAt || getIntegration.disabled || getIntegration.inBetweenSteps) {
+      return [];
     }
 
     if (getIntegration.type !== 'social') {

@@ -31,7 +31,7 @@ export const WhopCompanySelect: FC<{
     onChange(event);
   };
   useEffect(() => {
-    customFunc.get('companies').then((data) => setCompanies(data));
+    customFunc.get('companies').then((data) => setCompanies(Array.isArray(data) ? data : []));
     const settings = getValues()[props.name];
     if (settings) {
       setCurrentCompany(settings);

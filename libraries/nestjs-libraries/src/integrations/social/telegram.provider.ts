@@ -9,17 +9,38 @@ import dayjs from 'dayjs';
 import {
   BadBody,
   SocialAbstract,
+  ValidityMedia,
 } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 //@ts-ignore
 import mime from 'mime';
 import TelegramBot from 'node-telegram-bot-api';
 import { Integration } from '@prisma/client';
-import striptags from 'striptags';
 
 const telegramBot = new TelegramBot(process.env.TELEGRAM_TOKEN!);
 // Added to support local storage posting
 const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5000';
 const mediaStorage = process.env.STORAGE_PROVIDER || 'local';
+
+// The tags Telegram's HTML parse mode accepts, by the tag the editor writes
+const TELEGRAM_TAGS: Record<string, string> = {
+  b: 'b',
+  strong: 'b',
+  i: 'i',
+  em: 'i',
+  u: 'u',
+  ins: 'u',
+  s: 's',
+  strike: 's',
+  del: 's',
+  code: 'code',
+  pre: 'pre',
+};
+
+// Telegram refuses a caption over 1,024 characters, a text message takes 4,096
+const TELEGRAM_CAPTION_LENGTH = 1024;
+
+const escapeTelegram = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export class TelegramProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3; // Telegram has moderate bot API limits
@@ -31,6 +52,127 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
   editor = 'html' as const;
   maxLength() {
     return 4096;
+  }
+
+  // Media goes out with the text as its caption, which Telegram caps lower
+  // than a text message
+  override async checkValidity(
+    posts: Array<ValidityMedia[]>,
+    settings: any,
+    additionalSettings: any[],
+    texts: string[] = []
+  ): Promise<string | true> {
+    // Telegram counts the text it shows, without the markup
+    const shown = (text: string) =>
+      this.formatMessage(text || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+    const tooLong = (posts || []).some(
+      (media, index) =>
+        (media || []).length > 0 &&
+        shown(texts[index]).length > TELEGRAM_CAPTION_LENGTH
+    );
+    if (tooLong) {
+      return `A Telegram post with media can have at most ${TELEGRAM_CAPTION_LENGTH} characters of text, shorten the text or send the media in a reply`;
+    }
+
+    return true;
+  }
+
+  // The editor's HTML (<p dir="auto">, lists, headings, links) as the HTML
+  // Telegram's parse mode accepts: paragraphs and <br> become line breaks,
+  // only Telegram's own tags are kept, and the text is escaped again since
+  // the content arrives with &lt; &gt; &amp; decoded.
+  formatMessage(html: string) {
+    const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([^<>]*)>/g;
+    const open: string[] = [];
+    let text = '';
+    let last = 0;
+
+    const lineBreak = () => {
+      if (text.length && !text.endsWith('\n')) {
+        text += '\n';
+      }
+    };
+
+    for (const match of html.matchAll(tagPattern)) {
+      text += escapeTelegram(html.slice(last, match.index));
+      last = match.index! + match[0].length;
+      const closing = !!match[1];
+      const name = match[2].toLowerCase();
+      const top = open[open.length - 1];
+
+      // Telegram takes no markup inside code, only the closing tag counts
+      if (
+        (top === 'code' || top === 'pre') &&
+        !(closing && TELEGRAM_TAGS[name] === top)
+      ) {
+        text += ['p', 'br'].includes(name)
+          ? closing || name === 'br'
+            ? '\n'
+            : ''
+          : escapeTelegram(match[0]);
+      } else if (name === 'p') {
+        text += closing ? '\n' : '';
+      } else if (name === 'br') {
+        text += '\n';
+      } else if (['h1', 'h2', 'h3'].includes(name)) {
+        // on the stack like the other tags, so a stray heading tag stays balanced
+        if (!closing) {
+          open.push('b');
+          text += '<b>';
+        } else if (top === 'b') {
+          open.pop();
+          text += '</b>\n';
+        } else {
+          text += escapeTelegram(match[0]);
+        }
+      } else if (name === 'ul' || name === 'ol') {
+        lineBreak();
+      } else if (name === 'li') {
+        if (closing) {
+          lineBreak();
+        } else {
+          text += '- ';
+        }
+      } else if (name === 'a') {
+        // a link Telegram can't open keeps its text without the link, '' on
+        // the stack so its closing tag is dropped too
+        if (!closing) {
+          const href = /\shref="([^"]*)"/i.exec(match[3])?.[1] || '';
+          const link = /^(https?:|tg:|mailto:)/i.test(href) ? 'a' : '';
+          open.push(link);
+          text += link ? `<a href="${escapeTelegram(href)}">` : '';
+        } else if (['a', ''].includes(top)) {
+          text += open.pop() ? '</a>' : '';
+        }
+      } else if (TELEGRAM_TAGS[name]) {
+        const tag = TELEGRAM_TAGS[name];
+        if (!closing) {
+          open.push(tag);
+          text += `<${tag}>`;
+        } else if (top === tag) {
+          open.pop();
+          text += `</${tag}>`;
+        } else {
+          text += escapeTelegram(match[0]);
+        }
+      } else {
+        // not markup the editor writes: text that had "<" in it
+        text += escapeTelegram(match[0]);
+      }
+    }
+    text += escapeTelegram(html.slice(last));
+
+    // a tag left open would make Telegram refuse the whole message
+    while (open.length) {
+      const tag = open.pop();
+      text += tag ? `</${tag}>` : '';
+    }
+
+    return text.replace(/\n+$/, '');
   }
 
   async refreshToken(refresh_token: string): Promise<AuthTokenDetails> {
@@ -217,10 +359,7 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
   ): Promise<number | null> {
     let messageId: number | null = null;
     const mediaFiles = message.media || [];
-    const text = striptags(message.message || '', ['u', 'strong', 'p'])
-      .replace(/<strong>/g, '<b>')
-      .replace(/<\/strong>/g, '</b>')
-      .replace(/<p>(.*?)<\/p>/g, '$1\n');
+    const text = this.formatMessage(message.message || '');
 
     const processedMedia = this.processMedia(mediaFiles);
 

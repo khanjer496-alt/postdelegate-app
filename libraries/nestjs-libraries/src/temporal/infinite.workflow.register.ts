@@ -60,6 +60,10 @@ export class InfiniteWorkflowRegister implements OnModuleInit {
     if (process.env.ANALYTICS_REPORTS_DISABLED !== 'true') {
       await this.startSingleton('analyticsReportWorkflowV1', 'analytics-report-v1');
     }
+    // Daily Studio cleanup: stored music nothing uses and old render records
+    if (process.env.STUDIO_CLEANUP_DISABLED !== 'true') {
+      await this.startSingleton('studioCleanupWorkflowV1', 'studio-cleanup-v1');
+    }
   }
 
   private async startSingleton(workflowType: string, workflowId: string) {

@@ -14,6 +14,8 @@ import { Context } from '@temporalio/activity';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 import { SocialProvider } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { lowerFirst } from 'lodash';
+import dayjs from 'dayjs';
+import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 
 export type NotificationType = 'success' | 'fail' | 'info';
 
@@ -34,6 +36,9 @@ const DIGEST_SUBJECT = '[PostDelegate] Your latest notifications';
 const PUBLISHED_MESSAGE = /^Your post has been published on (\S+) at ?(\S*)\s*$/;
 const ERROR_MESSAGE =
   /^An error occurred while posting (comments )?on (\S+?)(?:: ([\s\S]+))?$/;
+// a scheduled post held because its channel is turned off (a trial that
+// ended, a downgrade), written once per post by the publishing workflow
+const DISABLED_CHANNEL_MESSAGE = /because it's disabled\. Please enable it and try again\.$/;
 
 @Injectable()
 export class NotificationService {
@@ -89,6 +94,7 @@ export class NotificationService {
   ) {
     const postId = this.activityPostId();
     if (postId === null) return;
+    const channelDisabled = DISABLED_CHANNEL_MESSAGE.test(message);
     let integrationId = scope?.integrationId;
     let providerIdentifier: string | undefined;
     let settings: string | null | undefined;
@@ -127,6 +133,12 @@ export class NotificationService {
       await this._notificationRepository.createNotification(orgId, message);
     }
     if (!sendEmail) {
+      return;
+    }
+
+    // every held post would email everyone, one notice a day is enough
+    if (channelDisabled && !digest) {
+      await this.sendChannelsPausedEmail(orgId);
       return;
     }
 
@@ -365,6 +377,38 @@ export class NotificationService {
         }
       }
       await this.sendEmail(user.user.email, subject, message);
+    }
+  }
+
+  // Once a day per workspace, however many posts were held. A held post is a
+  // publishing failure, so it goes to the members who want failure emails
+  // (the 'info' type would skip every preference). The day is claimed first
+  // so posts held at the same moment send one notice, and released when the
+  // send fails so the next held post tries again
+  private async sendChannelsPausedEmail(orgId: string) {
+    const key = `channels-paused-email:${orgId}:${dayjs().format('YYYY-MM-DD')}`;
+    let claimed = false;
+    try {
+      if ((await ioRedis.set(key, '1', 'EX', 24 * 60 * 60, 'NX')) !== 'OK') {
+        return;
+      }
+      claimed = true;
+    } catch (err) {
+      // without redis the notice still goes out
+    }
+
+    try {
+      await this.sendEmailsToOrg(
+        orgId,
+        'Some scheduled posts were not published',
+        'One or more scheduled posts were not published because their channel is turned off. This happens when a trial ends or the plan changes. Turn the channels back on from the calendar, or upgrade your plan, then reschedule the posts.',
+        'fail'
+      );
+    } catch (err) {
+      if (claimed) {
+        await ioRedis.del(key).catch(() => undefined);
+      }
+      throw err;
     }
   }
 

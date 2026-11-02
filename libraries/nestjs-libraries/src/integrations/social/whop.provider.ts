@@ -173,52 +173,50 @@ export class WhopProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
+  // this.fetch, not a swallowed plain fetch: a refused token refreshes the
+  // channel instead of showing an empty list
   @Tool({ description: 'Companies', dataSchema: [] })
   async companies(accessToken: string, params: any, id: string) {
-    try {
-      const response = await fetch(
+    const { data } = await (
+      await this.fetch(
         'https://api.whop.com/api/v1/companies?first=50',
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        }
-      );
+        },
+        this.identifier
+      )
+    ).json();
 
-      const { data } = await response.json();
-
-      return (data || []).map((company: any) => ({
-        id: company.id,
-        name: company.title,
-      }));
-    } catch {
-      return [];
-    }
+    return (data || []).map((company: any) => ({
+      id: company.id,
+      name: company.title,
+    }));
   }
 
   @Tool({ description: 'Experiences', dataSchema: [] })
   async experiences(accessToken: string, params: any, id: string) {
-    try {
-      if (!params?.id) return [];
+    if (!params?.id) return [];
 
-      const response = await fetch(
-        `https://api.whop.com/api/v1/forums?company_id=${params.id}&first=50`,
+    const { data } = await (
+      await this.fetch(
+        `https://api.whop.com/api/v1/forums?company_id=${encodeURIComponent(
+          params.id
+        )}&first=50`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        }
-      );
+        },
+        this.identifier
+      )
+    ).json();
 
-      const { data } = await response.json();
-
-      return (data || []).map((forum: any) => ({
-        id: forum.experience?.id || forum.id,
-        name: forum.experience?.name || forum.id,
-      }));
-    } catch {
-      return [];
-    }
+    return (data || []).map((forum: any) => ({
+      id: forum.experience?.id || forum.id,
+      name: forum.experience?.name || forum.id,
+    }));
   }
 
   private async uploadMediaToWhop(

@@ -247,6 +247,11 @@ const organizationSteps = (org: string): Step[] => [
     where: { organizationId: org },
   },
   {
+    table: 'StudioAsset',
+    model: 'studioAsset',
+    where: { organizationId: org },
+  },
+  {
     table: 'StudioProject',
     model: 'studioProject',
     where: { organizationId: org },
@@ -559,7 +564,8 @@ export class ErasureRepository {
   }
 
   // Every stored string that can name an uploaded object: media paths and
-  // thumbnails, clip files, channel avatars and the image JSON of posts. The
+  // thumbnails, clip files, Studio music, channel avatars and the image JSON
+  // of posts. The
   // caller extracts the object keys of its own bucket from them
   async getOrganizationObjectSources(org: string): Promise<string[]> {
     const db: any = this._prisma.model;
@@ -599,6 +605,7 @@ export class ErasureRepository {
       { path: true, thumbnail: true }
     );
     await paged('clipping', { organizationId: org }, { thumbnail: true });
+    await paged('studioAsset', { organizationId: org }, { path: true });
     await paged('integration', { organizationId: org }, { picture: true });
     await paged(
       'post',
@@ -620,6 +627,7 @@ export class ErasureRepository {
         where: { OR: [{ path: url }, { thumbnail: url }] },
       }),
       db.clipping.count({ where: { thumbnail: url } }),
+      db.studioAsset.count({ where: { OR: [{ path: url }, { name: key }] } }),
       db.integration.count({ where: { picture: url } }),
       db.post.count({ where: { image: { contains: key } } }),
     ]);

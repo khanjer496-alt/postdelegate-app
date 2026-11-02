@@ -6,7 +6,11 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { makeSecureId } from '@gitroom/nestjs-libraries/services/make.secure.id';
-import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import {
+  BadBody,
+  RefreshToken,
+  SocialAbstract,
+} from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { Integration } from '@prisma/client';
 import { TwitchDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/twitch.dto';
 import { timer } from '@gitroom/helpers/utils/timer';
@@ -141,8 +145,12 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
     accessToken: string,
     message: string,
     color: string = 'primary'
-  ): Promise<{ success: boolean }> {
-    await fetch(
+  ): Promise<void> {
+    const body = JSON.stringify({
+      message: message.substring(0, 500),
+      color,
+    });
+    const response = await fetch(
       `https://api.twitch.tv/helix/chat/announcements?broadcaster_id=${broadcasterId}&moderator_id=${broadcasterId}`,
       {
         method: 'POST',
@@ -151,15 +159,39 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
           'Client-Id': process.env.TWITCH_CLIENT_ID!,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: message.substring(0, 500),
-          color,
-        }),
+        body,
       }
     );
 
-    // Announcements return 204 No Content on success
-    return { success: true };
+    // Announcements answer 204 No Content on success, which this.fetch
+    // treats as a failure, so the answer is checked here
+    if (response.ok) {
+      return;
+    }
+
+    const json = await response.text().catch(() => '{}');
+    let reason = '';
+    try {
+      reason = JSON.parse(json)?.message || '';
+    } catch (err) {
+      reason = '';
+    }
+
+    if (response.status === 401) {
+      throw new RefreshToken(
+        this.identifier,
+        json,
+        body,
+        'Twitch no longer accepts the connection, please reconnect the channel'
+      );
+    }
+
+    throw new BadBody(
+      this.identifier,
+      json,
+      body,
+      `Twitch did not send the announcement${reason ? `: ${reason}` : ''}`
+    );
   }
 
   private async sendChatMessage(
@@ -167,7 +199,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
     accessToken: string,
     message: string,
     replyToMessageId?: string
-  ): Promise<{ messageId: string; isSent: boolean }> {
+  ): Promise<{ messageId: string }> {
     const body: Record<string, string> = {
       broadcaster_id: broadcasterId,
       sender_id: broadcasterId,
@@ -192,10 +224,23 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
     );
 
     const data = await response.json();
+    const sent = data.data?.[0];
+
+    // Twitch answers 200 with is_sent false when it drops the message (automod,
+    // followers-only chat, ...): it never reached the chat
+    if (!sent?.is_sent) {
+      throw new BadBody(
+        this.identifier,
+        JSON.stringify(data),
+        JSON.stringify(body),
+        `Twitch did not send the message${
+          sent?.drop_reason?.message ? `: ${sent.drop_reason.message}` : ''
+        }`
+      );
+    }
 
     return {
-      messageId: data.data?.[0]?.message_id || makeId(10),
-      isSent: data.data?.[0]?.is_sent ?? false,
+      messageId: sent.message_id || makeId(10),
     };
   }
 
@@ -211,7 +256,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
     const announcementColor = firstPost.settings?.announcementColor || 'primary';
 
     if (messageType === 'announcement') {
-      const result = await this.sendAnnouncement(
+      await this.sendAnnouncement(
         id,
         accessToken,
         firstPost.message,
@@ -223,7 +268,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
           id: firstPost.id,
           postId: makeId(10), // Announcements don't return a message ID
           releaseURL: `https://twitch.tv/${integration.profile || integration.providerIdentifier}`,
-          status: result.success ? 'posted' : 'error',
+          status: 'posted',
         },
       ];
     }
@@ -236,7 +281,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
         id: firstPost.id,
         postId: result.messageId,
         releaseURL: `https://twitch.tv/${integration.profile || integration.providerIdentifier}`,
-        status: result.isSent ? 'posted' : 'error',
+        status: 'posted',
       },
     ];
   }
@@ -255,7 +300,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
     const announcementColor = commentPost.settings?.announcementColor || 'primary';
 
     if (messageType === 'announcement') {
-      const result = await this.sendAnnouncement(
+      await this.sendAnnouncement(
         id,
         accessToken,
         commentPost.message,
@@ -267,7 +312,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
           id: commentPost.id,
           postId: makeId(10),
           releaseURL: `https://twitch.tv/${integration.profile || integration.providerIdentifier}`,
-          status: result.success ? 'posted' : 'error',
+          status: 'posted',
         },
       ];
     }
@@ -285,7 +330,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
         id: commentPost.id,
         postId: result.messageId,
         releaseURL: `https://twitch.tv/${integration.profile || integration.providerIdentifier}`,
-        status: result.isSent ? 'posted' : 'error',
+        status: 'posted',
       },
     ];
   }

@@ -10,10 +10,10 @@
   </style>
 </head>
 <body>
-  <header><span class="brand">PostDelegate</span><nav aria-label="Legal"><a href="/legal/privacy/">Privacy</a><a href="/legal/terms/">Terms</a><a href="/legal/data-deletion/" aria-current="page">Data deletion</a></nav></header>
+  <header><span class="brand">PostDelegate</span><nav aria-label="Legal"><a href="/legal/privacy/">Privacy</a><a href="/legal/terms/">Terms</a><a href="/legal/data-deletion/" aria-current="page">Data deletion</a><a href="/legal/dpa/">DPA</a></nav></header>
   <main>
     <h1>Data Deletion Instructions</h1>
-    <p class="meta">PostDelegate is operated by Nasida Apps LLC. Effective date: 31 October 2026</p>
+    <p class="meta">PostDelegate is operated by Nasida Apps LLC. Effective date: 2 November 2026</p>
 
     <p>You can remove a connected social account, delete your PostDelegate account, or ask us to delete data we hold about you. Each option is described below. This page is also the data deletion instructions URL we give to Meta (Facebook, Instagram and Threads) and TikTok.</p>
 
@@ -22,24 +22,24 @@
       <li>Sign in at <a href="https://app.postdelegate.com">app.postdelegate.com</a>.</li>
       <li>In the channel list, open the menu on the channel you want to remove and choose to disable or delete it.</li>
     </ol>
-    <p>PostDelegate then stops using that connection. <!-- OWNER CONFIRM: in code, deleting a single channel is a soft delete (deletedAt); credentials are scrubbed only through the authorization-lifecycle workflow (INTEGRATION_AUTHORIZATION_LIFECYCLE_ENABLED, currently opt-in and described as not yet enabled in authorization-lifecycle-operations.md). The page therefore does not promise immediate token erasure on disconnect. Confirm before claiming it, or purge soft-deleted channels as part of the 30-day request process. --> You can also revoke PostDelegate's access on the platform itself at any time. On Facebook and Instagram, go to Settings &amp; privacy → Settings → Business integrations (or Apps and websites) and remove PostDelegate; Threads access can be removed from your Threads or Instagram account settings. On TikTok, go to Settings and privacy → Security and permissions → Apps and services and remove PostDelegate. On LinkedIn, YouTube, Google Business Profile, X, Pinterest and other platforms, use the connected apps section of that platform's security or privacy settings.</p>
+    <p>PostDelegate then stops using that connection. Its stored credentials are erased when you send a deletion request (section 3). You can also revoke PostDelegate's access on the platform itself at any time. On Facebook and Instagram, go to Settings &amp; privacy → Settings → Business integrations (or Apps and websites) and remove PostDelegate; Threads access can be removed from your Threads or Instagram account settings. On TikTok, go to Settings and privacy → Security and permissions → Apps and services and remove PostDelegate. On LinkedIn, YouTube, Google Business Profile, X, Pinterest and other platforms, use the connected apps section of that platform's security or privacy settings.</p>
 
     <h2>2. Delete your PostDelegate account</h2>
     <ol>
       <li>Sign in and open <strong>Settings</strong>.</li>
       <li>Choose <strong>Delete account</strong> and confirm.</li>
     </ol>
-    <p>This removes your account from active use straight away. Workspaces that only you belong to are removed from active use too, and their connected channels stop being used. Workspaces shared with other people keep their channels; ask the workspace owner to disconnect them. To have your records, channel credentials and media permanently erased, also send the request in section 3. <!-- OWNER CONFIRM: permanent erasure is performed by the operator on request (code soft-deletes). --></p>
+    <p>This removes your account from active use straight away. Workspaces that only you belong to are removed from active use too, and their connected channels stop being used. If you are the only owner of a workspace that other people use, you cannot delete your account until you make another member the owner in Settings → Team, or remove the other members. Workspaces that have another owner keep their channels; ask that owner to disconnect them. To have your records, channel credentials and media permanently erased, also send the request in section 3.</p>
 
     <h2>3. Ask us to delete your data</h2>
-    <p>Email <a href="mailto:support@postdelegate.com?subject=Data%20deletion%20request">support@postdelegate.com</a> with the subject “Data deletion request”. Send it from the email address on your account, or tell us which account, workspace or connected social profile the request concerns. If you used PostDelegate with Facebook, Instagram, Threads or TikTok, say so and include your profile name or username on that platform so we can find the connection. We may ask you to verify your identity. You do not need an active PostDelegate account to make a request about data we received from Meta or TikTok.</p>
-    <p>We confirm receipt and complete verified requests within 30 days. We then confirm what was deleted, including any Meta or TikTok platform data, and explain anything we must keep, for example billing and tax records, an affiliate commission ledger, or data needed for legal, security or fraud-prevention reasons. Copies in recovery backups are encrypted and expire on our normal backup rotation (within about 8 weeks) and are not restored into active use.</p>
+    <p>Email <!--email_off--><a href="mailto:support@postdelegate.com?subject=Data%20deletion%20request">support@postdelegate.com</a><!--/email_off--> with the subject “Data deletion request”. Send it from the email address on your account, or tell us which account, workspace or connected social profile the request concerns. If you used PostDelegate with Facebook, Instagram, Threads or TikTok, say so and include your profile name or username on that platform so we can find the connection. We may ask you to verify your identity. You do not need an active PostDelegate account to make a request about data we received from Meta or TikTok.</p>
+    <p>We confirm receipt and complete verified requests within 30 days. We then confirm what was deleted, including any Meta or TikTok platform data, and explain anything we must keep, for example billing and tax records, an affiliate commission ledger, or data needed for legal, security or fraud-prevention reasons. Backup copies are not restored into active use. Encrypted off-site backups expire on our normal rotation (within about 8 weeks); backup copies also kept on the application server, which only administrators can access, do not yet expire automatically and are removed by an administrator. Logs rotate automatically and are not kept as a long-term archive.</p>
 
     <h2>4. Content already published</h2>
     <p>Deleting PostDelegate data does not delete posts that were already published to a social platform. Remove those directly on that platform.</p>
 
     <p>More detail is in our <a href="/legal/privacy/#retention-and-deletion">Privacy Policy</a> and the <a href="/legal/privacy/#meta">Meta</a> and <a href="/legal/privacy/#tiktok">TikTok</a> sections of it.</p>
   </main>
-  <footer>Questions: <a href="mailto:support@postdelegate.com">support@postdelegate.com</a></footer>
+  <footer>Questions: <!--email_off--><a href="mailto:support@postdelegate.com">support@postdelegate.com</a><!--/email_off--></footer>
 </body>
 </html>

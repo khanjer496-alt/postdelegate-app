@@ -22,12 +22,15 @@ const WhopSettings: FC = () => {
   }) => {
     setSelectedCompany(event.target.value);
     companyRegister.onChange(event);
+    // a forum belongs to one company, the one picked before no longer applies
+    form.setValue('experience', '');
   };
 
   return (
     <div>
       <WhopCompanySelect {...companyRegister} onChange={onCompanyChange} />
       <WhopExperienceSelect
+        key={selectedCompany}
         {...form.register('experience')}
         companyId={selectedCompany}
       />

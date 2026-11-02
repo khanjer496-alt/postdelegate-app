@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 // @ts-ignore
 import Uppy, { BasePlugin, UploadResult, UppyFile } from '@uppy/core';
 // @ts-ignore
@@ -16,6 +22,12 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import { uniqBy } from 'lodash';
+
+// The server keeps pictures up to 10 MB (getMaxSize). The types compressed
+// here before the upload shrink well under it, so they may start larger.
+const MAX_IMAGE_SIZE_MB = 10;
+const MAX_IMAGE_SIZE_BEFORE_COMPRESSION_MB = 30;
+const COMPRESSED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export class CompressionWrapper<M = any, B = any> extends Compressor<any, any> {
   override async prepareUpload(fileIDs: string[]) {
@@ -37,6 +49,45 @@ export class CompressionWrapper<M = any, B = any> extends Compressor<any, any> {
     return super.prepareUpload(filteredIDs);
   }
 }
+
+// Every byte is sent but the upload is not done yet: the storage still
+// assembles the file and the server saves it, which can take a few seconds.
+// The status bar would sit at 100% meanwhile, so this says it is processing
+export const UploadProcessing: FC<{ uppy: any }> = ({ uppy }) => {
+  const t = useT();
+  const [processing, setProcessing] = useState(false);
+  useEffect(() => {
+    const progress = (value: number) => setProcessing(value >= 100);
+    const done = () => setProcessing(false);
+    uppy.on('progress', progress);
+    uppy.on('complete', done);
+    uppy.on('error', done);
+    uppy.on('cancel-all', done);
+    return () => {
+      uppy.off('progress', progress);
+      uppy.off('complete', done);
+      uppy.off('error', done);
+      uppy.off('cancel-all', done);
+    };
+  }, [uppy]);
+
+  if (!processing) {
+    return null;
+  }
+
+  return (
+    <div
+      role="status"
+      className="absolute inset-0 z-[1] flex items-center gap-[8px] px-[16px] bg-newBgColorInner text-[14px] text-textColor"
+    >
+      <span
+        aria-hidden="true"
+        className="w-[14px] h-[14px] rounded-full border-2 border-newTableBorder border-t-btnCta animate-spin"
+      />
+      {t('processing', 'Processing...')}
+    </div>
+  );
+};
 
 export function useUppyUploader(props: {
   // @ts-ignore
@@ -145,18 +196,35 @@ export function useUppyUploader(props: {
             const isImage = file.type?.startsWith('image/');
             const isVideo = file.type?.startsWith('video/');
 
-            const maxImageSize = 30 * 1024 * 1024; // 30MB
+            const compressed =
+              !disableImageCompression &&
+              !mediaProcessing &&
+              COMPRESSED_IMAGE_TYPES.includes(file.type || '');
+            const maxImageSizeMB = compressed
+              ? MAX_IMAGE_SIZE_BEFORE_COMPRESSION_MB
+              : MAX_IMAGE_SIZE_MB;
+            const maxImageSize = maxImageSizeMB * 1024 * 1024;
             const maxVideoSize = 1000 * 1024 * 1024; // 1GB
 
             if (isImage && file.size > maxImageSize) {
-              const error = new Error(
-                `Image file "${file.name}" is too large. Maximum size allowed is 30MB.`
-              );
+              const isGif =
+                file.type === 'image/gif' ||
+                (file.name || '').toLowerCase().endsWith('.gif');
+              const message = isGif
+                ? t(
+                    'gif_too_large',
+                    'GIFs are uploaded without compression, so a GIF can be at most {{size}} MB.',
+                    { size: maxImageSizeMB }
+                  )
+                : t(
+                    'image_too_large',
+                    'Pictures can be at most {{size}} MB.',
+                    { size: maxImageSizeMB }
+                  );
+              const error = new Error(`${file.name}: ${message}`);
               uppy2.log(error.message, 'error');
               uppy2.info(error.message, 'error', 5000);
-              toast.show(
-                `Image file is too large. Maximum size allowed is 30MB.`
-              );
+              toast.show(message, 'warning');
               uppy2.removeFile(file.id); // Remove file from queue
               return reject(error);
             }
@@ -206,7 +274,7 @@ export function useUppyUploader(props: {
     // the normalizer resizes on the server, shrinking first would only make it upscale a blurry copy
     if (!disableImageCompression && !mediaProcessing) {
       uppy2.use(CompressionWrapper, {
-        convertTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        convertTypes: COMPRESSED_IMAGE_TYPES,
         maxWidth: 1000,
         maxHeight: 1000,
         quality: 1,

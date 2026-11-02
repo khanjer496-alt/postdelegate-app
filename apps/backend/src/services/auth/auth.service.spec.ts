@@ -30,17 +30,23 @@ const setup = (user: any) => {
     getUserByEmail: jest.fn(async () => user),
     updatePassword: jest.fn(async () => ({})),
     activateUser: jest.fn(async () => ({})),
+    getProviderUserByEmail: jest.fn(async () => null as any),
   };
   const emails = { sendEmailSync: jest.fn(async () => undefined) };
+  const lockout = {
+    isLocked: jest.fn(async () => false),
+    recordFailure: jest.fn(),
+    clear: jest.fn(),
+  };
   const service = new AuthService(
     users as any,
     {} as any,
     emails as any,
     {} as any,
     {} as any,
-    { isLocked: jest.fn(async () => false), recordFailure: jest.fn(), clear: jest.fn() } as any
+    lockout as any
   );
-  return { service, users, emails };
+  return { service, users, emails, lockout };
 };
 
 const linkToken = (html: string) => html.match(/\/auth\/[a-z]+\/([^"]+)"/)![1];
@@ -62,6 +68,43 @@ describe('AuthService tokens', () => {
       expect(payload.exp - payload.iat).toBe(20 * 60);
       expect(payload.id).toBe('u1');
       expect(() => Tokens.verifyTypedJWT(token, 'session')).toThrow();
+    });
+
+    it('clears the login lockout once the password is reset', async () => {
+      const { service, emails, lockout } = setup(localUser());
+      await service.forgot('a@example.com');
+      await flush();
+      const token = linkToken((emails.sendEmailSync.mock.calls[0] as any[])[2]);
+
+      expect(await service.forgotReturn({ token, password: 'new-pass-1' } as any)).toBeTruthy();
+      expect(lockout.clear).toHaveBeenCalledWith('a@example.com');
+    });
+
+    it('does not clear the lockout for a link that did not reset', async () => {
+      const { service, lockout } = setup(localUser());
+      const token = Tokens.signTypedJWT(
+        'reset',
+        { id: 'u1', pv: Tokens.passwordFingerprint('hash-1') },
+        -10
+      );
+      expect(await service.forgotReturn({ token, password: 'x' } as any)).toBe(false);
+      expect(lockout.clear).not.toHaveBeenCalled();
+    });
+
+    it('tells a Google account to sign in with Google instead', async () => {
+      const { service, users, emails } = setup(null);
+      users.getUserByEmail.mockResolvedValue(null as any);
+      users.getProviderUserByEmail.mockResolvedValue({
+        id: 'g1',
+        email: 'g@example.com',
+        providerName: 'GOOGLE',
+      });
+      expect(await service.forgot('g@example.com')).toBe(false);
+      await flush();
+      const [to, , html] = emails.sendEmailSync.mock.calls[0] as any[];
+      expect(to).toBe('g@example.com');
+      expect(html).toContain('signs in with Google');
+      expect(html).not.toContain('/auth/forgot/');
     });
 
     it('resets the password once', async () => {
@@ -127,7 +170,7 @@ describe('AuthService tokens', () => {
     it('activates with an activation token and returns a session', async () => {
       const { service, users } = setup(localUser({ activated: false }));
       const token = Tokens.signTypedJWT('activation', { id: 'u1', email: 'a@example.com' });
-      const session = (await service.activate(token, '')) as string;
+      const session = ((await service.activate(token, '')) as { jwt: string }).jwt;
       expect(users.activateUser).toHaveBeenCalledWith('u1');
       const payload: any = Tokens.verifyTypedJWT(session, 'session');
       expect(payload.id).toBe('u1');
@@ -143,9 +186,25 @@ describe('AuthService tokens', () => {
         Tokens.signTypedJWT('reset', { id: 'u1' }),
         Tokens.signJWT({ id: 'u1', email: 'a@example.com', activated: false }),
       ]) {
-        expect(await service.activate(token, '')).toBe(false);
+        expect(await service.activate(token, '')).toEqual({ failed: 'invalid' });
       }
       expect(users.activateUser).not.toHaveBeenCalled();
+    });
+
+    it('says an expired link expired, not that the user is activated', async () => {
+      const { service } = setup(localUser({ activated: false }));
+      const token = Tokens.signTypedJWT(
+        'activation',
+        { id: 'u1', email: 'a@example.com' },
+        -10
+      );
+      expect(await service.activate(token, '')).toEqual({ failed: 'expired' });
+    });
+
+    it('says an activated user is already activated', async () => {
+      const { service } = setup(localUser({ activated: true }));
+      const token = Tokens.signTypedJWT('activation', { id: 'u1', email: 'a@example.com' });
+      expect(await service.activate(token, '')).toEqual({ failed: 'activated' });
     });
 
     it('answers a resend the same way for unknown and activated accounts', async () => {
@@ -368,5 +427,100 @@ describe('AuthService login lockout', () => {
     }
     expect(await lockout.isLocked('other@example.com')).toBe(false);
     await expect(login('other@example.com', 'right-password')).resolves.toBeTruthy();
+  });
+});
+
+describe('AuthService invites and provider accounts', () => {
+  beforeAll(() => {
+    process.env.JWT_SECRET = 'unit-test-secret';
+    process.env.NOT_SECURED = 'true';
+  });
+  afterAll(() => {
+    delete process.env.NOT_SECURED;
+  });
+
+  const invite = { orgId: 'o1', role: 'USER' as const, id: 'i1', email: 'a@example.com' };
+
+  const setupInvites = (over: { localUser?: any; providerUser?: any } = {}) => {
+    const users = {
+      getUserByEmail: jest.fn(async () => over.localUser ?? null),
+      getUserByProvider: jest.fn(async () => over.providerUser ?? null),
+      getUserById: jest.fn(async () => over.providerUser || over.localUser),
+    };
+    const organizations = {
+      addUserToOrg: jest.fn(async () => ({ organizationId: 'o1' })),
+      createOrgAndUser: jest.fn(),
+    };
+    const providers = {
+      getProvider: jest.fn(() => ({
+        getToken: jest.fn(async () => 'access'),
+        getUser: jest.fn(async () => ({ id: 'g-1', email: 'a@example.com' })),
+      })),
+    };
+    const service = new AuthService(
+      users as any,
+      organizations as any,
+      {} as any,
+      providers as any,
+      {} as any,
+      { isLocked: jest.fn(async () => false), recordFailure: jest.fn(), clear: jest.fn() } as any
+    );
+    return { service, organizations };
+  };
+
+  it('accepts the invite when an existing user signs in with a password', async () => {
+    const { service, organizations } = setupInvites({
+      localUser: localUser({ password: Tokens.hashPassword('right-password') }),
+    });
+
+    const result = await service.routeAuth(
+      'LOCAL' as any,
+      Object.assign(new LoginUserDto(), {
+        email: 'a@example.com',
+        password: 'right-password',
+        provider: 'LOCAL',
+      }),
+      '203.0.113.1',
+      'agent',
+      invite
+    );
+
+    expect(organizations.addUserToOrg).toHaveBeenCalledWith('u1', 'i1', 'o1', 'USER', 'a@example.com');
+    expect(result.addedOrg).toEqual({ organizationId: 'o1' });
+  });
+
+  it('accepts the invite when an existing user signs in with Google', async () => {
+    const { service, organizations } = setupInvites({
+      providerUser: { id: 'g-user', password: '' },
+    });
+
+    const result = await service.checkExists('GOOGLE', 'code', undefined, 's', 's', invite);
+
+    expect(organizations.addUserToOrg).toHaveBeenCalledWith('g-user', 'i1', 'o1', 'USER', 'a@example.com');
+    expect(result.addedOrg).toEqual({ organizationId: 'o1' });
+  });
+
+  it('does not make a second account for an email that signs in with a password', async () => {
+    const { service, organizations } = setupInvites({ localUser: localUser() });
+
+    await expect(service.checkExists('GOOGLE', 'code', undefined, 's', 's')).rejects.toThrow(
+      'Sign in with your email and password instead'
+    );
+    await expect(
+      service.routeAuth(
+        'GOOGLE' as any,
+        { provider: 'GOOGLE', providerToken: 'token', company: 'Acme' } as any,
+        '1.1.1.1',
+        'agent'
+      )
+    ).rejects.toThrow('Sign in with your email and password instead');
+    expect(organizations.createOrgAndUser).not.toHaveBeenCalled();
+  });
+
+  it('tells an unactivated password account to activate before signing in', async () => {
+    const { service } = setupInvites({ localUser: localUser({ activated: false }) });
+    await expect(service.checkExists('GOOGLE', 'code', undefined, 's', 's')).rejects.toThrow(
+      'not activated yet. Activate it from the email we sent you'
+    );
   });
 });

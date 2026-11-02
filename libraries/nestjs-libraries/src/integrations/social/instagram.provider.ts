@@ -77,6 +77,9 @@ export class InstagramProvider
         return 'Trial Reels must be a video';
       }
     }
+    if (firstPost?.some((f) => (f?.alt?.length ?? 0) > 1000)) {
+      return 'Instagram alt text can be up to 1000 characters';
+    }
     if (settings?.audio?.id) {
       if (settings?.post_type === 'story') {
         return 'Audio can only be added to Reels, not to Stories';
@@ -707,6 +710,59 @@ export class InstagramProvider
     return status_code;
   }
 
+  // After a rejected media_publish: '' if Instagram did not publish the
+  // container, otherwise the id of the media it created. The newest media is
+  // only taken when its caption matches (another post can land in between,
+  // and comment() would then reply on it); without a match the container id
+  // stands in, like checkPostStatus does for a post it knows is live.
+  private async igPublishedMediaId(
+    containerId: string,
+    igId: string,
+    checkToken: string,
+    type: string,
+    caption: string
+  ): Promise<string> {
+    let status: string;
+    try {
+      status = await this.igContainerStatus(containerId, checkToken, type);
+    } catch (e) {
+      console.error(
+        `Instagram blocked media_publish for container ${containerId}: status probe failed`
+      );
+      return '';
+    }
+
+    if (status !== 'PUBLISHED') {
+      console.log(
+        `Instagram blocked media_publish for container ${containerId}: status ${status}`
+      );
+      return '';
+    }
+
+    // the post is live: a failed lookup only costs the exact media id
+    const recent: { id: string; caption?: string }[] = await this.fetch(
+      `https://${type}/${META_GRAPH_API_VERSION}/${igId}/media?fields=id,caption&limit=5&access_token=${checkToken}`,
+      undefined,
+      '',
+      0,
+      true
+    )
+      .then((res) => res.json())
+      .then((res) => res?.data || [])
+      .catch(() => []);
+    // an empty caption would match any other caption-less post
+    const normalize = (text?: string) =>
+      (text || '').replace(/\r\n/g, '\n').trim();
+    const wanted = normalize(caption);
+    const mediaId =
+      (wanted && recent.find((m) => normalize(m?.caption) === wanted)?.id) ||
+      '';
+    console.log(
+      `Instagram blocked media_publish for container ${containerId}: status PUBLISHED, media ${mediaId || 'not matched'}`
+    );
+    return mediaId || containerId;
+  }
+
   // The post is live, the permalink is only cosmetic: never fail (and risk
   // re-publishing) a live post over it.
   private async igPermalink(
@@ -778,6 +834,13 @@ export class InstagramProvider
           ? `image_url=${m.path}&media_type=STORIES`
           : `image_url=${m.path}`;
 
+        // alt_text is only supported on images (single or carousel item),
+        // not on videos or stories
+        const altText =
+          m.alt && !isStory && !hasExtension(m.path, 'mp4')
+            ? `&alt_text=${encodeURIComponent(m.alt)}`
+            : ``;
+
         const trialParams = isTrialReel
           ? `&trial_params=${encodeURIComponent(
               JSON.stringify({
@@ -817,7 +880,7 @@ export class InstagramProvider
 
         const { id: photoId } = await (
           await this.fetch(
-            `https://${type}/${META_GRAPH_API_VERSION}/${id}/media?${mediaType}${isCarousel}${itemCollaborators}${trialParams}${audioConfiguration}&access_token=${accessToken}${caption}`,
+            `https://${type}/${META_GRAPH_API_VERSION}/${id}/media?${mediaType}${altText}${isCarousel}${itemCollaborators}${trialParams}${audioConfiguration}&access_token=${accessToken}${caption}`,
             {
               method: 'POST',
             }
@@ -1015,24 +1078,49 @@ export class InstagramProvider
         ? pendingData.carouselId
         : pendingData.containers[0];
 
-    const { id: mediaId } = await (
-      await this.fetch(
-        `https://${pendingData.type}/${META_GRAPH_API_VERSION}/${igId}/media_publish?creation_id=${creationId}&access_token=${accessToken}&field=id`,
-        {
-          method: 'POST',
-        }
-      )
-    ).json();
+    let mediaId: string;
+    try {
+      ({ id: mediaId } = await (
+        await this.fetch(
+          `https://${pendingData.type}/${META_GRAPH_API_VERSION}/${igId}/media_publish?creation_id=${creationId}&access_token=${accessToken}&field=id`,
+          {
+            method: 'POST',
+          }
+        )
+      ).json());
+    } catch (err) {
+      // Instagram sometimes answers media_publish with 2207051 ("action is
+      // blocked") and still publishes the container: ask Instagram before
+      // failing a post that may already be live.
+      if (!(err instanceof BadBody) || !err.message.includes('blocked')) {
+        throw err;
+      }
+
+      mediaId = await this.igPublishedMediaId(
+        creationId!,
+        igId,
+        checkToken,
+        pendingData.type,
+        pendingData.message || ''
+      );
+      if (!mediaId) {
+        throw err;
+      }
+    }
 
     return {
       status: 'completed',
       postId: mediaId,
-      releaseURL: await this.igPermalink(
-        mediaId,
-        checkToken,
-        pendingData.type,
-        integration
-      ),
+      // a recovered post without a matched media id has no permalink
+      releaseURL:
+        mediaId === creationId
+          ? `https://www.instagram.com/${integration.profile}`
+          : await this.igPermalink(
+              mediaId,
+              checkToken,
+              pendingData.type,
+              integration
+            ),
     };
   }
 

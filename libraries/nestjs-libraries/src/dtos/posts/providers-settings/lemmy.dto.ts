@@ -11,38 +11,40 @@ import {
 import { Type } from 'class-transformer';
 import { ComposerOnly } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/composer.only.decorator';
 
+// the field names keep "subreddit" for the posts already saved, Lemmy calls
+// them communities
 export class LemmySettingsDtoInner {
-  @IsString()
-  @MinLength(2)
-  @IsDefined()
+  @IsString({ message: 'Choose a Lemmy community' })
+  @MinLength(2, { message: 'Choose a Lemmy community' })
+  @IsDefined({ message: 'Choose a Lemmy community' })
   subreddit: string;
 
-  @IsString()
-  @IsDefined()
+  @IsString({ message: 'Choose a Lemmy community' })
+  @IsDefined({ message: 'Choose a Lemmy community' })
   id: string;
 
-  @IsString()
-  @MinLength(2)
-  @IsDefined()
+  @IsString({ message: 'Add a title of at least 2 characters' })
+  @MinLength(2, { message: 'Add a title of at least 2 characters' })
+  @IsDefined({ message: 'Add a title of at least 2 characters' })
   title: string;
 
   @ValidateIf((o) => o.url)
   @IsOptional()
-  @IsUrl()
+  @IsUrl({}, { message: 'Enter a full link, like https://example.com' })
   url: string;
 }
 
 export class LemmySettingsValueDto {
   @Type(() => LemmySettingsDtoInner)
-  @IsDefined()
-  @ValidateNested()
+  @IsDefined({ message: 'Choose a Lemmy community' })
+  @ValidateNested({ message: 'Choose a Lemmy community' })
   value: LemmySettingsDtoInner;
 }
 
 export class LemmySettingsDto {
   @Type(() => LemmySettingsValueDto)
-  @ValidateNested({ each: true })
-  @ArrayMinSize(1)
+  @ValidateNested({ each: true, message: 'Choose a Lemmy community' })
+  @ArrayMinSize(1, { message: 'Add at least one Lemmy community' })
   @ComposerOnly()
   subreddit: LemmySettingsValueDto[];
 }

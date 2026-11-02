@@ -1,4 +1,6 @@
+import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsDefined,
   IsObject,
   IsOptional,
@@ -49,4 +51,12 @@ export class StudioTranscribeDto {
   @MinLength(1, SCRIPT)
   @MaxLength(3000, SCRIPT_LONG)
   script?: string;
+}
+
+export class GetStudioProjectsDto {
+  // also list the projects assistants and the public API made
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  api?: boolean;
 }

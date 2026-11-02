@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { Provider, User } from '@prisma/client';
 import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { LoginUserDto } from '@gitroom/nestjs-libraries/dtos/auth/login.user.dto';
@@ -15,6 +15,25 @@ import {
 import { NewsletterService } from '@gitroom/nestjs-libraries/newsletter/newsletter.service';
 import { AffiliateService } from '@gitroom/nestjs-libraries/database/prisma/affiliates/affiliate.service';
 import { LoginLockoutService } from '@gitroom/nestjs-libraries/services/login.lockout.service';
+
+type InviteCookie = {
+  orgId: string;
+  role: 'USER' | 'ADMIN';
+  id: string;
+  email?: string;
+};
+
+// the sign-in a provider account uses, as people know it
+const providerNames: Partial<Record<Provider, string>> = {
+  [Provider.GOOGLE]: 'Google',
+  [Provider.GITHUB]: 'GitHub',
+  [Provider.APPLE]: 'Apple',
+  [Provider.FARCASTER]: 'Farcaster',
+  [Provider.WALLET]: 'your wallet',
+  [Provider.GENERIC]: 'your company sign-in',
+};
+
+export type ActivationFailure = 'expired' | 'invalid' | 'activated';
 
 @Injectable()
 export class AuthService {
@@ -42,9 +61,7 @@ export class AuthService {
     body: CreateOrgUserDto | LoginUserDto,
     ip: string,
     userAgent: string,
-    addToOrg?:
-      | boolean
-      | { orgId: string; role: 'USER' | 'ADMIN'; id: string; email?: string },
+    addToOrg?: boolean | InviteCookie,
     affiliateCookie?: string
   ) {
     if (provider === Provider.LOCAL) {
@@ -77,17 +94,10 @@ export class AuthService {
           cookie: affiliateCookie,
         });
 
-        const addedOrg =
-          addToOrg && typeof addToOrg !== 'boolean'
-            ? await this._organizationService.addUserToOrg(
-                create.users[0].user.id,
-                addToOrg.id,
-                addToOrg.orgId,
-                addToOrg.role,
-                // email invites can only be accepted by the invited address
-                addToOrg.email || undefined
-              )
-            : false;
+        const addedOrg = await this.acceptInvite(
+          create.users[0].user.id,
+          addToOrg
+        );
 
         const obj = { addedOrg, jwt: await this.jwt(create.users[0].user) };
         await this._emailService.sendEmailSync(
@@ -115,7 +125,11 @@ export class AuthService {
         throw new Error('User is not activated');
       }
 
-      return { addedOrg: false, jwt: await this.jwt(user) };
+      // an existing account that follows an invite joins on sign in
+      return {
+        addedOrg: await this.acceptInvite(user.id, addToOrg),
+        jwt: await this.jwt(user),
+      };
     }
 
     const user = await this.loginOrRegisterProvider(
@@ -126,17 +140,40 @@ export class AuthService {
       affiliateCookie
     );
 
-    const addedOrg =
-      addToOrg && typeof addToOrg !== 'boolean'
-        ? await this._organizationService.addUserToOrg(
-            user.id,
-            addToOrg.id,
-            addToOrg.orgId,
-            addToOrg.role,
-            addToOrg.email || undefined
-          )
-        : false;
+    const addedOrg = await this.acceptInvite(user.id, addToOrg);
     return { addedOrg, jwt: await this.jwt(user) };
+  }
+
+  // The invite in the cookie, accepted by whoever signs up or signs in
+  private async acceptInvite(userId: string, addToOrg?: boolean | InviteCookie) {
+    if (!addToOrg || typeof addToOrg === 'boolean') {
+      return false as const;
+    }
+    return this._organizationService.addUserToOrg(
+      userId,
+      addToOrg.id,
+      addToOrg.orgId,
+      addToOrg.role,
+      // email invites can only be accepted by the invited address
+      addToOrg.email || undefined
+    );
+  }
+
+  // A provider sign-up for an email that already has a password account
+  // would make a second, empty account
+  private async assertNoPasswordAccount(email?: string) {
+    const existing = email
+      ? await this._userService.getUserByEmail(email)
+      : null;
+    if (!existing) {
+      return;
+    }
+    throw new HttpException(
+      existing.activated
+        ? 'This email already has a PostDelegate account. Sign in with your email and password instead.'
+        : 'This email already has a PostDelegate account that is not activated yet. Activate it from the email we sent you (you can resend it from the sign in page), then sign in with your email and password.',
+      400
+    );
   }
 
   public getOrgFromCookie(cookie?: string) {
@@ -192,6 +229,8 @@ export class AuthService {
     if (!(await this.canRegister(provider))) {
       throw new Error('Registration is disabled');
     }
+
+    await this.assertNoPasswordAccount(providerUser.email);
 
     const create = await this._organizationService.createOrgAndUser(
       {
@@ -277,7 +316,22 @@ export class AuthService {
 
   async forgot(email: string) {
     const user = await this._userService.getUserByEmail(email);
-    if (!user || user.providerName !== Provider.LOCAL) {
+    if (!user) {
+      // an account that signs in with Google (or another provider) has no
+      // password, it is told how to sign in instead
+      const providerUser = await this._userService.getProviderUserByEmail(email);
+      if (providerUser) {
+        const name =
+          providerNames[providerUser.providerName] || 'your sign-in provider';
+        this.sendInBackground(
+          providerUser.email,
+          'How to sign in to PostDelegate',
+          `We received a request to reset the password of your PostDelegate account. Your account signs in with ${name}, so it has no password to reset.${emailButton(
+            `${process.env.FRONTEND_URL}/auth/login`,
+            `Sign in with ${name}`
+          )}If you did not ask for this, you can ignore this email.`
+        );
+      }
       return false;
     }
 
@@ -319,30 +373,46 @@ export class AuthService {
       return false;
     }
 
-    return this._userService.updatePassword(user.id, body.password);
+    const updated = await this._userService.updatePassword(
+      user.id,
+      body.password
+    );
+    // a forgotten password often comes after failed logins, the new one works
+    // right away
+    await this._loginLockoutService.clear(user.email);
+    return updated;
   }
 
-  async activate(code: string, tracking: string) {
+  async activate(
+    code: string,
+    tracking: string
+  ): Promise<{ jwt: string } | { failed: ActivationFailure }> {
     let token: { id: string; email: string };
     try {
       token = AuthChecker.verifyTypedJWT(code, 'activation');
     } catch (err) {
-      return false;
+      return {
+        failed:
+          (err as Error)?.name === 'TokenExpiredError' ? 'expired' : 'invalid',
+      };
     }
 
     if (typeof token.id !== 'string') {
-      return false;
+      return { failed: 'invalid' };
     }
 
     const user = await this._userService.getUserById(token.id);
-    if (!user || user.activated) {
-      return false;
+    if (!user) {
+      return { failed: 'invalid' };
+    }
+    if (user.activated) {
+      return { failed: 'activated' };
     }
 
     await this._userService.activateUser(user.id);
     this._track('register', user.email, tracking).catch((err) => {});
     await NewsletterService.register(user.email);
-    return this.jwt(user);
+    return { jwt: await this.jwt(user) };
   }
 
   async resendActivationEmail(email: string) {
@@ -371,7 +441,8 @@ export class AuthService {
     code: string,
     redirectUri?: string,
     state?: string,
-    stateCookie?: string
+    stateCookie?: string,
+    addToOrg?: boolean | InviteCookie
   ) {
     // the mobile app passes redirect_uri and keeps no cookies, the web flow
     // never passes it, so the state nonce is only enforced for the web flow
@@ -394,8 +465,15 @@ export class AuthService {
       provider as Provider
     );
     if (checkExists) {
-      return { jwt: await this.jwt(checkExists) };
+      return {
+        jwt: await this.jwt(checkExists),
+        // an existing account that follows an invite joins on sign in
+        addedOrg: await this.acceptInvite(checkExists.id, addToOrg),
+      };
     }
+
+    // a new provider account, unless the email already signs in with a password
+    await this.assertNoPasswordAccount(user.email);
 
     return { token };
   }

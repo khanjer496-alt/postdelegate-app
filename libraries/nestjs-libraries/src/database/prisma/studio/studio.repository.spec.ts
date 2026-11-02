@@ -71,3 +71,73 @@ describe('StudioRepository.saveRenderMedia', () => {
     expect(rolledBack.value).toBe(true);
   });
 });
+
+// Projects of assistants and the public API never push the workspace's own
+// projects off the list, and one whose start failed leaves no row
+describe('StudioRepository projects of assistants and the API', () => {
+  const make = () => {
+    const studioProject = {
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn().mockResolvedValue({ id: 'project-1' }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    };
+    return {
+      studioProject,
+      repository: new StudioRepository(
+        { model: { studioProject } } as any,
+        {} as any,
+        {} as any,
+        {} as any
+      ),
+    };
+  };
+
+  it('lists only the projects made in the app by default', async () => {
+    const { studioProject, repository } = make();
+    await repository.getProjects('org-1');
+    expect(studioProject.findMany.mock.calls[0][0].where).toEqual({
+      organizationId: 'org-1',
+      deletedAt: null,
+      source: null,
+    });
+    expect(studioProject.findMany.mock.calls[0][0].select.source).toBe(true);
+  });
+
+  it('lists every project when asked', async () => {
+    const { studioProject, repository } = make();
+    await repository.getProjects('org-1', true);
+    expect(studioProject.findMany.mock.calls[0][0].where).toEqual({
+      organizationId: 'org-1',
+      deletedAt: null,
+    });
+  });
+
+  it('marks the source of a project only when there is one', async () => {
+    const { studioProject, repository } = make();
+    await repository.createProject('org-1', 'A', 'hook-over-clip', '{}', 'api');
+    await repository.createProject('org-1', 'B', 'hook-over-clip', '{}');
+    expect(studioProject.create.mock.calls[0][0].data.source).toBe('api');
+    expect(studioProject.create.mock.calls[1][0].data).not.toHaveProperty(
+      'source'
+    );
+  });
+
+  it('deletes a project for good only while it has no renders', async () => {
+    const { studioProject, repository } = make();
+    await expect(
+      repository.removeUnrenderedProject('org-1', 'project-1')
+    ).resolves.toBe(true);
+    expect(studioProject.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: 'project-1',
+        organizationId: 'org-1',
+        renders: { none: {} },
+      },
+    });
+
+    studioProject.deleteMany.mockResolvedValue({ count: 0 });
+    await expect(
+      repository.removeUnrenderedProject('org-1', 'project-1')
+    ).resolves.toBe(false);
+  });
+});

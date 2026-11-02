@@ -65,6 +65,10 @@ export const ERASURE_DECISIONS: Record<string, ErasureDecision> = {
     scope: 'org',
     note: 'deleted before the projects; the rendered videos are Media rows and go with the media',
   },
+  StudioAsset: {
+    scope: 'org',
+    note: 'uploaded Studio music and the voices and stills Studio AI made on the workspace key, deleted before the projects; the R2 objects named by path are deleted after the commit',
+  },
   Subscription: {
     scope: 'org',
     note: 'row deleted after the Stripe subscription is cancelled; Stripe keeps its own customer and invoice records (tax law), the customer id is listed in the receipt for the operator',

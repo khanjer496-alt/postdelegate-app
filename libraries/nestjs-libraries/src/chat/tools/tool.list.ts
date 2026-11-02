@@ -20,6 +20,10 @@ import { DeletePostTool } from '@gitroom/nestjs-libraries/chat/tools/delete.post
 import { UploadWidgetTool } from '@gitroom/nestjs-libraries/chat/tools/upload.widget.tool';
 import { UploadWidgetTicketTool } from '@gitroom/nestjs-libraries/chat/tools/upload.widget.ticket.tool';
 import { UploadWidgetStatusTool } from '@gitroom/nestjs-libraries/chat/tools/upload.widget.status.tool';
+import { StudioTemplatesTool } from '@gitroom/nestjs-libraries/chat/tools/studio.templates.tool';
+import { StudioRenderTool } from '@gitroom/nestjs-libraries/chat/tools/studio.render.tool';
+import { StudioRenderStatusTool } from '@gitroom/nestjs-libraries/chat/tools/studio.render.status.tool';
+import { StudioCancelTool } from '@gitroom/nestjs-libraries/chat/tools/studio.cancel.tool';
 
 export const toolList = [
   IntegrationListTool,
@@ -44,4 +48,8 @@ export const toolList = [
   UploadWidgetTool,
   UploadWidgetTicketTool,
   UploadWidgetStatusTool,
+  StudioTemplatesTool,
+  StudioRenderTool,
+  StudioRenderStatusTool,
+  StudioCancelTool,
 ];

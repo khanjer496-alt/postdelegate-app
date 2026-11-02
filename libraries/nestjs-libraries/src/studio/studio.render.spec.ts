@@ -30,8 +30,10 @@ import { join, resolve } from 'path';
 import { StudioService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.service';
 import { HookOverClipTemplate } from '@gitroom/nestjs-libraries/studio/templates/hook.over.clip.template';
 import { TalkingHeadCaptionsTemplate } from '@gitroom/nestjs-libraries/studio/templates/talking.head.captions.template';
+import { AiUgcTemplate } from '@gitroom/nestjs-libraries/studio/templates/ai.ugc.template';
 import {
   StudioPlan,
+  StudioPlanContext,
   StudioTemplateAbstract,
 } from '@gitroom/nestjs-libraries/studio/studio.interface';
 
@@ -89,6 +91,38 @@ maybe('Studio render with ffmpeg', () => {
       { cwd: dir }
     );
     expect(fixture.status).toBe(0);
+
+    // what the AI makes for AI UGC: a still and a 3 second voice
+    for (const args of [
+      [
+        '-f',
+        'lavfi',
+        '-i',
+        'color=c=orange:size=1024x1536',
+        '-frames:v',
+        '1',
+        'ai-1.jpg',
+      ],
+      [
+        '-f',
+        'lavfi',
+        '-i',
+        'sine=frequency=220:duration=3',
+        '-c:a',
+        'libmp3lame',
+        'ai-0.mp3',
+      ],
+    ]) {
+      expect(
+        spawnSync(
+          ffmpeg,
+          ['-hide_banner', '-loglevel', 'error', '-y', ...args],
+          {
+            cwd: dir,
+          }
+        ).status
+      ).toBe(0);
+    }
   });
 
   afterAll(() => {
@@ -98,11 +132,13 @@ maybe('Studio render with ffmpeg', () => {
   const render = async (
     template: StudioTemplateAbstract<any>,
     spec: any,
-    hasAudio = true
+    hasAudio = true,
+    context: Partial<StudioPlanContext> = {}
   ) => {
     const plan: StudioPlan = template.plan(spec, {
       inputs: [{ file: 'source-0.mp4', hasAudio }],
       fontsDir,
+      ...context,
     });
     for (const file of plan.files) {
       writeFileSync(join(dir, file.name), file.content);
@@ -203,5 +239,71 @@ maybe('Studio render with ffmpeg', () => {
     );
     expect(plan.inputs).toHaveLength(2);
     expect(probe.streams.some((p: any) => p.codec_type === 'audio')).toBe(true);
+  }, 60000);
+
+  it('renders "AI UGC": looped footage, a panning still and the voice', async () => {
+    const { probe, plan } = await render(
+      new AiUgcTemplate(),
+      {
+        voice: 'marin',
+        stills: 1,
+        footage: [{ mediaId: '3f1c2a9e-8b4d-4f6a-9c2e-1a2b3c4d5e6f' }],
+        script: {
+          hook: 'Stop scrolling',
+          lines: ['This changed my mornings'],
+          cta: 'Try it',
+        },
+      },
+      true,
+      {
+        inputs: [{ file: 'source-0.mp4', hasAudio: true, duration: 2 }],
+        ai: [
+          {
+            file: 'ai-0.mp3',
+            seconds: 3,
+            words: [
+              { text: 'Stop', start: 0, end: 0.4 },
+              { text: 'scrolling', start: 0.4, end: 1 },
+              { text: 'This', start: 1, end: 1.3 },
+              { text: 'changed', start: 1.3, end: 1.7 },
+              { text: 'my', start: 1.7, end: 1.9 },
+              { text: 'mornings', start: 1.9, end: 2.4 },
+              { text: 'Try', start: 2.4, end: 2.7 },
+              { text: 'it', start: 2.7, end: 3 },
+            ],
+          },
+          { file: 'ai-1.jpg' },
+        ],
+      }
+    );
+
+    expect(plan.inputs).toHaveLength(4);
+    const video = probe.streams.find((p: any) => p.codec_type === 'video');
+    expect(video).toMatchObject({ width: 1080, height: 1920, profile: 'High' });
+    expect(probe.streams.some((p: any) => p.codec_type === 'audio')).toBe(true);
+    // the voice and the silence after it
+    expect(Number(probe.format.duration)).toBeGreaterThan(3.4);
+    expect(Number(probe.format.duration)).toBeLessThan(3.8);
+  }, 60000);
+
+  it('renders "AI UGC" with music ducked under the voice', async () => {
+    const { probe } = await render(
+      new AiUgcTemplate(),
+      {
+        footage: [{ mediaId: '3f1c2a9e-8b4d-4f6a-9c2e-1a2b3c4d5e6f' }],
+        script: { hook: 'Stop scrolling', lines: ['It works'] },
+        music: { assetId: '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f' },
+      },
+      true,
+      {
+        inputs: [{ file: 'source-0.mp4', hasAudio: true, duration: 2 }],
+        ai: [{ file: 'ai-0.mp3', seconds: 3, words: [] }],
+        // the voice file stands in for the music
+        music: { file: 'ai-0.mp3' },
+      }
+    );
+    expect(probe.streams.some((p: any) => p.codec_type === 'audio')).toBe(true);
+    expect(Number(probe.format.duration)).toBeGreaterThan(3.4);
+    expect(Number(probe.format.duration)).toBeLessThan(3.8);
   }, 60000);
 });

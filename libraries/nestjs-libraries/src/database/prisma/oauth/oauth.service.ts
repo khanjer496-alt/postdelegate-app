@@ -59,6 +59,20 @@ const isVerifiedHost = (host: string, verifiedDomains: string[]) =>
     (domain) => host === domain || host.endsWith('.' + domain)
   );
 
+// Exact https callbacks of MCP directories and integrations that register
+// through DCR (Vercel Connect, Zapier, ...), from the MCP_EXTRA_REDIRECT_URIS
+// env (comma separated). They are accepted on top of DCR_VERIFIED_DOMAINS,
+// which also decides who gets email claims (these never do). Only the exact
+// URL: a host can serve callbacks of other people's apps on other paths
+const extraRedirectUris = () =>
+  (process.env.MCP_EXTRA_REDIRECT_URIS || '')
+    .split(',')
+    .map((uri) => uri.trim())
+    .filter((uri) => uri.startsWith('https://'));
+
+const isExtraRedirectUri = (uri: string, parsed: URL) =>
+  parsed.protocol === 'https:' && extraRedirectUris().includes(uri);
+
 type EmailClaimsApp = Pick<OAuthApp, 'clientId' | 'dynamic' | 'redirectUris'>;
 
 // Schemes a browser would execute instead of navigating away from the
@@ -219,7 +233,10 @@ export class OAuthService {
       }
 
       const host = parsed.hostname.toLowerCase();
-      if (!isVerifiedHost(host, verifiedDomains)) {
+      if (
+        !isVerifiedHost(host, verifiedDomains) &&
+        !isExtraRedirectUri(uri, parsed)
+      ) {
         throw new HttpException(
           {
             error: 'invalid_redirect_uri',

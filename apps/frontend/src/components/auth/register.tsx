@@ -30,34 +30,77 @@ type Inputs = {
   provider: string;
 };
 export function Register() {
+  const t = useT();
   const getQuery = useSearchParams();
   const fetch = useFetch();
   const [provider] = useState(getQuery?.get('provider')?.toUpperCase());
   const [code, setCode] = useState(getQuery?.get('code') || '');
   const [state] = useState(getQuery?.get('state') || '');
   const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
   useEffect(() => {
     if (provider && code) {
       load();
     }
   }, []);
   const load = useCallback(async () => {
-    const { token } = await (
-      await fetch(`/auth/oauth/${provider?.toUpperCase() || 'LOCAL'}/exists`, {
+    const response = await fetch(
+      `/auth/oauth/${provider?.toUpperCase() || 'LOCAL'}/exists`,
+      {
         method: 'POST',
         body: JSON.stringify({
           code,
           state,
         }),
-      })
-    ).json();
-    if (token) {
-      setCode(token);
+      }
+    );
+    const body = await response.json().catch(() => ({}));
+    if (response.ok && body?.token) {
+      setCode(body.token);
       setShow(true);
+      return;
     }
-  }, [provider, code]);
-  if (!code && !provider) {
+    // a signed in account reloads the page from the response headers
+    if (response.ok && body?.login) {
+      return;
+    }
+    // only a 400 carries a message meant for people
+    const message =
+      response.status !== 400
+        ? undefined
+        : Array.isArray(body?.message)
+        ? body.message[0]
+        : body?.message;
+    setError(
+      typeof message === 'string' && message
+        ? message
+        : t(
+            'oauth_sign_in_failed',
+            'We could not sign you in with this provider. Try again, or sign in with your email.'
+          )
+    );
+  }, [provider, code, state, t]);
+  // a provider without a code is not a sign-in callback, e.g. an old link
+  if (!code || !provider) {
     return <RegisterAfter token="" provider="LOCAL" />;
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col gap-[16px]">
+        <h1 className="text-[40px] font-[500] -tracking-[0.8px] text-start">
+          {t('sign_in_failed_title', 'Sign in failed')}
+        </h1>
+        <p role="alert" className="text-[14px] text-red-400">
+          {error}
+        </p>
+        <Link
+          href="/auth/login"
+          className="underline hover:font-bold text-[14px]"
+        >
+          {t('back_to_sign_in', 'Back to sign in')}
+        </Link>
+      </div>
+    );
   }
   if (!show) {
     return <LoadingComponent />;

@@ -45,6 +45,8 @@ const HashnodeSettings: FC = () => {
 export default withProvider({
   postComment: PostComment.COMMENT,
   minimumCharacters: [],
+  // no follow-ups: the network has no comment endpoint, they would be dropped
+  comments: false,
   SettingsComponent: HashnodeSettings,
   CustomPreviewComponent: undefined, // HashnodePreview,
   dto: HashnodeSettingsDto,

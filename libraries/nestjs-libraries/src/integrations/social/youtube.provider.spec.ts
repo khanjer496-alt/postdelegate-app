@@ -94,3 +94,29 @@ describe('YoutubeProvider upload metadata', () => {
     }
   });
 });
+
+describe('YoutubeProvider.checkValidity description', () => {
+  const video = [[{ path: 'https://cdn.example/video.mp4' }]];
+  const check = (description: string) =>
+    new YoutubeProvider().checkValidity(video, {}, [], [description]);
+
+  it('refuses < and >, which YouTube rejects', async () => {
+    expect(await check('a <b> c')).toMatch(/cannot contain < or >/);
+    expect(await check('1 > 0')).toMatch(/cannot contain < or >/);
+  });
+
+  // 5,000 characters fit the old character count, YouTube counts bytes
+  it('measures the 5,000 limit in bytes', async () => {
+    expect(await check('a'.repeat(5000))).toBe(true);
+    expect(await check('é'.repeat(2501))).toMatch(/5000 bytes/);
+    expect(await check('🎉'.repeat(1250))).toBe(true);
+    expect(await check('🎉'.repeat(1251))).toMatch(/5000 bytes/);
+  });
+
+  it('still checks the video, and works without a description', async () => {
+    expect(await new YoutubeProvider().checkValidity([[]], {}, [])).toBe(
+      'You need one media'
+    );
+    expect(await new YoutubeProvider().checkValidity(video, {}, [])).toBe(true);
+  });
+});

@@ -1228,7 +1228,19 @@ export class PostsService {
           errors = await provider.checkValidity(
             media,
             settings,
-            additionalSettings
+            additionalSettings,
+            // each entry as the provider receives it when it publishes
+            (post.value || []).map((p) =>
+              stripHtmlValidation(
+                provider.editor,
+                p.content || '',
+                true,
+                false,
+                !/<\/?[a-z][\s\S]*>/i.test(p.content || ''),
+                provider.mentionFormat,
+                !!provider.inlineImages?.(settings)
+              )
+            )
           );
         } catch (err: any) {
           errors = err?.message || 'Invalid media';
@@ -1261,6 +1273,8 @@ export class PostsService {
           emptyContent,
           tooLong,
           maximumCharacters,
+          // a turned off channel never publishes, API and MCP refuse it
+          disabled: !!integration.disabled,
         };
       })
     );

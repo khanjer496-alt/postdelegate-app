@@ -16,6 +16,7 @@ import {
 import { streamUploadOptions } from '@gitroom/nestjs-libraries/upload/multer.stream.engine';
 import { omit } from 'lodash';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { GetIncludeDeletedFromRequest } from '@gitroom/nestjs-libraries/user/include.deleted.from.request';
 import { GetOAuthUserIdFromRequest } from '@gitroom/nestjs-libraries/user/oauth.user.id.from.request';
@@ -40,6 +41,8 @@ import { UploadDto } from '@gitroom/nestjs-libraries/dtos/media/upload.dto';
 import { GetMediaDto } from '@gitroom/nestjs-libraries/dtos/media/get.media.dto';
 import { ClippingDto } from '@gitroom/nestjs-libraries/dtos/clipping/clipping.dto';
 import { ClippingService } from '@gitroom/nestjs-libraries/database/prisma/clipping/clipping.service';
+import { StudioService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.service';
+import { CreateStudioRenderDto } from '@gitroom/nestjs-libraries/dtos/studio/studio.render.dto';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { GetNotificationsDto } from '@gitroom/nestjs-libraries/dtos/notifications/get.notifications.dto';
 import * as Sentry from '@sentry/nestjs';
@@ -76,7 +79,8 @@ export class PublicIntegrationsController {
     private _adminStatsService: AdminStatsService,
     private _organizationService: OrganizationService,
     private _clippingService: ClippingService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    private _studioService: StudioService
   ) {}
 
   @Post('/upload')
@@ -153,9 +157,16 @@ export class PublicIntegrationsController {
     @Body() rawBody: any
   ) {
     Sentry.metrics.count('public_api-request', 1);
+    // only the known types, anything else schedules like a missing type did
+    const type = ['draft', 'schedule', 'now', 'update'].includes(rawBody?.type)
+      ? rawBody.type
+      : 'schedule';
+    // a draft is validated as a draft (its settings can still be incomplete),
+    // like the dashboard and MCP do
     const body = await this._postsService.mapTypeToPost(
       {
         ...rawBody,
+        type,
         // a date per channel is a dashboard feature, the public API keeps one
         // date for the whole request
         posts: Array.isArray(rawBody?.posts)
@@ -163,13 +174,9 @@ export class PublicIntegrationsController {
           : rawBody?.posts,
       },
       org.id,
-      rawBody?.type === 'draft' || true,
-      rawBody?.type
+      false,
+      type
     );
-    // only the known types, anything else schedules like a missing type did
-    body.type = ['draft', 'schedule', 'now', 'update'].includes(rawBody?.type)
-      ? rawBody.type
-      : 'schedule';
 
     if (
       process.env.RESTRICT_UPLOAD_DOMAINS &&
@@ -212,6 +219,14 @@ export class PublicIntegrationsController {
         fail(
           item,
           'Your post should have at least one character or one image.'
+        );
+      }
+      // a turned off channel would only fail at publish; a draft or an
+      // update never publishes from here
+      if (item.disabled && body.type !== 'update' && body.type !== 'draft') {
+        fail(
+          item,
+          `${item.name} is turned off. Turn it on from the channel menu in the calendar, or pick another channel.`
         );
       }
     }
@@ -391,6 +406,12 @@ export class PublicIntegrationsController {
     ) {
       throw new HttpException({ msg: 'Integration not allowed' }, 400);
     }
+
+    await this._integrationService.checkProviderAvailable(
+      org.id,
+      integration,
+      refresh
+    );
 
     // A provider migrated via MIGRATE_PROVIDERS reconnects through its target
     // provider's OAuth: the callback lands on the target and the channel is
@@ -579,6 +600,45 @@ export class PublicIntegrationsController {
   getClipping(@GetOrgFromRequest() org: Organization, @Param('id') id: string) {
     Sentry.metrics.count('public_api-request', 1);
     return this._clippingService.getClipping(org.id, id);
+  }
+
+  // Studio: renders only save a video to the media library, never a post.
+  // Fair use, the plan check and the media of the workspace are enforced by
+  // the service, the same way as in the app
+  @Get('/studio/templates')
+  getStudioTemplates() {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._studioService.getTemplateSchemas();
+  }
+
+  // each attempt validates media and checks the limits, so attempts are
+  // capped too, not only the renders that start
+  @Throttle({ default: { limit: 30, ttl: 60 * 60 * 1000 } })
+  @Post('/studio/renders')
+  startStudioRender(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: CreateStudioRenderDto
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._studioService.renderFromSpec(org, body);
+  }
+
+  @Get('/studio/renders/:id')
+  getStudioRender(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._studioService.getRender(org.id, id);
+  }
+
+  @Post('/studio/renders/:id/cancel')
+  cancelStudioRender(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._studioService.cancelRender(org.id, id);
   }
 
   @Delete('/integrations/:id')

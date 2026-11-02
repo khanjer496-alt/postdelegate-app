@@ -26,11 +26,6 @@ export class MediumSettingsDto {
   @IsDefined()
   title: string;
 
-  @IsString()
-  @MinLength(2)
-  @IsDefined()
-  subtitle: string;
-
   @IsOptional()
   @IsString()
   @ValidateIf((o) => o.canonical && o.canonical.indexOf('(post:') === -1)

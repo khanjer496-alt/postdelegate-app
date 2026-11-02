@@ -17,6 +17,17 @@ export const UPLOAD_ALLOWED_MIME = new Set<string>([
   'video/mp4',
 ]);
 
+// The types an upload route accepts and the size cap of each; the media
+// library's when a route gives none
+export interface UploadRules {
+  allowed: Set<string>;
+  maxSize: (mimeType: string) => number;
+  // the largest file of any allowed type
+  fileSize: number;
+  // what a refused type is told, "Unsupported file type." when missing
+  unsupported?: string;
+}
+
 export function getMaxSize(mimeType: string): number {
   if (mimeType.startsWith('image/')) {
     return 10 * 1024 * 1024; // 10 MB
@@ -51,7 +62,11 @@ export function maxSizeStream(maxSize: number) {
 export async function uploadStreamToStorage(
   storage: IUploadProvider,
   webStream: ReadableStream,
-  declaredSize = 0
+  declaredSize = 0,
+  rules: Omit<UploadRules, 'fileSize'> & { unsupported?: string } = {
+    allowed: UPLOAD_ALLOWED_MIME,
+    maxSize: getMaxSize,
+  }
 ) {
   let sniffed: ReadableStream & { fileType?: { mime: string; ext: string } };
   try {
@@ -60,12 +75,12 @@ export async function uploadStreamToStorage(
     throw new BadRequestException('Failed to read file', { cause: err });
   }
   const detected = sniffed.fileType;
-  if (!detected || !UPLOAD_ALLOWED_MIME.has(detected.mime)) {
+  if (!detected || !rules.allowed.has(detected.mime)) {
     await sniffed.cancel();
-    throw new BadRequestException('Unsupported file type.');
+    throw new BadRequestException(rules.unsupported || 'Unsupported file type.');
   }
 
-  const maxSize = getMaxSize(detected.mime);
+  const maxSize = rules.maxSize(detected.mime);
   if (declaredSize > maxSize) {
     await sniffed.cancel();
     throw new BadRequestException('File is too large.');

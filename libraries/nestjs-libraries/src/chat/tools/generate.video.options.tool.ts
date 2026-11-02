@@ -13,6 +13,12 @@ export class GenerateVideoOptionsTool implements AgentToolInterface {
   constructor(private _videoManagerService: VideoManager) {}
   name = 'generateVideoOptions';
 
+  // hidden when no video type is configured (every one needs its own
+  // provider key, e.g. EVOLINK_API_KEY for Seedance)
+  available() {
+    return this._videoManagerService.getAllVideos().length > 0;
+  }
+
   run() {
     return createTool({
       id: 'generateVideoOptions',

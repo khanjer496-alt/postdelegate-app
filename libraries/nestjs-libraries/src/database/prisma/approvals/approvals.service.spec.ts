@@ -363,6 +363,7 @@ describe('ApprovalsService client links', () => {
     expiresAt: future(),
     revokedAt: null,
     lastViewedAt: null,
+    createdAt: past(),
     ...over,
   });
 
@@ -386,6 +387,15 @@ describe('ApprovalsService client links', () => {
     const days = (stored.expiresAt.getTime() - Date.now()) / (24 * 3600 * 1000);
     expect(days).toBeGreaterThan(6.9);
     expect(days).toBeLessThan(7.1);
+  });
+
+  it('sharing does not make the sharer the author the decision emails go to', async () => {
+    const { service, activity } = makeService({
+      post: makePost({ approvalStatus: 'NONE', state: 'QUEUE' }),
+    });
+    await service.createLink(ORG, admin, { postIds: ['p-1'], expiresInDays: 3 });
+    const actions = activity.recordSafely.mock.calls.map((call: any[]) => call[0].action);
+    expect(actions).toEqual(['LINK_CREATED']);
   });
 
   it('shared posts wait for the client instead of publishing, approvers are not emailed', async () => {
@@ -525,6 +535,45 @@ describe('ApprovalsService client links', () => {
       comment: 'Use the new logo',
     });
     expect(posts.addReviewComment).toHaveBeenCalledWith(ORG, 'p-1', 'Use the new logo', null, 'Jo');
+  });
+
+  it('an old link cannot approve a version resubmitted after the client asked for changes', async () => {
+    const token = createApprovalToken();
+    const { service, repository, activity } = makeService({ link: activeLink() });
+    // the client asked for changes after the link was shared, then the team resubmitted
+    activity.latestForPosts.mockResolvedValue([
+      { postId: 'p-1', action: 'CHANGES_REQUESTED', createdAt: new Date() },
+    ]);
+
+    await expect(
+      service.actOnPublicLink(token, { postId: 'p-1', decision: 'approve', name: 'Jo', email: 'jo@x.com' })
+    ).rejects.toThrow('Ask the team for a new link');
+    expect(repository.transitionGroup).not.toHaveBeenCalled();
+  });
+
+  it('shows a resubmitted post as outdated on the old link', async () => {
+    const { service, activity, posts } = makeService({ link: activeLink() });
+    posts.getPostsRecursively.mockResolvedValue([
+      { ...makePost(), integration: null },
+    ]);
+    activity.latestForPosts.mockResolvedValue([
+      { postId: 'p-1', action: 'CHANGES_REQUESTED', createdAt: new Date() },
+    ]);
+
+    const page = await service.getPublicLink(createApprovalToken());
+    expect(page.posts[0].status).toBe('outdated');
+  });
+
+  it('a decision made before the link was shared does not outdate it', async () => {
+    const token = createApprovalToken();
+    const { service, activity } = makeService({ link: activeLink() });
+    activity.latestForPosts.mockResolvedValue([
+      { postId: 'p-1', action: 'CHANGES_REQUESTED', createdAt: new Date(Date.now() - 2 * 3600 * 1000) },
+    ]);
+
+    await expect(
+      service.actOnPublicLink(token, { postId: 'p-1', decision: 'approve', name: 'Jo', email: 'jo@x.com' })
+    ).resolves.toEqual({ id: 'p-1', status: 'approved' });
   });
 
   it('revokes only a link of the workspace', async () => {

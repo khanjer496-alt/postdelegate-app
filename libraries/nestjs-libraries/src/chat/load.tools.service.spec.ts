@@ -59,6 +59,22 @@ describe('LoadToolsService agent model', () => {
     });
   });
 
+  it('only mentions video generation when the video tools are listed', async () => {
+    const instructions = async () =>
+      agentConfigs[agentConfigs.length - 1].instructions({
+        requestContext: contextWith({}),
+      }) as string;
+
+    await service.agent();
+    expect(await instructions()).not.toContain('Generate videos');
+
+    jest
+      .spyOn(service, 'loadTools')
+      .mockResolvedValueOnce({ generateVideoTool: {} });
+    await service.agent();
+    expect(await instructions()).toContain('- Generate videos for posts');
+  });
+
   it('is a function, so no key is read when the agent is built', async () => {
     const model = await buildModel();
 

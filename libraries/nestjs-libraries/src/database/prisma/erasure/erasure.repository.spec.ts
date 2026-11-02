@@ -73,6 +73,8 @@ describe('ErasureRepository.eraseOrganization', () => {
     expect(at('orders')).toBeLessThan(at('messagesGroup'));
     expect(at('clippingClip')).toBeLessThan(at('clipping'));
     expect(at('studioRender')).toBeLessThan(at('studioProject'));
+    expect(at('studioAsset')).toBeGreaterThan(-1);
+    expect(at('studioAsset')).toBeLessThan(at('studioProject'));
     expect(at('studioProject')).toBeLessThan(at('organization'));
     expect(at('oAuthSelfHostedAuthorization')).toBeLessThan(at('oAuthApp'));
     expect(at('oAuthApp')).toBeLessThan(at('media'));
@@ -282,5 +284,29 @@ describe('ErasureRepository.runOrganizationAiMemory', () => {
 
     expect(result.mastra_messages).toBeNull();
     expect(result.mastra_resources).toBe(1);
+  });
+});
+
+describe('ErasureRepository.getOrganizationObjectSources', () => {
+  it('lists every Studio asset, music and the voices and stills of AI', async () => {
+    const { repo, calls } = makeDb({
+      'studioAsset.findMany': [
+        { id: 'a-1', path: 'https://media.example/music.mp3' },
+        { id: 'a-2', path: 'https://media.example/voice.mp3' },
+        { id: 'a-3', path: 'https://media.example/still.jpg' },
+      ],
+    });
+    const sources = await repo.getOrganizationObjectSources('org-1');
+    expect(sources).toEqual(
+      expect.arrayContaining([
+        'https://media.example/voice.mp3',
+        'https://media.example/still.jpg',
+      ])
+    );
+    const call = calls.find(
+      (p) => p.model === 'studioAsset' && p.op === 'findMany'
+    );
+    // every kind of the workspace, not only music
+    expect(call?.args.where).toEqual({ organizationId: 'org-1' });
   });
 });

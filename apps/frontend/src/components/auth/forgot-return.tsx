@@ -30,23 +30,23 @@ export function ForgotReturn({ token }: { token: string }) {
   const fetchData = useFetch();
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     setLoading(true);
-    const { reset } = await (
-      await fetchData('/auth/forgot-return', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...data,
-        }),
-      })
-    ).json();
-    setState(true);
-    if (!reset) {
+    const response = await fetchData('/auth/forgot-return', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+      }),
+    });
+    const { reset } = await response.json().catch(() => ({ reset: false }));
+    setLoading(false);
+    // success only when the password really changed
+    if (!response.ok || !reset) {
       form.setError('password', {
         type: 'manual',
         message: t('password_reset_link_expired', 'Your password reset link has expired. Please try again.'),
       });
       return false;
     }
-    setLoading(false);
+    setState(true);
   };
   return (
     <FormProvider {...form}>

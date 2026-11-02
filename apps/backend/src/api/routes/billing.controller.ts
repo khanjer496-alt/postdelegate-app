@@ -350,33 +350,6 @@ export class BillingController {
     return (await this.provider(org)).cancelCoupon(org.id);
   }
 
-  @Get('/chatbase-refund/preview')
-  async chatbaseRefundPreview(@GetOrgFromRequest() org: Organization) {
-    return (await this.provider(org)).chatbaseRefundPreview(org.id);
-  }
-
-  @Post('/chatbase-refund')
-  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
-  async chatbaseRefund(
-    @GetUserFromRequest() user: User,
-    @GetOrgFromRequest() org: Organization
-  ) {
-    const refund = await (await this.provider(org)).chatbaseRefund(org.id);
-
-    if (refund.refunded) {
-      await this._notificationService.sendEmail(
-        process.env.EMAIL_FROM_ADDRESS,
-        'Refund issued from PostDelegate',
-        `Organization ${escape(org.name)} received a refund of ${
-          refund.amount
-        } ${refund.currency} and their subscription was cancelled`,
-        user.email
-      );
-    }
-
-    return refund;
-  }
-
   @Post('/add-subscription')
   async addSubscription(
     @Body() body: { subscription: string },

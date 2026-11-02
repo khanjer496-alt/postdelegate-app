@@ -154,3 +154,85 @@ describe('PermissionsService extraChannelsOffer', () => {
     expect(await offerFor(subscription, org)).toBeNull();
   });
 });
+
+describe('PermissionsService channel limit', () => {
+  const env = { ...process.env };
+  afterEach(() => {
+    process.env = { ...env };
+  });
+
+  it('counts channels that need a reconnect or are turned off', async () => {
+    process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_x';
+    const service = new PermissionsService(
+      {
+        getSubscriptionByOrganizationId: jest.fn().mockResolvedValue({
+          subscriptionTier: 'STANDARD',
+          totalChannels: 2,
+        }),
+        getSubscription: jest.fn().mockResolvedValue({
+          subscriptionTier: 'STANDARD',
+          totalChannels: 2,
+        }),
+      } as any,
+      {} as any,
+      {
+        getIntegrationsList: jest.fn().mockResolvedValue([
+          { id: 'a', refreshNeeded: true },
+          { id: 'b', disabled: true },
+        ]),
+      } as any,
+      {} as any,
+      { hasCredential: jest.fn() } as any
+    );
+    (service as any).getPackageOptions = jest.fn().mockResolvedValue({
+      subscription: { totalChannels: 2 },
+      options: { channel: 2 },
+    });
+
+    expect(await service.canAddChannel('org', new Date())).toBe(false);
+  });
+});
+
+describe('PermissionsService AutoPost', () => {
+  const env = { ...process.env };
+  afterEach(() => {
+    process.env = { ...env };
+  });
+
+  it.each([
+    ['STANDARD', false],
+    ['PRO', true],
+  ])('a %s plan can use AutoPost: %s', async (tier, allowed) => {
+    process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_x';
+    expect(await canDo('ADMIN', Sections.AUTO_POST, tier)).toBe(allowed);
+  });
+
+  it('is open with billing off', async () => {
+    delete process.env.STRIPE_PUBLISHABLE_KEY;
+    expect(await canDo('USER', Sections.AUTO_POST)).toBe(true);
+  });
+});
+
+describe('PermissionsService channel limit wording', () => {
+  const serviceWith = (channels: object[]) =>
+    new PermissionsService(
+      {} as any,
+      {} as any,
+      { getIntegrationsList: jest.fn().mockResolvedValue(channels) } as any,
+      {} as any,
+      {} as any
+    );
+
+  it('says to reconnect or remove first when such channels fill the slots', async () => {
+    expect(
+      await serviceWith([
+        { id: 'a', refreshNeeded: true },
+        { id: 'b' },
+      ]).channelLimitMessage('org')
+    ).toContain('1 of them needs a reconnect or is turned off. Reconnect or remove a channel first');
+  });
+
+  it('keeps the usual wording when every channel works', async () => {
+    expect(await serviceWith([{ id: 'a' }]).channelLimitMessage('org')).toBeUndefined();
+  });
+});

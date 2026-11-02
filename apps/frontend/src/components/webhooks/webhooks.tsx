@@ -30,7 +30,9 @@ export const Webhooks: FC = () => {
   const addWebhook = useCallback(
     (data?: any) => () => {
       modal.openModal({
-        title: data ? t('update_webhook', 'Update webhook') : t('add_webhook', 'Add webhook'),
+        title: data
+          ? t('update_webhook', 'Update webhook')
+          : t('add_webhook', 'Add webhook'),
         withCloseButton: true,
         children: <AddOrEditWebhook data={data} reload={mutate} />,
       });
@@ -52,7 +54,10 @@ export const Webhooks: FC = () => {
           method: 'DELETE',
         });
         mutate();
-        toaster.show(t('webhook_deleted_successfully', 'Webhook deleted successfully'), 'success');
+        toaster.show(
+          t('webhook_deleted_successfully', 'Webhook deleted successfully'),
+          'success'
+        );
       }
     },
     []
@@ -79,7 +84,17 @@ export const Webhooks: FC = () => {
               <div>{t('delete', 'Delete')}</div>
               {data?.map((p: any) => (
                 <Fragment key={p.id}>
-                  <div className="flex flex-col justify-center">{p.name}</div>
+                  <div className="flex flex-col justify-center">
+                    <div>{p.name}</div>
+                    {p.paused && (
+                      <div className="text-[12px] text-textItemBlur">
+                        {t(
+                          'webhook_paused',
+                          'Paused: over your plan’s webhook limit. Upgrade, or delete another webhook, to send it again.'
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex flex-col justify-center">{p.url}</div>
                   <div className="flex flex-col justify-center">
                     <div>
@@ -114,7 +129,11 @@ export const Webhooks: FC = () => {
 };
 const details = object().shape({
   name: string().required(),
-  url: string().url().required(),
+  // the backend only sends to public https addresses
+  url: string()
+    .url()
+    .matches(/^https:\/\//i, 'The URL must start with https://')
+    .required(),
   integrations: array(),
 });
 const getWebhookOptions = (t: (key: string, fallback: string) => string) => [
@@ -174,7 +193,7 @@ export const AddOrEditWebhook: FC<{
   });
   const callBack = useCallback(
     async (values: any) => {
-      await fetch('/webhooks', {
+      const response = await fetch('/webhooks', {
         method: data?.id ? 'PUT' : 'POST',
         body: JSON.stringify({
           ...(data?.id
@@ -185,6 +204,19 @@ export const AddOrEditWebhook: FC<{
           ...values,
         }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const message = Array.isArray(body?.message)
+          ? body.message[0]
+          : body?.message;
+        toast.show(
+          typeof message === 'string' && message
+            ? message
+            : t('webhook_save_failed', 'Could not save the webhook'),
+          'warning'
+        );
+        return;
+      }
       toast.show(
         data?.id
           ? t('webhook_updated_successfully', 'Webhook updated successfully')
@@ -198,46 +230,65 @@ export const AddOrEditWebhook: FC<{
   );
   const sendTest = useCallback(async () => {
     const url = form.getValues('url');
-    toast.show(t('webhook_sent', 'Webhook send'), 'success');
     try {
-      await fetch(`/webhooks/send?url=${encodeURIComponent(url)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([
-          {
-            id: 'cm6tcts4f0005qcwit25cis26',
-            content: 'This is the first post to instagram',
-            publishDate: '2025-02-06T13:09:00.000Z',
-            releaseURL: 'https://facebook.com/release/release',
-            state: 'PUBLISHED',
-            integration: {
-              id: 'cm6s4uyou0001i2r47pxix6z1',
-              name: 'test',
-              providerIdentifier: 'instagram',
-              picture: `${window.location.origin}/no-picture.jpg`,
-              type: 'social',
-            },
+      const response = await fetch(
+        `/webhooks/send?url=${encodeURIComponent(url)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          {
-            id: 'cm6tcts4f0005qcwit25cis26',
-            content: 'This is the second post to facebook',
-            publishDate: '2025-02-06T13:09:00.000Z',
-            releaseURL: 'https://facebook.com/release2/release2',
-            state: 'PUBLISHED',
-            integration: {
-              id: 'cm6s4uyou0001i2r47pxix6z1',
-              name: 'test2',
-              providerIdentifier: 'facebook',
-              picture: `${window.location.origin}/no-picture.jpg`,
-              type: 'social',
+          body: JSON.stringify([
+            {
+              id: 'cm6tcts4f0005qcwit25cis26',
+              content: 'This is the first post to instagram',
+              publishDate: '2025-02-06T13:09:00.000Z',
+              releaseURL: 'https://facebook.com/release/release',
+              state: 'PUBLISHED',
+              integration: {
+                id: 'cm6s4uyou0001i2r47pxix6z1',
+                name: 'test',
+                providerIdentifier: 'instagram',
+                picture: `${window.location.origin}/no-picture.jpg`,
+                type: 'social',
+              },
             },
-          },
-        ]),
-      });
+            {
+              id: 'cm6tcts4f0005qcwit25cis26',
+              content: 'This is the second post to facebook',
+              publishDate: '2025-02-06T13:09:00.000Z',
+              releaseURL: 'https://facebook.com/release2/release2',
+              state: 'PUBLISHED',
+              integration: {
+                id: 'cm6s4uyou0001i2r47pxix6z1',
+                name: 'test2',
+                providerIdentifier: 'facebook',
+                picture: `${window.location.origin}/no-picture.jpg`,
+                type: 'social',
+              },
+            },
+          ]),
+        }
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.send) {
+        const message = Array.isArray(result?.message)
+          ? result.message[0]
+          : result?.message || result?.error;
+        toast.show(
+          typeof message === 'string' && message
+            ? message
+            : t('webhook_send_failed', 'The test webhook was not delivered'),
+          'warning'
+        );
+        return;
+      }
+      toast.show(t('webhook_sent', 'Webhook send'), 'success');
     } catch (e: any) {
-      /** empty **/
+      toast.show(
+        t('webhook_send_failed', 'The test webhook was not delivered'),
+        'warning'
+      );
     }
   }, []);
 

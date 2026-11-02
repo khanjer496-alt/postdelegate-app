@@ -218,8 +218,12 @@ export const RenderAnalytics: FC<{
 
   const t = useT();
 
+  // an error answer (an object) reads as no analytics, never as a list
+  const items: AnalyticsDataItem[] | undefined =
+    data === undefined ? undefined : Array.isArray(data) ? data : [];
+
   const totals = useMemo(() => {
-    return data?.map((p: AnalyticsDataItem) => {
+    return items?.map((p: AnalyticsDataItem) => {
       const value =
         (p?.data.reduce((acc: number, curr: { total: number }) => acc + curr.total, 0) || 0) /
         (p.average ? p.data.length : 1);
@@ -228,7 +232,7 @@ export const RenderAnalytics: FC<{
       }
       return new Intl.NumberFormat().format(Math.round(value));
     });
-  }, [data]);
+  }, [items]);
 
   if (loading) {
     return (
@@ -241,14 +245,14 @@ export const RenderAnalytics: FC<{
   return (
     <div className="flex flex-col gap-[16px]">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[16px]">
-        {data?.length === 0 && (
+        {items?.length === 0 && (
           <EmptyState onRefresh={refreshChannel(integration as any)} />
         )}
-        {data?.map((item: AnalyticsDataItem, index: number) => (
+        {items?.map((item: AnalyticsDataItem, index: number) => (
           <AnalyticsCard
             key={`analytics-${index}`}
             item={item}
-            total={totals[index]}
+            total={totals?.[index] ?? ''}
             index={index}
           />
         ))}

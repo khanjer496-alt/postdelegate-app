@@ -1271,6 +1271,8 @@ export class IntegrationRepository {
         disabled: false,
         deletedAt: null,
       },
+      // a downgrade keeps the channels the workspace had first
+      orderBy: { createdAt: 'desc' },
       take: totalChannels,
       select: {
         id: true,

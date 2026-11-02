@@ -32,7 +32,10 @@ import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useExistingData } from '@gitroom/frontend/components/launches/helpers/use.existing.data';
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
 import { useDropzone } from 'react-dropzone';
-import { useUppyUploader } from '@gitroom/frontend/components/media/new.uploader';
+import {
+  UploadProcessing,
+  useUppyUploader,
+} from '@gitroom/frontend/components/media/new.uploader';
 import { Dashboard } from '@uppy/react';
 import Link from '@tiptap/extension-link';
 import {
@@ -991,6 +994,7 @@ export const Editor: FC<{
                   hideCancelButton={true}
                   hideProgressAfterFinish={true}
                 />
+                <UploadProcessing uppy={uppy} />
               </div>
             </div>
             <div

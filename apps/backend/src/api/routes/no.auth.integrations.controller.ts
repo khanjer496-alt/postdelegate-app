@@ -20,10 +20,12 @@ import { NotEnoughScopes } from '@gitroom/nestjs-libraries/integrations/social.a
 import {
   AuthorizationActions,
   Sections,
+  SubscriptionException,
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { PermissionsService } from '@gitroom/backend/services/auth/permissions/permissions.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -32,7 +34,8 @@ export class NoAuthIntegrationsController {
     private _integrationManager: IntegrationManager,
     private _integrationService: IntegrationService,
     private _refreshIntegrationService: RefreshIntegrationService,
-    private _organizationService: OrganizationService
+    private _organizationService: OrganizationService,
+    private _permissionsService: PermissionsService
   ) {}
 
   @Get('/')
@@ -88,15 +91,22 @@ export class NoAuthIntegrationsController {
       await ioRedis.del(`external:${body.state}`);
     }
 
-    const refresh = await ioRedis.get(`refresh:${body.state}`);
-    if (refresh) {
-      await ioRedis.del(`refresh:${body.state}`);
-    }
+    // deleted with the login state once the channel is saved, so a retried
+    // custom-field reconnect still knows which channel it refreshes
+    let refresh = await ioRedis.get(`refresh:${body.state}`);
 
     const onboarding = await ioRedis.get(`onboarding:${body.state}`);
     if (onboarding) {
       await ioRedis.del(`onboarding:${body.state}`);
     }
+
+    // the state could come from another provider's connect link, so the
+    // provider this callback saves is checked again here
+    await this._integrationService.checkProviderAvailable(
+      org.id,
+      integration,
+      refresh || undefined
+    );
 
     const {
       error,
@@ -196,6 +206,21 @@ export class NoAuthIntegrationsController {
       throw new NotEnoughScopes('Invalid API key');
     }
 
+    // Custom-field providers build the account id from what the person typed
+    // (the site URL for WordPress and Listmonk), so "Update credentials" with
+    // the same site written differently comes back with another id. Nothing
+    // migrates into this provider, so it can't be a migration: save it as a
+    // fresh connect like before, still behind the hidden-provider check.
+    if (
+      refresh &&
+      integrationProvider.customFields &&
+      String(id) !== String(refresh) &&
+      !this._integrationManager.getMigrationSources(integration).length
+    ) {
+      await this._integrationService.checkProviderAvailable(org.id, integration);
+      refresh = null;
+    }
+
     let validName = name;
     if (!validName) {
       if (username) {
@@ -221,6 +246,26 @@ export class NoAuthIntegrationsController {
       String(id),
       integration
     );
+
+    // This route runs without a session, so the guard never checked the plan's
+    // channel limit. A channel the workspace already has (a reconnect) never
+    // counts as a new one
+    if (
+      !(await this._integrationService.getIntegrationByInternalId(
+        org.id,
+        refresh || String(id)
+      )) &&
+      !(await this._permissionsService.canAddChannel(org.id, org.createdAt))
+    ) {
+      const message = await this._permissionsService
+        .channelLimitMessage(org.id)
+        .catch((): undefined => undefined);
+      throw new SubscriptionException({
+        section: Sections.CHANNEL,
+        action: AuthorizationActions.Create,
+        ...(message ? { message } : {}),
+      });
+    }
 
     if (refresh && String(id) !== String(refresh)) {
       // A reconnect that returns a different id is either the wrong account or
@@ -312,6 +357,7 @@ export class NoAuthIntegrationsController {
     }
 
     await ioRedis.del(`login:${body.state}`);
+    await ioRedis.del(`refresh:${body.state}`);
 
     const webhookUrl = await ioRedis.get(`webhookUrl:${body.state}`);
     if (webhookUrl) {

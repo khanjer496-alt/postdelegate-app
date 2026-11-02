@@ -87,6 +87,12 @@ export class EnterpriseController {
         throw new Error('Integration not allowed');
       }
 
+      await this._integrationService.checkProviderAvailable(
+        org.id,
+        load.provider,
+        load.refreshId
+      );
+
       const integrationProvider = this._integrationManager.getSocialIntegration(
         load.provider
       );

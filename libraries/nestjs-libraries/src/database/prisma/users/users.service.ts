@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { UsersRepository } from '@gitroom/nestjs-libraries/database/prisma/users/users.repository';
 import { Provider, Role } from '@prisma/client';
 import { UserDetailDto } from '@gitroom/nestjs-libraries/dtos/users/user.details.dto';
@@ -23,6 +23,10 @@ export class UsersService {
 
   getUserByEmail(email: string) {
     return this._usersRepository.getUserByEmail(email);
+  }
+
+  getProviderUserByEmail(email: string) {
+    return this._usersRepository.getProviderUserByEmail(email);
   }
 
   getUserById(id: string) {
@@ -115,6 +119,43 @@ export class UsersService {
     );
   }
 
+  // Workspaces the user is the only Super Admin of while other active people
+  // use them. Like Slack, Notion and Buffer, they stay with their members, so
+  // the account can't be deleted until someone else owns them
+  async getSharedOwnedWorkspaces(userId: string) {
+    const ownedOrgs = await this.getOrgsToDeleteForAccount(userId);
+    const teams = await Promise.all(
+      ownedOrgs.map((org) => this._organizationRepository.getActiveTeam(org.id))
+    );
+    return ownedOrgs
+      .filter((org, index) =>
+        teams[index]?.users?.some((member) => member.user.id !== userId)
+      )
+      .map((org) => ({
+        id: org.id,
+        // enterprise workspaces carry an internal suffix after ###
+        name: org.name.split('###')[0],
+      }));
+  }
+
+  async assertCanDeleteAccount(userId: string) {
+    const shared = await this.getSharedOwnedWorkspaces(userId);
+    if (!shared.length) {
+      return;
+    }
+    const names = shared.map((org) => org.name);
+    const list =
+      names.length === 1
+        ? names[0]
+        : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    throw new HttpException(
+      `You own ${list} and other people use ${
+        names.length === 1 ? 'it' : 'them'
+      }. Make another member the owner in Settings → Team, or remove the other members, then delete your account.`,
+      400
+    );
+  }
+
   async getDeleteAccountInfo(userId: string) {
     const ownedOrgs = await this.getOrgsToDeleteForAccount(userId);
     const teams = await Promise.all(
@@ -126,10 +167,15 @@ export class UsersService {
       hasAdditionalMembers: teams.some((team) =>
         team?.users?.some((member) => member.user.id !== userId)
       ),
+      // shown before the confirmation, deleting is refused while non-empty
+      sharedWorkspaces: (await this.getSharedOwnedWorkspaces(userId)).map(
+        (org) => org.name
+      ),
     };
   }
 
   async deleteAccount(userId: string) {
+    await this.assertCanDeleteAccount(userId);
     const deletedOrgs = await this.getOrgsToDeleteForAccount(userId);
     const orgs = await this._organizationRepository.getOrgsByUserId(userId);
 

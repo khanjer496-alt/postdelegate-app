@@ -2,7 +2,10 @@ import { initializeSentry } from '@gitroom/nestjs-libraries/sentry/initialize.se
 initializeSentry('backend', true);
 import compression from 'compression';
 
-import { loadSwagger } from '@gitroom/helpers/swagger/load.swagger';
+import {
+  loadSwagger,
+  swaggerEnabled,
+} from '@gitroom/helpers/swagger/load.swagger';
 import { json } from 'express';
 import { Runtime } from '@temporalio/worker';
 Runtime.install({ shutdownSignals: [] });
@@ -76,13 +79,25 @@ async function start() {
     json({ limit: '4mb' })(req, res, next);
   });
 
+  // a CSV import and a public API post carry up to 1 MB of content (what the
+  // docs and the DTOs promise), with room for the JSON around it
+  app.use(
+    ['/posts-import', '/public/v1/posts'],
+    (req: any, res: any, next: any) => {
+      json({ limit: '2mb' })(req, res, next);
+    }
+  );
+
   app.use(cookieParser());
   app.use(compression());
   app.useGlobalFilters(new SubscriptionExceptionFilter());
   app.useGlobalFilters(new PostValidationExceptionFilter());
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  loadSwagger(app);
+  // off unless ENABLE_SWAGGER=true, /docs exposes every internal route
+  if (swaggerEnabled()) {
+    loadSwagger(app);
+  }
 
   const port = process.env.PORT || 3000;
 

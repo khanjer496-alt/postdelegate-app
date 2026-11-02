@@ -288,9 +288,11 @@ export class UsersController {
       getOrgFromCookie.email || undefined
     );
 
-    response.status(200).json({
-      id: typeof addedOrg !== 'boolean' ? addedOrg.organizationId : null,
-    });
+    response.status(200).json(
+      'failed' in addedOrg
+        ? { id: null, error: addedOrg.failed }
+        : { id: addedOrg.organizationId }
+    );
   }
 
   @Get('/organizations')
@@ -340,6 +342,10 @@ export class UsersController {
         400
       );
     }
+
+    // a workspace other people use stays with them, refused before any
+    // subscription is cancelled
+    await this._userService.assertCanDeleteAccount(user.id);
 
     // Cancel billing before scrubbing the account — once the account is
     // deleted there is no way to retry a failed cancellation

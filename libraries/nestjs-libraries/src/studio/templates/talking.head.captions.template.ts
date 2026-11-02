@@ -3,15 +3,9 @@ import {
   StudioPlanContext,
   StudioTemplate,
   StudioTemplateAbstract,
-  assColor,
-  assDialogue,
-  assHeader,
-  escapeAssText,
+  assKaraoke,
 } from '@gitroom/nestjs-libraries/studio/studio.interface';
-import {
-  groupCaptionLines,
-  wordsOnOutput,
-} from '@gitroom/helpers/utils/studio.captions';
+import { wordsOnOutput } from '@gitroom/helpers/utils/studio.captions';
 import { TalkingHeadCaptionsDto } from '@gitroom/nestjs-libraries/dtos/studio/talking.head.captions.dto';
 
 const CAPTIONS_FILE = 'captions.ass';
@@ -22,58 +16,22 @@ const CAPTIONS_FILE = 'captions.ass';
   title: 'Talking head + captions',
   description:
     'Your clip with burned-in captions that light up word by word, from your AI key or a typed script.',
+  agentDescription:
+    'A clip with burned-in captions that light up word by word, from a typed script (captions.script, timed over the clip by Studio) or your own word timings (captions.words).',
   dto: TalkingHeadCaptionsDto,
   captions: true,
 })
 export class TalkingHeadCaptionsTemplate extends StudioTemplateAbstract<TalkingHeadCaptionsDto> {
   captionsAss(spec: TalkingHeadCaptionsDto) {
-    const style = spec.captions.style || {};
-    const color = style.color || '#FFFFFF';
-    const highlight = assColor(style.highlight || '#FFD400');
-    const lines = groupCaptionLines(
+    return assKaraoke(
       wordsOnOutput(
         spec.captions.words,
         spec.trim,
         this.speed(spec),
         this.duration(spec)
       ),
-      style.maxWords || 3,
-      style.maxChars || 22
+      spec.captions.style
     );
-
-    // one event per word: the whole line, with the spoken word in the
-    // highlight colour until the next word starts
-    const events = lines.flatMap((line) => {
-      const text = line.map((word) => escapeAssText(word.text));
-      return line.map((word, index) =>
-        assDialogue(
-          index === 0 ? line[0].start : word.start,
-          index === line.length - 1 ? word.end : line[index + 1].start,
-          'Captions',
-          text
-            .map((value, at) =>
-              at === index
-                ? `{\\1c${highlight}}${value}{\\1c${assColor(color)}}`
-                : value
-            )
-            .join(' ')
-        )
-      );
-    });
-
-    return [
-      assHeader([
-        {
-          name: 'Captions',
-          font: style.font || 'bold',
-          size: style.font === 'impact' ? 96 : 80,
-          color,
-          position: style.position || 'bottom',
-        },
-      ]),
-      ...events,
-      '',
-    ].join('\n');
   }
 
   plan(spec: TalkingHeadCaptionsDto, context: StudioPlanContext): StudioPlan {

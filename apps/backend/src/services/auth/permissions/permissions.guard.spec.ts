@@ -72,7 +72,7 @@ describe('PoliciesGuard channel limit', () => {
     channel() {}
   }
 
-  const deny = async (offer: unknown) => {
+  const deny = async (offer: unknown, limitMessage?: string) => {
     const extraChannelsOffer =
       offer instanceof Error
         ? jest.fn().mockRejectedValue(offer)
@@ -80,6 +80,7 @@ describe('PoliciesGuard channel limit', () => {
     const guard = new PoliciesGuard(new Reflector(), {
       check: jest.fn().mockResolvedValue({ can: () => false }),
       extraChannelsOffer,
+      channelLimitMessage: jest.fn().mockResolvedValue(limitMessage),
     } as any);
     const org = {
       id: 'o',
@@ -124,6 +125,15 @@ describe('PoliciesGuard channel limit', () => {
     expect(response).toEqual({
       section: Sections.CHANNEL,
       action: AuthorizationActions.Create,
+    });
+  });
+
+  it('says to reconnect first when channels to reconnect fill the plan', async () => {
+    const { response } = await deny(null, 'Reconnect or remove a channel first');
+    expect(response).toEqual({
+      section: Sections.CHANNEL,
+      action: AuthorizationActions.Create,
+      message: 'Reconnect or remove a channel first',
     });
   });
 

@@ -6,6 +6,9 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import { useDecisionModal } from '@gitroom/frontend/components/layout/new-modal';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+// how long the spinner waits for the payment to be confirmed
+const CHECK_TIMEOUT_MS = 60000;
+
 export const CheckPayment: FC<{
   check: string;
   mutate: () => void;
@@ -26,6 +29,7 @@ export const CheckPaymentInner: FC<{
   const fetch = useFetch();
   const toaster = useToaster();
   const modal = useDecisionModal();
+  const t = useT();
 
   useEffect(() => {
     if (showLoader) {
@@ -41,13 +45,31 @@ export const CheckPaymentInner: FC<{
     }
   }, [showLoader]);
 
-  const checkSubscription = useCallback(async () => {
-    const { status } = await (
-      await fetch('/billing/check/' + props.check)
-    ).json();
+  const checkSubscription = useCallback(async (startedAt = Date.now()) => {
+    // a failed check is asked again, like a payment still processing
+    const { status } = await (await fetch('/billing/check/' + props.check))
+      .json()
+      .catch(() => ({ status: 0 }));
     if (status === 0) {
+      if (Date.now() - startedAt >= CHECK_TIMEOUT_MS) {
+        setShowLoader(false);
+        const retry = await modal.open({
+          title: t('still_confirming_payment', 'Still confirming your payment…'),
+          description: t(
+            'still_confirming_payment_description',
+            'Your payment is taking longer than usual to confirm. Your plan updates on its own once it is confirmed, or you can check again now.'
+          ),
+          approveLabel: t('check_again', 'Check again'),
+          cancelLabel: t('close', 'Close'),
+        });
+        if (retry) {
+          setShowLoader(true);
+          return checkSubscription();
+        }
+        return;
+      }
       await timer(1000);
-      return checkSubscription();
+      return checkSubscription(startedAt);
     }
     if (status === 1) {
       modal.open({

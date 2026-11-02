@@ -27,7 +27,7 @@ const useOpenComposer = () => {
   const { data: integrations } = useIntegrationList();
 
   const open = useCallback(
-    async (render: StudioRender) => {
+    async (render: StudioRender, content = '') => {
       if (!integrations?.length) {
         toaster.show(
           t(
@@ -54,12 +54,12 @@ const useOpenComposer = () => {
           <AddEditModal
             allIntegrations={integrations.map((p: any) => ({ ...p }))}
             integrations={integrations}
-            reopenModal={() => open(render)}
+            reopenModal={() => open(render, content)}
             mutate={() => {}}
             date={fromUtc(date)}
             onlyValues={[
               {
-                content: '',
+                content,
                 image: [
                   {
                     id: render.mediaId!,
@@ -88,6 +88,10 @@ const useStatusLabel = () => {
   return (render: StudioRender) =>
     ({
       queued: t('studio_status_queued', 'Waiting for its turn…'),
+      generating: t(
+        'studio_status_generating',
+        'Your AI is making the voice and stills…'
+      ),
       rendering: t('studio_status_rendering', 'Rendering…'),
       uploading: t('studio_status_uploading', 'Saving to your media library…'),
       completed: t('studio_status_completed', 'Ready'),
@@ -143,7 +147,9 @@ export const StudioRenderPanel: FC<{
   tooLong: boolean;
   save: () => Promise<boolean>;
   onRendered: () => void;
-}> = ({ projectId, latest, missing, tooLong, save, onRendered }) => {
+  // the text the composer opens with (the post text of an AI script)
+  content?: string;
+}> = ({ projectId, latest, missing, tooLong, save, onRendered, content }) => {
   const t = useT();
   const fetch = useFetch();
   const toaster = useToaster();
@@ -288,7 +294,7 @@ export const StudioRenderPanel: FC<{
               />
               <button
                 type="button"
-                onClick={() => openComposer(render)}
+                onClick={() => openComposer(render, content)}
                 className="h-[40px] rounded-[8px] bg-btnPrimary text-white text-[14px] font-[600]"
               >
                 {t('studio_open_composer', 'Open in composer')}

@@ -108,6 +108,23 @@ function LayoutContextInner(params: { children: ReactNode }) {
         return false;
       }
 
+      // an admin-only action a member tried, the fix is asking an admin
+      if (response.status === 403) {
+        const body = await response
+          .clone()
+          .json()
+          .catch(() => ({}));
+        if (body?.section === 'admin') {
+          await areYouSure({
+            title: t('action_required', 'Action required'),
+            description: body.message,
+            approveLabel: t('ok', 'OK'),
+            onlyApprove: true,
+          });
+        }
+        return true;
+      }
+
       if (response.status === 402) {
         // the backend sends where the fix is: billing for a plan limit,
         // Settings for a missing AI key, or no link when only an admin can fix it

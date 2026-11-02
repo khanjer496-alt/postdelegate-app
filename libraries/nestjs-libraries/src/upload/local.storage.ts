@@ -20,6 +20,7 @@ const LOCAL_STORAGE_ALLOWED_MIME = new Set<string>([
   'video/mp4',
   'audio/mpeg',
   'audio/mp4',
+  'audio/x-m4a',
   'audio/wav',
   'audio/ogg',
 ]);

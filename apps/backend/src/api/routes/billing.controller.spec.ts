@@ -24,7 +24,6 @@ describe('BillingController authorization', () => {
     'prorate',
     'finishTrial',
     'applyDiscount',
-    'chatbaseRefund',
     'getInvoices',
     'getExtraChannels',
     'setExtraChannels',
@@ -33,4 +32,19 @@ describe('BillingController authorization', () => {
       [AuthorizationActions.Create, Sections.ADMIN],
     ]);
   });
+});
+
+describe('BillingController self-service refunds', () => {
+  // the Chatbase refund-and-cancel routes let any org admin refund the last
+  // charge, so they are gone; cancelling at period end is the documented flow
+  it.each(['chatbaseRefund', 'chatbaseRefundPreview'])(
+    '%s is not exposed',
+    (name) => {
+      expect(
+        (BillingController.prototype as unknown as Record<string, unknown>)[
+          name
+        ]
+      ).toBeUndefined();
+    }
+  );
 });

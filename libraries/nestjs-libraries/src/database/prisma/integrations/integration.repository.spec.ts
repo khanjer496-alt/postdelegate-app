@@ -93,3 +93,34 @@ describe('IntegrationRepository.createOrUpdatePlug', () => {
     expect(plugs.upsert).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('IntegrationRepository.disableIntegrations', () => {
+  it('turns off the newest channels first on a downgrade', async () => {
+    const integration = {
+      findMany: jest.fn().mockResolvedValue([{ id: 'newest' }]),
+      update: jest.fn().mockResolvedValue({}),
+    };
+    const repo = new IntegrationRepository(
+      { model: { integration } } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
+
+    await repo.disableIntegrations('org-A', 1);
+
+    expect(integration.findMany.mock.calls[0][0]).toMatchObject({
+      where: { organizationId: 'org-A', disabled: false, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+    expect(integration.update).toHaveBeenCalledWith({
+      where: { id: 'newest' },
+      data: { disabled: true },
+    });
+  });
+});

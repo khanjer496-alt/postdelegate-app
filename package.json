@@ -18,6 +18,7 @@
     "publish-cli": "pnpm --filter ./apps/cli publish --access public",
     "build:sdk": "pnpm --filter ./apps/sdk run build",
     "build:cli": "pnpm --filter ./apps/cli run build",
+    "openapi:sync-site": "cp apps/backend/src/public-api/openapi/public.api.openapi.json site/public/openapi.json",
     "pm2-run": "pm2 delete all || true && pnpm run prisma-db-push && pnpm run --parallel pm2 && pm2 logs",
     "dev:stripe": "pnpm dlx concurrently \"stripe listen --forward-to localhost:3000/stripe\" \"pnpm run dev\"",
     "build": "pnpm -r --workspace-concurrency=1 --filter ./apps/frontend --filter ./apps/backend --filter ./apps/orchestrator run build",

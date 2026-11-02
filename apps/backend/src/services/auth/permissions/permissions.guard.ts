@@ -68,10 +68,17 @@ export class PoliciesGuard implements CanActivate {
               .extraChannelsOffer(org)
               .catch(() => null)
           : null;
+      const message =
+        item[1] === Sections.CHANNEL
+          ? await this._authorizationService
+              .channelLimitMessage(org.id)
+              .catch((): undefined => undefined)
+          : undefined;
       throw new SubscriptionException({
         section: item[1],
         action: item[0],
         ...(extraChannels ? { extraChannels } : {}),
+        ...(message ? { message } : {}),
       });
     }
 

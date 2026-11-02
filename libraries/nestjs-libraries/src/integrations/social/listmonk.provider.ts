@@ -248,11 +248,14 @@ export class ListmonkProvider extends SocialAbstract implements SocialProvider {
           Authorization: `Basic ${auth}`,
         },
         body: JSON.stringify({
-          name: slugify(postDetails[0].settings.subject, {
-            lower: true,
-            strict: true,
-            trim: true,
-          }),
+          // slugify drops every non-Latin letter, a subject in Chinese would
+          // leave the campaign without the name Listmonk requires
+          name:
+            slugify(postDetails[0].settings.subject, {
+              lower: true,
+              strict: true,
+              trim: true,
+            }) || postDetails[0].settings.subject.trim().slice(0, 200),
           type: 'regular',
           content_type: 'html',
           subject: postDetails[0].settings.subject,

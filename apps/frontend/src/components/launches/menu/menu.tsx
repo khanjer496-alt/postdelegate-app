@@ -237,12 +237,22 @@ export const Menu: FC<{
   }, [t, extensionId, id, findIntegration?.dataDeletionNotice]);
 
   const enableChannel = useCallback(async () => {
-    await fetch('/integrations/enable', {
+    const response = await fetch('/integrations/enable', {
       method: 'POST',
       body: JSON.stringify({
         id,
       }),
     });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      toast.show(
+        typeof body?.message === 'string' && body.message
+          ? body.message
+          : t('channel_enable_failed', 'Could not enable the channel'),
+        'warning'
+      );
+      return;
+    }
     toast.show(t('channel_enabled', 'Channel Enabled'), 'success');
     setShow(false);
     onChange(false);
@@ -418,6 +428,7 @@ export const Menu: FC<{
       children: (
         <CustomVariables
           identifier={findIntegration.identifier}
+          refresh={findIntegration.internalId}
           gotoUrl={(url: string) => router.push(url)}
           variables={findIntegration.customFields}
         />

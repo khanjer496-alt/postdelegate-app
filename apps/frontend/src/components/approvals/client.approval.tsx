@@ -16,7 +16,9 @@ type ClientStatus =
   | 'approved'
   | 'changes_requested'
   | 'rejected'
-  | 'published';
+  | 'published'
+  // a later version went back to review, only a new link can approve it
+  | 'outdated';
 
 interface ClientPost {
   id: string;
@@ -102,6 +104,8 @@ const StatusChip: FC<{ status: ClientStatus }> = ({ status }) => {
       ? t('approval_client_status_rejected', 'Not going out')
       : status === 'published'
       ? t('approval_client_status_published', 'Published')
+      : status === 'outdated'
+      ? t('approval_client_status_outdated', 'Changed, ask the team for a new link')
       : t('approval_client_status_waiting', 'Waiting for you');
   return (
     <span
@@ -111,7 +115,8 @@ const StatusChip: FC<{ status: ClientStatus }> = ({ status }) => {
         (status === 'approved' || status === 'published') &&
           'border-green-500/70 bg-green-500/10',
         status === 'changes_requested' && 'border-orange-500/70 bg-orange-500/10',
-        status === 'rejected' && 'border-newTableBorder'
+        (status === 'rejected' || status === 'outdated') &&
+          'border-newTableBorder'
       )}
     >
       <span aria-hidden="true">
@@ -271,8 +276,8 @@ const PostCard: FC<{
   const [decision, setDecision] = useState<'approve' | 'request_changes'>();
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string }>();
   const [root, ...comments] = post.values;
-  const actionable =
-    post.status === 'waiting' || post.status === 'changes_requested';
+  // a post the client already sent back waits for the team, not for them
+  const actionable = post.status === 'waiting';
 
   const send = useCallback(
     async (comment: string) => {
@@ -498,9 +503,7 @@ export const ClientApproval: FC<{ token: string }> = ({ token }) => {
     );
   }
 
-  const waiting = data.posts.filter(
-    (p) => p.status === 'waiting' || p.status === 'changes_requested'
-  ).length;
+  const waiting = data.posts.filter((p) => p.status === 'waiting').length;
 
   return (
     <main className="mx-auto w-full max-w-[760px] p-[12px] flex flex-col gap-[12px] text-newTextColor">

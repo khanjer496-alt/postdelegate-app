@@ -7,6 +7,9 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import {
   ApprovalStatus,
+  ChannelPost,
+  channelsToActOn,
+  ReviewAction,
   useApprovalSettings,
   usePostHistory,
 } from '@gitroom/frontend/components/approvals/approvals.hooks';
@@ -14,6 +17,7 @@ import { ApprovalStatusBadge } from '@gitroom/frontend/components/approvals/appr
 import { useApprovalActions } from '@gitroom/frontend/components/approvals/approval.actions';
 import { ActivityRow } from '@gitroom/frontend/components/approvals/activity.item';
 import { ShareApprovalModal } from '@gitroom/frontend/components/approvals/share.approval.modal';
+import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 
 const actionClass =
   'h-[36px] px-[14px] rounded-[8px] text-[13px] font-[600] outline-none focus-visible:ring-2 focus-visible:ring-btnPrimary disabled:opacity-50 disabled:cursor-not-allowed';
@@ -25,8 +29,10 @@ export const PostReviewPanel: FC<{
   state?: string;
   approvalStatus?: ApprovalStatus | string | null;
   publishDate?: string | Date | null;
+  // the other channels of the post, each its own post
+  siblings?: ChannelPost[];
   mutate?: () => void;
-}> = ({ postId, state, approvalStatus, publishDate, mutate }) => {
+}> = ({ postId, state, approvalStatus, publishDate, siblings, mutate }) => {
   const t = useT();
   const modals = useModals();
   const { data: settings } = useApprovalSettings();
@@ -76,6 +82,27 @@ export const PostReviewPanel: FC<{
     [mutate, modals, mutateHistory]
   );
 
+  const others = useCallback(
+    (action: ReviewAction) =>
+      channelsToActOn(siblings || [], action, status).map((post) => ({
+        ...post,
+        name: post.integration?.name || undefined,
+      })),
+    [siblings, status]
+  );
+  // the other channels an action also changes, said before it runs
+  const alsoOn = (action: ReviewAction) => {
+    const names = others(action)
+      .map((post) => post.name)
+      .filter(Boolean);
+    return names.length
+      ? ' ' +
+          t('approval_also_applies_to', 'This also applies to: {{channels}}.', {
+            channels: names.join(', '),
+          })
+      : '';
+  };
+
   const share = useCallback(() => {
     modals.openModal({
       title: t('approval_share_title', 'Share for approval'),
@@ -84,7 +111,7 @@ export const PostReviewPanel: FC<{
       classNames: { modal: 'w-[100%] max-w-[560px] text-textColor' },
       children: (
         <ShareApprovalModal
-          postIds={[postId]}
+          postIds={[postId, ...others('share').map((p) => p.id)]}
           onCreated={() => {
             setStatus('IN_REVIEW');
             mutate?.();
@@ -93,7 +120,7 @@ export const PostReviewPanel: FC<{
         />
       ),
     });
-  }, [modals, postId, t, mutate, mutateHistory]);
+  }, [modals, postId, others, t, mutate, mutateHistory]);
 
   return (
     <details
@@ -143,9 +170,28 @@ export const PostReviewPanel: FC<{
                   type="button"
                   disabled={busy}
                   onClick={() =>
-                    run(() => actions.approve({ id: postId, publishDate }), {
-                      close: true,
-                    })
+                    run(
+                      async () =>
+                        // approving here publishes the saved version, the
+                        // editor's unsaved edits are dropped with the modal
+                        (await deleteDialog(
+                          t(
+                            'approval_approve_saved_confirm',
+                            'Approving publishes the saved version. Unsaved edits in the editor will be lost. To keep them, save with "Approve and schedule" instead.'
+                          ) + alsoOn('approve'),
+                          t('approval_approve', 'Approve'),
+                          t('approval_approve_saved_title', 'Approve the saved version?'),
+                          t('approval_cancel', 'Cancel')
+                        )) &&
+                        actions.approve(
+                          { id: postId, publishDate },
+                          false,
+                          others('approve')
+                        ),
+                      {
+                        close: true,
+                      }
+                    )
                   }
                   className={clsx(
                     actionClass,
@@ -159,11 +205,21 @@ export const PostReviewPanel: FC<{
                     type="button"
                     disabled={busy}
                     onClick={() =>
-                      run(() => actions.requestChanges({ id: postId }), {
-                        status: 'CHANGES_REQUESTED',
-                      })
+                      run(
+                        () =>
+                          actions.requestChanges(
+                            { id: postId },
+                            others('request_changes')
+                          ),
+                        {
+                          status: 'CHANGES_REQUESTED',
+                        }
+                      )
                     }
-                    className={clsx(actionClass, 'bg-btnSimple hover:bg-boxHover')}
+                    className={clsx(
+                      actionClass,
+                      'bg-btnSimple hover:bg-boxHover'
+                    )}
                   >
                     {t('approval_request_changes', 'Request changes')}
                   </button>
@@ -172,9 +228,15 @@ export const PostReviewPanel: FC<{
                   type="button"
                   disabled={busy}
                   onClick={() =>
-                    run(() => actions.reject({ id: postId }), { close: true })
+                    run(
+                      () => actions.reject({ id: postId }, others('reject')),
+                      { close: true }
+                    )
                   }
-                  className={clsx(actionClass, 'text-red-500 hover:bg-boxHover')}
+                  className={clsx(
+                    actionClass,
+                    'text-red-500 hover:bg-boxHover'
+                  )}
                 >
                   {t('approval_reject', 'Reject')}
                 </button>
@@ -189,7 +251,7 @@ export const PostReviewPanel: FC<{
                   'Sends the saved version. To include your edits, save with the main button.'
                 )}
                 onClick={() =>
-                  run(() => actions.submit({ id: postId }), {
+                  run(() => actions.submit({ id: postId }, others('submit')), {
                     status: 'IN_REVIEW',
                   })
                 }

@@ -116,3 +116,53 @@ describe('IntegrationService.checkCappedProviderSwitch', () => {
     await makeService(null).checkCappedProviderSwitch('org-1', '42', 'x');
   });
 });
+
+describe('IntegrationService.enableChannel', () => {
+  const key = process.env.STRIPE_PUBLISHABLE_KEY;
+  afterEach(() => {
+    if (key === undefined) {
+      delete process.env.STRIPE_PUBLISHABLE_KEY;
+    } else {
+      process.env.STRIPE_PUBLISHABLE_KEY = key;
+    }
+  });
+
+  const makeEnableService = (enabled: number) => {
+    const repository = {
+      getIntegrationsList: jest
+        .fn()
+        .mockResolvedValue(
+          Array.from({ length: enabled }, (_, i) => ({ id: `i${i}`, disabled: false }))
+        ),
+      enableChannel: jest.fn().mockResolvedValue({}),
+    };
+    const service = new IntegrationService(
+      repository as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
+    return { service, repository };
+  };
+
+  it('answers 400 with a readable message at the plan limit', async () => {
+    process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_x';
+    const { service, repository } = makeEnableService(3);
+
+    await expect(service.enableChannel('org', 3, 'i9')).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining('maximum number of channels'),
+    });
+    expect(repository.enableChannel).not.toHaveBeenCalled();
+  });
+
+  it('enables under the limit', async () => {
+    process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_x';
+    const { service, repository } = makeEnableService(2);
+    await service.enableChannel('org', 3, 'i9');
+    expect(repository.enableChannel).toHaveBeenCalledWith('org', 'i9');
+  });
+});

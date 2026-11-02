@@ -605,7 +605,9 @@ export class PostActivity {
     // Webhooks are best-effort and run after the post already published, so a
     // failure here must not fail the workflow.
     try {
-      const webhooks = (await this._webhookService.getWebhooks(orgId)).filter(
+      const webhooks = (
+        await this._webhookService.getWebhooksToSend(orgId)
+      ).filter(
         (f) => {
           return (
             f.integrations.length === 0 ||

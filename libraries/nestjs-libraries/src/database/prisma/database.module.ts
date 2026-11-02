@@ -68,6 +68,8 @@ import { IdeasRepository } from '@gitroom/nestjs-libraries/database/prisma/ideas
 import { IdeasService } from '@gitroom/nestjs-libraries/database/prisma/ideas/ideas.service';
 import { StudioRepository } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.repository';
 import { StudioService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.service';
+import { StudioScheduleService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.schedule.service';
+import { StudioAiService } from '@gitroom/nestjs-libraries/database/prisma/studio/studio.ai.service';
 import { PostsEvergreenRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.evergreen.repository';
 import { PostsEvergreenService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.evergreen.service';
 import { PostsImportRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.import.repository';
@@ -166,6 +168,8 @@ import { ApprovalsService } from '@gitroom/nestjs-libraries/database/prisma/appr
     IdeasService,
     StudioRepository,
     StudioService,
+    StudioScheduleService,
+    StudioAiService,
     PostsEvergreenRepository,
     PostsEvergreenService,
     PostsImportRepository,

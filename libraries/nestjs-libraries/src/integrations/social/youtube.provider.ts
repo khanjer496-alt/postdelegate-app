@@ -40,6 +40,9 @@ import { DashboardFunction } from '@gitroom/nestjs-libraries/integrations/dashbo
 
 dayjs.extend(utc);
 
+// YouTube measures the description in UTF-8 bytes
+const YOUTUBE_DESCRIPTION_BYTES = 5000;
+
 const clientAndYoutube = () => {
   const client = new google.auth.OAuth2({
     clientId: process.env.YOUTUBE_CLIENT_ID,
@@ -82,7 +85,8 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
     'https://www.googleapis.com/auth/youtube.readonly',
     // Covers new video uploads and optional custom thumbnails.
     'https://www.googleapis.com/auth/youtube.upload',
-    'https://www.googleapis.com/auth/yt-analytics.readonly',
+    // Only youtube.readonly and youtube.upload are Google-verified (2 Nov 2026).
+    // Adding a sensitive scope here needs a new verification request first.
   ];
 
   editor = 'normal' as const;
@@ -308,7 +312,10 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
   }
 
   override async checkValidity(
-    items: Array<ValidityMedia[]>
+    items: Array<ValidityMedia[]>,
+    settings?: any,
+    additionalSettings?: any[],
+    texts: string[] = []
   ): Promise<string | true> {
     const [firstItems] = items ?? [];
     if (items?.[0]?.length !== 1) {
@@ -316,6 +323,15 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
     }
     if ((firstItems?.[0]?.path?.indexOf?.('mp4') ?? -1) === -1) {
       return 'Item must be a video';
+    }
+    // the post text is the video description: YouTube caps it at 5,000
+    // bytes, not characters, and refuses < and >
+    const description = texts[0] || '';
+    if (/[<>]/.test(description)) {
+      return 'The YouTube description cannot contain < or >, remove them';
+    }
+    if (Buffer.byteLength(description, 'utf8') > YOUTUBE_DESCRIPTION_BYTES) {
+      return `The YouTube description is too long: YouTube allows ${YOUTUBE_DESCRIPTION_BYTES} bytes, and emoji, accents and bold text take more than one each`;
     }
     return true;
   }

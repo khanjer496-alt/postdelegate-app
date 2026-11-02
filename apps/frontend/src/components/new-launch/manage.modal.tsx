@@ -77,6 +77,14 @@ import {
 import { ChannelChecks } from '@gitroom/frontend/components/new-launch/channel.checks.component';
 
 // the modifier key of the shortcuts, as the keyboard labels it
+// the validation pipe answers `message` as a list, other errors as a string
+const firstErrorMessage = (message: unknown): string | undefined =>
+  typeof message === 'string'
+    ? message
+    : Array.isArray(message) && typeof message[0] === 'string'
+    ? message[0]
+    : undefined;
+
 const isMac = () =>
   typeof navigator !== 'undefined' &&
   /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -698,9 +706,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           if (validResponse.status !== 402) {
             const { message } = await validResponse.json().catch(() => ({}));
             toaster.show(
-              typeof message === 'string'
-                ? message
-                : t('post_save_failed', 'Could not save the post'),
+              firstErrorMessage(message) ||
+                t('post_save_failed', 'Could not save the post'),
               'warning'
             );
           }
@@ -872,9 +879,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               if (response.status !== 402) {
                 const { message } = await response.json().catch(() => ({}));
                 toaster.show(
-                  typeof message === 'string'
-                    ? message
-                    : t('post_save_failed', 'Could not save the post'),
+                  firstErrorMessage(message) ||
+                    t('post_save_failed', 'Could not save the post'),
                   'warning'
                 );
               }
@@ -1352,6 +1358,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                     state={existingData.posts[0].state}
                     approvalStatus={existingApproval}
                     publishDate={existingData.posts[0].publishDate}
+                    siblings={(existingData.siblings || [])
+                      .map((sibling) => sibling.posts?.[0])
+                      .filter((post) => !!post?.id)}
                     mutate={mutate}
                   />
                 )}

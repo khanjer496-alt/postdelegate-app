@@ -19,6 +19,7 @@ export class GenerateImageTool implements AgentToolInterface {
       description: `Generate image to use in a post,
                     in case the user specified a platform that requires attachment and attachment was not provided,
                     ask if they want to generate a picture of a video.
+                    It runs on the workspace's own OpenAI key: without one it returns an error asking to add it in Settings → AI.
       `,
       mcp: {
         annotations: {

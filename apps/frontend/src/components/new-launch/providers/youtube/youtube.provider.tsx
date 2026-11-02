@@ -1,6 +1,7 @@
 'use client';
 
 import { FC, useCallback, useRef } from 'react';
+import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
   PostComment,
@@ -14,7 +15,6 @@ import { useWatch } from 'react-hook-form';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { Select } from '@gitroom/react/form/select';
 import { YoutubePreview } from '@gitroom/frontend/components/new-launch/providers/youtube/youtube.preview';
-import { Checkbox } from '@gitroom/react/form/checkbox';
 import { DatePicker } from '@gitroom/frontend/components/launches/helpers/date.picker';
 import { useIntegration } from '@gitroom/frontend/components/launches/helpers/use.integration';
 import {
@@ -81,12 +81,41 @@ const PublishLater: FC = () => {
 
   return (
     <div className="mt-[20px] flex flex-col gap-[10px]">
-      <Checkbox
-        disableForm={true}
-        checked={!!publishAt}
-        onChange={toggle}
-        label={t('youtube_publish_later', 'Publish later on YouTube')}
-      />
+      {/* an empty box until it is ticked: the shared Checkbox fills it
+          either way */}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={!!publishAt}
+        onClick={toggle}
+        className="flex items-center gap-[10px] self-start text-start"
+      >
+        <span
+          aria-hidden="true"
+          className={clsx(
+            'w-[20px] h-[20px] rounded-[4px] border flex items-center justify-center shrink-0',
+            publishAt
+              ? 'bg-btnCta border-btnCta text-btnCtaText'
+              : 'border-newTableBorder'
+          )}
+        >
+          {!!publishAt && (
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </span>
+        {t('youtube_publish_later', 'Publish later on YouTube')}
+      </button>
       {!!publishAt && (
         <>
           <div className="flex">

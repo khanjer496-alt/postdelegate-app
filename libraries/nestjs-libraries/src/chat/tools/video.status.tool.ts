@@ -4,11 +4,21 @@ import { Injectable } from '@nestjs/common';
 import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
 import { z } from 'zod';
+import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
 
 @Injectable()
 export class VideoStatusTool implements AgentToolInterface {
-  constructor(private _mediaService: MediaService) {}
+  constructor(
+    private _mediaService: MediaService,
+    private _videoManager: VideoManager
+  ) {}
   name = 'videoStatusTool';
+
+  // hidden when no video type is configured (every one needs its own
+  // provider key, e.g. EVOLINK_API_KEY for Seedance)
+  available() {
+    return this._videoManager.getAllVideos().length > 0;
+  }
 
   run() {
     return createTool({

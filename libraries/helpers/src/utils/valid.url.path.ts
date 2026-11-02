@@ -4,17 +4,19 @@ import {
   ValidatorConstraint,
 } from 'class-validator';
 
+// the extensions a post can attach; the library also keeps AVIF and BMP,
+// which the composer shows as library only
+export const ATTACHABLE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'];
+
+export const isAttachablePath = (text: string) =>
+  ATTACHABLE_EXTENSIONS.some(
+    (ext) => !!text?.split?.('?')?.[0].endsWith(`.${ext}`)
+  );
+
 @ValidatorConstraint({ name: 'checkValidExtension', async: false })
 export class ValidUrlExtension implements ValidatorConstraintInterface {
   validate(text: string, args: ValidationArguments) {
-    return (
-      !!text?.split?.('?')?.[0].endsWith('.png') ||
-      !!text?.split?.('?')?.[0].endsWith('.jpg') ||
-      !!text?.split?.('?')?.[0].endsWith('.jpeg') ||
-      !!text?.split?.('?')?.[0].endsWith('.gif') ||
-      !!text?.split?.('?')?.[0].endsWith('.webp') ||
-      !!text?.split?.('?')?.[0].endsWith('.mp4')
-    );
+    return isAttachablePath(text);
   }
 
   defaultMessage(args: ValidationArguments) {

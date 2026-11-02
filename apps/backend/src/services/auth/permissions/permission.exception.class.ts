@@ -14,6 +14,7 @@ export enum Sections {
   ADMIN = 'admin',
   WEBHOOKS = 'webhooks',
   ANALYTICS_REPORTS = 'analytics_reports',
+  AUTO_POST = 'auto_post',
 }
 
 export enum AuthorizationActions {

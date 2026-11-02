@@ -43,7 +43,7 @@ export class WebhookController {
     @GetOrgFromRequest() org: Organization,
     @Body() body: UpdateDto
   ) {
-    return this._webhooksService.createWebhook(org.id, body);
+    return this._webhooksService.updateWebhook(org.id, body);
   }
 
   @Delete('/:id')
@@ -65,10 +65,19 @@ export class WebhookController {
         headers: { 'Content-Type': 'application/json' },
       });
       await response.body?.cancel().catch(() => undefined);
+      // the test says whether the endpoint took it
+      return response.ok
+        ? { send: true, status: response.status }
+        : {
+            send: false,
+            status: response.status,
+            error: `The endpoint answered ${response.status}`,
+          };
     } catch (err) {
-      /** sent **/
+      return {
+        send: false,
+        error: 'The endpoint could not be reached',
+      };
     }
-
-    return { send: true };
   }
 }

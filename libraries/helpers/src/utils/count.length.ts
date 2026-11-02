@@ -10,6 +10,14 @@ export const textSlicer = (
   end: number,
   text: string
 ): { start: number; end: number } => {
+  // Bluesky's limit is in graphemes, the cut goes after the last one that fits
+  if (network(integrationType) === 'bluesky') {
+    return {
+      start: 0,
+      end: graphemeEnd(text, end),
+    };
+  }
+
   if (network(integrationType) !== 'x') {
     return {
       start: 0,
@@ -42,6 +50,38 @@ export const weightedLength = (text: string): number => {
   return twitter.parseTweet(text).weightedLength;
 };
 
+// Intl.Segmenter is in every runtime the app supports, code points are the
+// closest count where it is missing
+export const graphemeLength = (text: string): number => {
+  const Segmenter = (Intl as any).Segmenter;
+  if (!Segmenter) {
+    return Array.from(text).length;
+  }
+
+  return Array.from(
+    new Segmenter(undefined, { granularity: 'grapheme' }).segment(text)
+  ).length;
+};
+
+// the UTF-16 index right after the `count`th grapheme of the text
+export const graphemeEnd = (text: string, count: number): number => {
+  const Segmenter = (Intl as any).Segmenter;
+  if (!Segmenter) {
+    return Array.from(text).slice(0, count).join('').length;
+  }
+
+  let seen = 0;
+  for (const { index, segment } of new Segmenter(undefined, {
+    granularity: 'grapheme',
+  }).segment(text) as Iterable<{ index: number; segment: string }>) {
+    seen++;
+    if (seen === count) {
+      return index + segment.length;
+    }
+  }
+  return text.length;
+};
+
 export const countLength = (integrationType: string, text: string): number => {
   if (network(integrationType) === 'x') {
     return weightedLength(text);
@@ -49,6 +89,12 @@ export const countLength = (integrationType: string, text: string): number => {
 
   if (network(integrationType) === 'threads') {
     return new TextEncoder().encode(text).length;
+  }
+
+  // Bluesky counts graphemes: an emoji with its modifiers or a flag is one
+  // (a network branch here, like x and threads above)
+  if (network(integrationType) === 'bluesky') {
+    return graphemeLength(text);
   }
 
   return text.length;

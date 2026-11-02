@@ -34,6 +34,7 @@ import { NewSubscription } from '@gitroom/frontend/components/layout/new.subscri
 import { Support } from '@gitroom/frontend/components/layout/support';
 import { ReviewPrompt } from '@gitroom/frontend/components/reviews/review.prompt';
 import { ContinueProvider } from '@gitroom/frontend/components/layout/continue.provider';
+import { InviteError } from '@gitroom/frontend/components/layout/invite.error';
 import { ContextWrapper } from '@gitroom/frontend/components/layout/user.context';
 import { CopilotKit } from '@copilotkit/react-core';
 import { MantineWrapper } from '@gitroom/react/helpers/mantine.wrapper';
@@ -195,6 +196,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
             <PreConditionComponent />
             <NewSubscription />
             <ContinueProvider />
+            <InviteError />
             <div
               className={clsx(
                 'flex flex-col min-h-screen min-w-screen text-newTextColor p-[12px] mobile:p-[8px] mobile:pb-[80px]',

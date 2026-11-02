@@ -26,6 +26,8 @@ const SettingsComponent = () => {
 export default withProvider({
   postComment: PostComment.POST,
   minimumCharacters: [],
+  // no follow-ups: the network has no comment endpoint, they would be dropped
+  comments: false,
   SettingsComponent: SettingsComponent,
   CustomPreviewComponent: undefined,
   dto: ListmonkDto,

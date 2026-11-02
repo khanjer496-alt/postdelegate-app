@@ -3,6 +3,7 @@
 const storage = {
   signDownloadUrl: jest.fn().mockResolvedValue('https://r2.example/signed'),
   uploadStream: jest.fn(),
+  removeFile: jest.fn().mockResolvedValue(undefined),
 };
 jest.mock('@gitroom/nestjs-libraries/upload/upload.factory', () => ({
   UploadFactory: { createStorage: () => storage },
@@ -44,6 +45,7 @@ import {
 import { StudioTemplateManager } from '@gitroom/nestjs-libraries/studio/studio.manager';
 import { HookOverClipTemplate } from '@gitroom/nestjs-libraries/studio/templates/hook.over.clip.template';
 import { TalkingHeadCaptionsTemplate } from '@gitroom/nestjs-libraries/studio/templates/talking.head.captions.template';
+import { AiUgcTemplate } from '@gitroom/nestjs-libraries/studio/templates/ai.ugc.template';
 
 const MISSING = 'Add your OpenAI key in Settings → AI';
 
@@ -106,8 +108,11 @@ describe('StudioService fair use', () => {
       createRender: jest.fn().mockResolvedValue({ id: 'render-1' }),
       updateRender: jest.fn().mockResolvedValue(undefined),
       updateProject: jest.fn().mockResolvedValue(undefined),
+      getProjectAssets: jest.fn().mockResolvedValue([]),
       getRender: jest.fn(),
       getRenderById: jest.fn(),
+      getAiAssets: jest.fn().mockResolvedValue([]),
+      deleteRemovableAsset: jest.fn().mockResolvedValue({ count: 1 }),
     };
     mediaService = {
       getOrgMediaById: jest.fn().mockResolvedValue({
@@ -124,6 +129,7 @@ describe('StudioService fair use', () => {
     const templates = new Map<any, any>([
       [HookOverClipTemplate, new HookOverClipTemplate()],
       [TalkingHeadCaptionsTemplate, new TalkingHeadCaptionsTemplate()],
+      [AiUgcTemplate, new AiUgcTemplate()],
     ]);
     service = new StudioService(
       repository as any,
@@ -167,8 +173,9 @@ describe('StudioService fair use', () => {
       20,
       expect.any(String)
     );
+    // V2 makes what the AI is asked for first, a no-op for this template
     expect(workflowStart).toHaveBeenCalledWith(
-      'studioRenderWorkflowV1',
+      'studioRenderWorkflowV2',
       expect.objectContaining({
         workflowId: 'studio_render-1',
         taskQueue: 'main',
@@ -176,6 +183,52 @@ describe('StudioService fair use', () => {
       })
     );
     expect(redisDel).toHaveBeenCalledWith('studioStart:org-1');
+  });
+
+  describe('AI UGC', () => {
+    const aiSpec = {
+      voiceover: true,
+      footage: [{ mediaId: '3f1c2a9e-8b4d-4f6a-9c2e-1a2b3c4d5e6f' }],
+      script: { hook: 'Stop scrolling', lines: ['It works'] },
+    };
+    const project = (value: any) =>
+      repository.getProject.mockResolvedValue({
+        id: 'project-1',
+        name: 'Desk',
+        template: 'ai-ugc',
+        spec: JSON.stringify(value),
+        renders: [],
+      });
+
+    it('asks for the key before a render with a voice waits', async () => {
+      project(aiSpec);
+      await expect(service.startRender(paid, 'project-1')).rejects.toThrow(
+        MISSING
+      );
+      expect(repository.createRender).not.toHaveBeenCalled();
+      expect(workflowStart).not.toHaveBeenCalled();
+    });
+
+    it('renders a typed script without a voice with no key at all', async () => {
+      project({ ...aiSpec, voiceover: false, seconds: 20 });
+      await expect(service.startRender(paid, 'project-1')).resolves.toEqual({
+        id: 'render-1',
+      });
+      expect(repository.createRender).toHaveBeenCalledWith(
+        'org-1',
+        'project-1',
+        20,
+        expect.any(String)
+      );
+    });
+
+    it('starts a render with a voice when the workspace has a key', async () => {
+      project(aiSpec);
+      aiCredentialService.hasCredential.mockResolvedValue(true);
+      await expect(service.startRender(paid, 'project-1')).resolves.toEqual({
+        id: 'render-1',
+      });
+    });
   });
 
   it('refuses a second start while the lock is held', async () => {
@@ -417,6 +470,21 @@ describe('StudioService fair use', () => {
     expect(workflowCancel).toHaveBeenCalledTimes(1);
     expect(repository.getRender).toHaveBeenCalledWith('org-1', 'r-1');
     expect(repository.deleteProject).toHaveBeenCalledWith('org-1', 'project-1');
+  });
+
+  it('removes what the AI made for a project it deletes, like its music', async () => {
+    repository.deleteProject = jest.fn();
+    repository.getProjectAssets.mockResolvedValue([
+      { id: 'a-1', path: 'https://media.example/v.mp3' },
+      { id: 'a-2', path: 'https://media.example/s.jpg' },
+    ]);
+    // a file that can't be removed never keeps the others
+    storage.removeFile.mockRejectedValueOnce(new Error('gone'));
+    await service.deleteProject('org-1', 'project-1');
+    expect(repository.deleteRemovableAsset).toHaveBeenCalledTimes(2);
+    expect(storage.removeFile).toHaveBeenCalledWith(
+      'https://media.example/s.jpg'
+    );
   });
 
   it('reports usage with the trial renders left', async () => {

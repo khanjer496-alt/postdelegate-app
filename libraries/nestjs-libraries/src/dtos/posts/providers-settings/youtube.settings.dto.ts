@@ -143,25 +143,31 @@ const getYoutubePublishAtError = (
 };
 
 export class YoutubeTagsSettings {
-  @IsString()
+  @IsString({ message: 'Each tag needs a value and a label' })
   value: string;
 
-  @IsString()
+  @IsString({ message: 'Each tag needs a value and a label' })
   label: string;
 }
 
 export class YoutubeSettingsDto {
-  @IsString()
-  @MinLength(2)
-  @MaxLength(100)
-  @IsDefined()
+  @IsString({ message: 'Add a title of at least 2 characters' })
+  @MinLength(2, { message: 'Add a title of at least 2 characters' })
+  @MaxLength(100, { message: 'The title can be at most 100 characters' })
+  @IsDefined({ message: 'Add a title of at least 2 characters' })
   title: string;
 
-  @IsIn(['public', 'private', 'unlisted'])
-  @IsDefined()
+  @IsIn(['public', 'private', 'unlisted'], {
+    message: 'Choose who can watch the video: public, private or unlisted',
+  })
+  @IsDefined({
+    message: 'Choose who can watch the video: public, private or unlisted',
+  })
   type: string;
 
-  @IsIn(['yes', 'no'])
+  @IsIn(['yes', 'no'], {
+    message: 'Choose whether the video is made for kids',
+  })
   @IsOptional()
   selfDeclaredMadeForKids: 'no' | 'yes';
 
@@ -186,7 +192,9 @@ export class YoutubeSettingsDto {
   @ComposerOnly()
   publishAt?: string;
 
-  @IsIn(['yes', 'no'])
+  @IsIn(['yes', 'no'], {
+    message: 'Choose whether the video has altered or synthetic content',
+  })
   @IsOptional()
   @JSONSchema({
     description:
@@ -195,13 +203,13 @@ export class YoutubeSettingsDto {
   containsSyntheticMedia?: 'no' | 'yes';
 
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ message: 'Choose the thumbnail from the media library' })
   @Type(() => MediaDto)
   thumbnail?: MediaDto;
 
-  @IsArray()
+  @IsArray({ message: 'The tags must be a list' })
   @IsOptional()
-  @ValidateNested({ each: true })
+  @ValidateNested({ each: true, message: 'Each tag needs a value and a label' })
   @IsYoutubeTagsLength()
   @Type(() => YoutubeTagsSettings)
   tags: YoutubeTagsSettings[];

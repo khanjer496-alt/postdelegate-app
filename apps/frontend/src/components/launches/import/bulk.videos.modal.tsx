@@ -173,7 +173,7 @@ const humanize = (value: string) => {
 };
 
 // the values a channel starts with: the defaults, and "off" for yes/no
-const initialSettings = (fields: SettingField[]) =>
+export const initialSettings = (fields: SettingField[]) =>
   fields.reduce<Settings>((all, field) => {
     if (field.type === 'boolean') {
       all[field.key] = false;
@@ -184,7 +184,7 @@ const initialSettings = (fields: SettingField[]) =>
   }, {});
 
 // empty values are left out, the network's own default applies
-const cleanSettings = (settings: Settings = {}) =>
+export const cleanSettings = (settings: Settings = {}) =>
   Object.fromEntries(
     Object.entries(settings).filter(
       ([, value]) => value !== '' && value !== undefined && value !== null
@@ -194,7 +194,7 @@ const cleanSettings = (settings: Settings = {}) =>
 const inputClass =
   'h-[40px] w-full bg-newBgColorInner px-[12px] outline-none border-newTableBorder border rounded-[8px] text-[14px] focus:border-btnPrimary';
 
-const SettingInput: FC<{
+export const SettingInput: FC<{
   field: SettingField;
   value: any;
   placeholder?: string;
