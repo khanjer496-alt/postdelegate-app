@@ -6,6 +6,7 @@ import loadDynamic from 'next/dynamic';
 import { LogoTextComponent } from '@gitroom/frontend/components/ui/logo-text.component';
 import { MantineWrapper } from '@gitroom/react/helpers/mantine.wrapper';
 import { Toaster } from '@gitroom/react/toaster/toaster';
+import { CookieSettingsButton } from '@gitroom/frontend/components/layout/cookie.consent';
 const ReturnUrlComponent = loadDynamic(() => import('./return.url.component'));
 export default async function AuthLayout({
   children,
@@ -24,6 +25,7 @@ export default async function AuthLayout({
           <div className="w-full max-w-[440px] mx-auto justify-center gap-[20px] h-full flex flex-col text-white">
             <LogoTextComponent />
             <main className="flex">{children}</main>
+            <CookieSettingsButton className="self-start text-[13px] text-[#9299AA] hover:text-white underline underline-offset-2" />
           </div>
         </div>
         <div className="auth-brand-panel text-[36px] flex-1 pt-[88px] hidden lg:flex flex-col items-center rounded-[16px] ring-1 ring-[#262B37]">

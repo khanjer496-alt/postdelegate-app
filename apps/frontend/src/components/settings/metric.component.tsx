@@ -71,25 +71,33 @@ const MetricComponent = () => {
       </Select>
 
       <div className="mt-[4px]">{t('timezone', 'Timezone')}</div>
-      <Select
-        name="timezone"
-        disableForm={true}
-        label=""
-        onChange={changeTimezone}
-        value={timezone}
-      >
-        <option value="">
-          {t('automatic_timezone', 'Automatic ({{timezone}})', {
-            timezone: browserTimezone(),
-            interpolation: { escapeValue: false },
-          })}
-        </option>
-        {timezoneOptions.map((zone) => (
-          <option key={zone.tzCode} value={zone.tzCode}>
-            {zone.label}
+      <div className="flex flex-col gap-[8px]">
+        <Select
+          name="timezone"
+          disableForm={true}
+          label=""
+          onChange={changeTimezone}
+          value={timezone}
+        >
+          <option value="">
+            {t('automatic_timezone', 'Automatic ({{timezone}})', {
+              timezone: browserTimezone(),
+              interpolation: { escapeValue: false },
+            })}
           </option>
-        ))}
-      </Select>
+          {timezoneOptions.map((zone) => (
+            <option key={zone.tzCode} value={zone.tzCode}>
+              {zone.label}
+            </option>
+          ))}
+        </Select>
+        <div className="text-[12px] text-newTextColor/60">
+          {t(
+            'timezone_setting_hint',
+            'Posts are scheduled and the calendar is shown in this timezone. It is yours only: each teammate sets their own.'
+          )}
+        </div>
+      </div>
     </div>
   );
 };

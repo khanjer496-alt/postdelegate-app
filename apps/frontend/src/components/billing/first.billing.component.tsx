@@ -34,6 +34,7 @@ import { InvoicesComponent } from '@gitroom/frontend/components/layout/invoices.
 import { Button } from '@gitroom/react/form/button';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useUtmUrl } from '@gitroom/helpers/utils/utm.saver';
+import { hasConsent } from '@gitroom/helpers/consent/consent.cookie';
 
 const ModeComponent = dynamic(
   () => import('@gitroom/frontend/components/layout/mode.component'),
@@ -78,15 +79,15 @@ export const useStartTrial = () => {
               ? { datafast_visitor_id, datafast_session_id }
               : {}),
             ...(dub ? { dub } : {}),
-            ...(fbc ? { fbc } : {}),
-            ...(fbp ? { fbp } : {}),
+            ...(fbc && hasConsent('analytics') ? { fbc } : {}),
+            ...(fbp && hasConsent('analytics') ? { fbp } : {}),
           }),
         })
       ).json();
 
       if (id) {
         window.location.href = `/launches?onboarding=true&trialStart=true&check=${id}${
-          utm ? `&utm_source=${utm}` : ''
+          utm ? `&utm_source=${encodeURIComponent(utm)}` : ''
         }`;
         return;
       }
@@ -187,8 +188,8 @@ export const FirstBillingComponent = () => {
             ? { datafast_visitor_id, datafast_session_id }
             : {}),
           ...(dub ? { dub } : {}),
-          ...(fbc ? { fbc } : {}),
-          ...(fbp ? { fbp } : {}),
+          ...(fbc && hasConsent('analytics') ? { fbc } : {}),
+          ...(fbp && hasConsent('analytics') ? { fbp } : {}),
         }),
       })
     ).json();

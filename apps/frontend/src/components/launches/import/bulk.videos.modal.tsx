@@ -20,7 +20,10 @@ import {
   newDayjs,
 } from '@gitroom/frontend/components/layout/set.timezone';
 import { isUSCitizen } from '@gitroom/frontend/components/launches/helpers/isuscitizen.utils';
-import { DatePicker } from '@gitroom/frontend/components/launches/helpers/date.picker';
+import {
+  DatePicker,
+  TimezoneHint,
+} from '@gitroom/frontend/components/launches/helpers/date.picker';
 import { useUppyUploader } from '@gitroom/frontend/components/media/new.uploader';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import {
@@ -1394,6 +1397,7 @@ export const BulkVideosModal: FC<{
                   )}
                 </Alert>
               )}
+              <TimezoneHint newTab={true} />
               <ul
                 className="flex flex-col gap-[8px] max-h-[40vh] overflow-y-auto pe-[4px] scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor"
                 aria-label={t('bulk_videos_preview', 'Preview')}

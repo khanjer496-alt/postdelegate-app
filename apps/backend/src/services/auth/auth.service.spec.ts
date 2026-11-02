@@ -305,7 +305,57 @@ describe('AuthService affiliate attribution at registration', () => {
       userId: 'user-new',
       email: 'new@example.com',
       cookie: 'friend.1790000000000',
+      code: undefined,
     });
+  });
+
+  it('passes the sign-up ?ref= code when there is no referral cookie', async () => {
+    const { service, affiliates } = setupRegistration();
+
+    await service.routeAuth(
+      'LOCAL' as any,
+      Object.assign(new CreateOrgUserDto(), {
+        email: 'new@example.com',
+        password: 'secret',
+        provider: 'LOCAL',
+        company: 'Acme',
+        ref: 'friend',
+      }),
+      '1.1.1.1',
+      'agent',
+      false,
+      undefined
+    );
+
+    expect(affiliates.attributeOrganization).toHaveBeenCalledWith({
+      organizationId: 'org-new',
+      userId: 'user-new',
+      email: 'new@example.com',
+      cookie: undefined,
+      code: 'friend',
+    });
+  });
+
+  it('passes the sign-up ?ref= code of an OAuth registration', async () => {
+    const { service, affiliates } = setupRegistration();
+
+    await service.routeAuth(
+      'GOOGLE' as any,
+      {
+        provider: 'GOOGLE',
+        providerToken: 'token',
+        company: 'Acme',
+        ref: 'friend',
+      } as any,
+      '1.1.1.1',
+      'agent',
+      false,
+      undefined
+    );
+
+    expect(affiliates.attributeOrganization).toHaveBeenCalledWith(
+      expect.objectContaining({ cookie: undefined, code: 'friend' })
+    );
   });
 
   it('attributes an OAuth registration with the referral cookie', async () => {
@@ -325,6 +375,7 @@ describe('AuthService affiliate attribution at registration', () => {
       userId: 'user-new',
       email: 'g@example.com',
       cookie: 'friend.1790000000000',
+      code: undefined,
     });
   });
 

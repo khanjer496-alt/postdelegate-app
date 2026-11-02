@@ -3,13 +3,16 @@ import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useCallback } from 'react';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
+import { hasConsent } from '@gitroom/helpers/consent/consent.cookie';
 export const useTrack = () => {
   const user = useUser();
   const fetch = useFetch();
   const { facebookPixel } = useVariables();
   return useCallback(
     async (track: TrackEnum, additional?: Record<string, any>) => {
-      if (!facebookPixel) {
+      // the pixel events, sent here and through the backend, wait for the
+      // analytics choice in the cookie banner
+      if (!facebookPixel || !hasConsent('analytics')) {
         return;
       }
       try {

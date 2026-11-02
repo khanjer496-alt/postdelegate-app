@@ -40,3 +40,9 @@ export const parseAffiliateCookieValue = (
 
   return code;
 };
+
+// The ?ref= code of an affiliate link, or undefined when it is not one
+export const parseReferralCode = (value: string | undefined | null) => {
+  const code = value?.trim().toLowerCase();
+  return code && AFFILIATE_CODE_REGEX.test(code) ? code : undefined;
+};

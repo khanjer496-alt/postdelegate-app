@@ -279,17 +279,34 @@ export const isTimezone = (timezone: string) => {
   }
 };
 
+// the engine's own name for a timezone: Chrome reports Asia/Calcutta for
+// Asia/Kolkata, so names are compared in this form
+const canonicalTimezone = (timezone: string) =>
+  new Intl.DateTimeFormat('en-US', { timeZone: timezone }).resolvedOptions()
+    .timeZone;
+
 // null is the browser's timezone, where plain dayjs is already right
 let userTimezone: string | null = null;
 const applyTimezone = (timezone?: string | null) => {
   userTimezone =
-    timezone && timezone !== browserTimezone() && isTimezone(timezone)
+    timezone &&
+    isTimezone(timezone) &&
+    canonicalTimezone(timezone) !== browserTimezone()
       ? timezone
       : null;
 };
 
 // the timezone dates are shown in, for Intl formatting outside of dayjs
 export const getTimezone = () => userTimezone || browserTimezone();
+
+// the offset of a timezone at an instant, for people: UTC+4, UTC-3:30, UTC+0
+export const timezoneOffset = (timezone: string, at = Date.now()) => {
+  const offset = offsetAt(timezone, at);
+  const minutes = Math.abs(offset) % 60;
+  return `UTC${offset < 0 ? '-' : '+'}${Math.floor(Math.abs(offset) / 60)}${
+    minutes ? ':' + String(minutes).padStart(2, '0') : ''
+  }`;
+};
 
 // pages outside the logged-in layout (connecting a channel, the extension)
 // don't load the user, they start from the timezone the app loaded last

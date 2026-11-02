@@ -4,6 +4,8 @@ import Script from 'next/script';
 import { FC, useEffect } from 'react';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
+import { useConsent } from '@gitroom/helpers/consent/use.consent';
+import { hasConsent } from '@gitroom/helpers/consent/consent.cookie';
 
 export const TrialTracker: FC = () => {
   const user = useUser();
@@ -16,7 +18,8 @@ export const TrialTracker: FC = () => {
       // @ts-expect-error
       !window.gtag ||
       !googleAdsId ||
-      !googleAdsTrialTracking
+      !googleAdsTrialTracking ||
+      !hasConsent('analytics')
     )
       return;
     const params = new URLSearchParams(window.location.search);
@@ -34,10 +37,12 @@ export const TrialTracker: FC = () => {
   return null;
 };
 
+// waits for the analytics choice in the cookie banner
 export const GoogleTagManagerComponent: FC<{ gtmId?: string }> = ({
   gtmId,
 }) => {
-  if (!gtmId) {
+  const consent = useConsent();
+  if (!gtmId || !consent?.analytics) {
     return null;
   }
   return (

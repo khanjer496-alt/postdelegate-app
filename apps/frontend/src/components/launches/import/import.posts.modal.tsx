@@ -11,6 +11,7 @@ import {
   newDayjs,
 } from '@gitroom/frontend/components/layout/set.timezone';
 import { isUSCitizen } from '@gitroom/frontend/components/launches/helpers/isuscitizen.utils';
+import { TimezoneHint } from '@gitroom/frontend/components/launches/helpers/date.picker';
 import type { Integrations } from '@gitroom/frontend/components/launches/calendar.context';
 
 const MAX_FILE_SIZE = 1_000_000;
@@ -602,6 +603,7 @@ export const ImportPostsModal: FC<{
                 />
                 {t('import_only_problems', 'Only show rows with problems')}
               </label>
+              <TimezoneHint newTab={true} />
               <ul
                 className="flex flex-col gap-[8px] max-h-[50vh] overflow-y-auto pe-[4px] scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor"
                 aria-label={t('import_rows', 'Posts in the file')}

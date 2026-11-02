@@ -32,6 +32,7 @@ import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import { Textarea } from '@gitroom/react/form/textarea';
 import { useFireEvents } from '@gitroom/helpers/utils/use.fire.events';
 import { useUtmUrl } from '@gitroom/helpers/utils/utm.saver';
+import { hasConsent } from '@gitroom/helpers/consent/consent.cookie';
 import { useTrack } from '@gitroom/react/helpers/use.track';
 import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
@@ -825,8 +826,8 @@ export const MainBillingComponent: FC<{
               utm,
               billing,
               ...(dub ? { dub } : {}),
-              ...(fbc ? { fbc } : {}),
-              ...(fbp ? { fbp } : {}),
+              ...(fbc && hasConsent('analytics') ? { fbc } : {}),
+              ...(fbp && hasConsent('analytics') ? { fbp } : {}),
             }),
           })
         ).json();

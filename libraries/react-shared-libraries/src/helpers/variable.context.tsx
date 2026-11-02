@@ -36,6 +36,11 @@ interface VariableContextInterface {
   googleAdsTrialTracking?: string;
   recaptchaSiteKey?: string;
   affiliateCookieDays?: number;
+  // ".postdelegate.com" shares the cookie choices with the marketing site,
+  // empty keeps them on this host (staging, self-hosted)
+  consentCookieDomain?: string;
+  // the analytics tools switched on here, the cookie banner asks about them
+  analyticsTools?: string[];
 }
 const VariableContext = createContext({
   stripeClient: '',

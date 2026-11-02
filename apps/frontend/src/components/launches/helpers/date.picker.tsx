@@ -1,13 +1,17 @@
 import { FC, useCallback, useState } from 'react';
 import dayjs from 'dayjs';
 import clsx from 'clsx';
+import Link from 'next/link';
 import { Calendar, TimeInput } from '@mantine/dates';
 import { useClickOutside } from '@mantine/hooks';
 import { Button } from '@gitroom/react/form/button';
 import { isUSCitizen } from './isuscitizen.utils';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import {
+  browserTimezone,
+  getTimezone,
   newDayjs,
+  timezoneOffset,
   toPickerDate,
 } from '@gitroom/frontend/components/layout/set.timezone';
 import {
@@ -16,6 +20,73 @@ import {
   ChevronRightIcon,
   DropdownArrowIcon,
 } from '@gitroom/frontend/components/ui/icons';
+
+// The timezone times are picked and shown in, with a link to change it, and a
+// notice when the device is on another one (a teammate's browser on UTC while
+// their saved timezone is Asia/Dubai). The link opens a new tab from a modal,
+// so a post being written isn't lost.
+export const TimezoneHint: FC<{
+  // the offset at this instant, for a date across a DST change
+  at?: number;
+  newTab?: boolean;
+  className?: string;
+}> = ({ at, newTab, className }) => {
+  const t = useT();
+  const timezone = getTimezone();
+  const device = browserTimezone();
+  const values = {
+    timezone,
+    device,
+    offset: timezoneOffset(timezone, at),
+    interpolation: { escapeValue: false },
+  };
+
+  return (
+    <div
+      className={clsx(
+        // the date button around the popover is bold and doesn't wrap
+        'text-[12px] font-[400] whitespace-normal text-start text-newTextColor/60 flex flex-col gap-[2px]',
+        className
+      )}
+    >
+      <div>
+        {device === timezone
+          ? t(
+              'times_in_device_timezone',
+              "Times in {{timezone}} ({{offset}}), your device's timezone",
+              values
+            )
+          : t(
+              'times_in_timezone',
+              'Times in {{timezone}} ({{offset}})',
+              values
+            )}{' '}
+        <Link
+          href="/settings?tab=global_settings"
+          {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          className="underline hover:text-textItemFocused"
+        >
+          {t('change_timezone', 'Change')}
+          {newTab && (
+            <span className="sr-only">
+              {' '}
+              ({t('opens_in_new_tab', 'opens in a new tab')})
+            </span>
+          )}
+        </Link>
+      </div>
+      {device !== timezone && (
+        <div>
+          {t(
+            'device_timezone_differs',
+            'Your device is on {{device}}; posts use {{timezone}}',
+            values
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // one part of the time in the mobile sheet, typed or stepped with the arrows
 const TimeField: FC<{
@@ -229,6 +300,7 @@ export const DatePickerPanel: FC<{
             )}
           </div>
         </div>
+        <TimezoneHint at={date.valueOf()} newTab={true} className="mt-[16px]" />
       </div>
     );
   }
@@ -266,6 +338,12 @@ export const DatePickerPanel: FC<{
             'bg-sixth h-[40px] border border-tableBorder text-textColor rounded-[4px] outline-none',
         }}
         defaultValue={toPickerDate(date)}
+      />
+      {/* as wide as the calendar, long timezone names wrap */}
+      <TimezoneHint
+        at={date.valueOf()}
+        newTab={true}
+        className="mt-[12px] w-0 min-w-full"
       />
     </>
   );

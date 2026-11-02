@@ -17,7 +17,6 @@ import '@copilotkit/react-ui/styles.css';
 import LayoutContext from '@gitroom/frontend/components/layout/layout.context';
 import { ReactNode } from 'react';
 import { jakartaSans } from '@gitroom/frontend/fonts/plus-jakarta-sans/plus.jakarta.sans.font';
-import PlausibleProvider from 'next-plausible';
 import clsx from 'clsx';
 import { VariableContextComponent } from '@gitroom/react/helpers/variable.context';
 import { Fragment } from 'react';
@@ -27,6 +26,11 @@ import { DEFAULT_AFFILIATE_COOKIE_DAYS } from '@gitroom/helpers/affiliate/affili
 import { DubAnalytics } from '@gitroom/frontend/components/layout/dubAnalytics';
 import { FacebookComponent } from '@gitroom/frontend/components/layout/facebook.component';
 import { GoogleTagManagerComponent } from '@gitroom/frontend/components/layout/gtm.component';
+import {
+  ConsentPlausible,
+  DataFastScript,
+} from '@gitroom/frontend/components/layout/analytics.scripts';
+import { CookieConsent } from '@gitroom/frontend/components/layout/cookie.consent';
 import { cookies } from 'next/headers';
 import {
   cookieName,
@@ -34,7 +38,6 @@ import {
 } from '@gitroom/react/translation/i18n.config';
 import { HtmlComponent } from '@gitroom/frontend/components/layout/html.component';
 import { ServiceWorkerComponent } from '@gitroom/frontend/components/layout/service.worker.component';
-import Script from 'next/script';
 import { ChangeDirClient } from '@gitroom/frontend/components/new-layout/change.dir.client';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -42,8 +45,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const language = normalizeLanguage(cookieStore.get(cookieName)?.value);
   // analytics are opt-in with their own switch, never implied by billing
   const Plausible = process.env.PLAUSIBLE_ENABLED === 'true'
-    ? PlausibleProvider
+    ? ConsentPlausible
     : Fragment;
+  // every one of them waits for the analytics choice in the cookie banner
+  const analyticsTools = [
+    process.env.PLAUSIBLE_ENABLED === 'true' && 'Plausible',
+    !!process.env.DATAFAST_WEBSITE_ID && 'DataFast',
+    process.env.DUB_ANALYTICS_ENABLED === 'true' && 'Dub',
+    !!process.env.NEXT_PUBLIC_FACEBOOK_PIXEL && 'Meta Pixel',
+    !!process.env.NEXT_PUBLIC_GTM_ID && 'Google Ads',
+  ].filter((tool): tool is string => !!tool);
   const analyticsDomain = process.env.FRONTEND_URL
     ? new URL(process.env.FRONTEND_URL).hostname
     : 'app.postdelegate.com';
@@ -62,14 +73,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           name="apple-mobile-web-app-status-bar-style"
           content="black"
         />
-        {!!process.env.DATAFAST_WEBSITE_ID && (
-          <Script
-            data-website-id={process.env.DATAFAST_WEBSITE_ID}
-            data-domain={analyticsDomain}
-            src="https://datafa.st/js/script.js"
-            strategy="afterInteractive"
-          />
-        )}
       </head>
       <ChangeDirClient />
       <body
@@ -113,6 +116,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           googleAdsTrialTracking={process.env.NEXT_PUBLIC_TRACKING_TRIAL}
           language={language}
           recaptchaSiteKey={process.env.RECAPTCHA_SITE_KEY || ''}
+          consentCookieDomain={process.env.CONSENT_COOKIE_DOMAIN || ''}
+          analyticsTools={analyticsTools}
           affiliateCookieDays={
             parseInt(process.env.AFFILIATE_COOKIE_DAYS || '', 10) ||
             DEFAULT_AFFILIATE_COOKIE_DAYS
@@ -134,6 +139,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <SentryComponent>
             <HtmlComponent />
             <ServiceWorkerComponent />
+            <DataFastScript
+              websiteId={process.env.DATAFAST_WEBSITE_ID}
+              domain={analyticsDomain}
+            />
             <DubAnalytics />
             <FacebookComponent />
             <GoogleTagManagerComponent gtmId={process.env.NEXT_PUBLIC_GTM_ID} />
@@ -141,6 +150,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               <LayoutContext>
                 <UtmSaver />
                 <AffiliateSaver />
+                <CookieConsent />
                 {children}
               </LayoutContext>
             </Plausible>

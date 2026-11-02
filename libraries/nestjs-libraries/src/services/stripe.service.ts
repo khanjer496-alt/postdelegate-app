@@ -1298,7 +1298,7 @@ export class StripeService extends PaymentProviderAbstract {
       autoApplyPromoCode = await this.findAutoApplyPromotionCode();
     }
 
-    const isUtm = body.utm ? `&utm_source=${body.utm}` : '';
+    const isUtm = body.utm ? `&utm_source=${encodeURIComponent(body.utm)}` : '';
     const { client_secret } = await stripe.checkout.sessions.create({
       ui_mode: 'custom',
       customer,
@@ -1349,7 +1349,7 @@ export class StripeService extends PaymentProviderAbstract {
     userId: string,
     allowTrial: boolean
   ) {
-    const isUtm = body.utm ? `&utm_source=${body.utm}` : '';
+    const isUtm = body.utm ? `&utm_source=${encodeURIComponent(body.utm)}` : '';
 
     if (body.dub) {
       await stripe.customers.update(customer, {
@@ -2330,8 +2330,10 @@ export class StripeService extends PaymentProviderAbstract {
     additional: Record<string, any>
   ) {
     try {
+      // _fbc / _fbp only exist when the pixel ran, which waits for the
+      // analytics choice in the cookie banner, so no consent means no event
       const { userId, fbc, fbp } = metadata || {};
-      if (!userId) {
+      if (!userId || (!fbc && !fbp)) {
         return;
       }
 

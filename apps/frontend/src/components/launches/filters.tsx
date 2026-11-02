@@ -13,6 +13,7 @@ import {
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import i18next from 'i18next';
 import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
+import { TimezoneHint } from '@gitroom/frontend/components/launches/helpers/date.picker';
 import { BottomSheet } from '@gitroom/frontend/components/ui/bottom.sheet.component';
 import { FilterIcon } from '@gitroom/frontend/components/ui/icons';
 
@@ -595,6 +596,7 @@ export const Filters = () => {
           </svg>
         </button>
       </div>
+      <TimezoneHint className="basis-full mobile:order-4" />
       {filtersOpen && (
         <BottomSheet
           title={

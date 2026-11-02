@@ -43,9 +43,13 @@ RUN fc-cache -f \
 
 # The provider changes are used by both HTTP handlers and Temporal workers.
 # Rebuild all three applications with the pinned image's installed dependencies.
-# COPY only adds and overwrites, so clear the upstream public assets first:
-# files deleted from this repo (old upstream logos) must not survive in the image.
-RUN rm -rf /app/apps/frontend/public
+# COPY only adds and overwrites, so clear the upstream sources and public
+# assets first: files deleted or renamed in this repo (old upstream logos, a
+# set.timezone.tsx that became .ts) must not survive in the image, or the build
+# can resolve the stale upstream copy. The pinned image keeps no node_modules
+# inside these folders.
+RUN rm -rf /app/apps/frontend/public /app/apps/frontend/src \
+      /app/apps/backend/src /app/apps/orchestrator/src /app/libraries
 COPY apps/frontend /app/apps/frontend
 COPY apps/backend /app/apps/backend
 COPY apps/orchestrator /app/apps/orchestrator

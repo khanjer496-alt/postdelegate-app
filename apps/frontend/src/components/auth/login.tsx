@@ -134,6 +134,7 @@ export function Login() {
                 <div className="w-full flex">
                   <Button
                     type="submit"
+                    data-primary-cta=""
                     className="flex-1 rounded-[10px] !h-[52px]"
                     loading={loading}
                   >

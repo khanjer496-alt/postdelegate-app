@@ -64,6 +64,10 @@ export class AuthService {
     addToOrg?: boolean | InviteCookie,
     affiliateCookie?: string
   ) {
+    // without referral consent there is no pd_ref cookie, the sign-up form
+    // then sends the ?ref= code of the link it was opened from, this visit only
+    const referralCode = (body as CreateOrgUserDto).ref;
+
     if (provider === Provider.LOCAL) {
       if (process.env.DISALLOW_PLUS && body.email.includes('+')) {
         throw new Error('Email with plus sign is not allowed');
@@ -92,6 +96,7 @@ export class AuthService {
           userId: create.users[0].user.id,
           email: body.email,
           cookie: affiliateCookie,
+          code: referralCode,
         });
 
         const addedOrg = await this.acceptInvite(
@@ -137,7 +142,8 @@ export class AuthService {
       body as CreateOrgUserDto,
       ip,
       userAgent,
-      affiliateCookie
+      affiliateCookie,
+      referralCode
     );
 
     const addedOrg = await this.acceptInvite(user.id, addToOrg);
@@ -209,7 +215,8 @@ export class AuthService {
     body: CreateOrgUserDto,
     ip: string,
     userAgent: string,
-    affiliateCookie?: string
+    affiliateCookie?: string,
+    referralCode?: string
   ) {
     const providerInstance = this._providerManager.getProvider(provider);
     const providerUser = await providerInstance.getUser(body.providerToken);
@@ -250,6 +257,7 @@ export class AuthService {
       userId: create.users[0].user.id,
       email: providerUser.email,
       cookie: affiliateCookie,
+      code: referralCode,
     });
 
     this._track('register', providerUser.email, body.datafast_visitor_id).catch(

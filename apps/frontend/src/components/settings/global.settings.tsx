@@ -7,6 +7,7 @@ import AuthenticationComponent from '@gitroom/frontend/components/settings/authe
 import EmailNotificationsComponent from '@gitroom/frontend/components/settings/email-notifications.component';
 import ShortlinkPreferenceComponent from '@gitroom/frontend/components/settings/shortlink-preference.component';
 import DeleteAccountComponent from '@gitroom/frontend/components/settings/delete-account.component';
+import { CookieSettingsButton } from '@gitroom/frontend/components/layout/cookie.consent';
 
 const MetricComponent = dynamic(
   () => import('@gitroom/frontend/components/settings/metric.component'),
@@ -30,6 +31,7 @@ export const GlobalSettings = () => {
           {t('terms_of_service', 'Terms of Service')}
           <span className="sr-only"> ({t('opens_in_new_tab', 'opens in a new tab')})</span>
         </a>
+        <CookieSettingsButton className="underline hover:text-textItemFocused" />
       </nav>
       <MetricComponent />
       <EmailNotificationsComponent />

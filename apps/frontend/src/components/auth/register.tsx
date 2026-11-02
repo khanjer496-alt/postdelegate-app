@@ -22,6 +22,7 @@ import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { FarcasterProvider } from '@gitroom/frontend/components/auth/providers/farcaster.provider';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import useCookie from 'react-use-cookie';
+import { parseReferralCode } from '@gitroom/helpers/affiliate/affiliate.cookie';
 type Inputs = {
   email: string;
   password: string;
@@ -138,6 +139,9 @@ export function RegisterAfter({
   const fireEvents = useFireEvents();
   const track = useTrack();
   const [datafast_visitor_id] = useCookie('datafast_visitor_id');
+  // the affiliate code of the link, used when the referral cookie was declined
+  const searchParams = useSearchParams();
+  const ref = parseReferralCode(searchParams?.get('ref'));
   const isAfterProvider = useMemo(() => {
     return !!token && !!provider;
   }, [token, provider]);
@@ -159,6 +163,7 @@ export function RegisterAfter({
       body: JSON.stringify({
         ...data,
         datafast_visitor_id,
+        ...(ref ? { ref } : {}),
       }),
     })
       .then(async (response) => {
@@ -290,6 +295,7 @@ export function RegisterAfter({
                 <div className="w-full flex">
                   <Button
                     type="submit"
+                    data-primary-cta=""
                     className="flex-1 rounded-[10px] !h-[52px]"
                     loading={loading}
                   >

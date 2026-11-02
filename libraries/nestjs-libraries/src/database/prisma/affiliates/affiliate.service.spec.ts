@@ -234,6 +234,7 @@ describe('referral attribution', () => {
   const attribute = async (
     over: {
       cookie?: string;
+      code?: string;
       userId?: string;
       email?: string;
       referrer?: any;
@@ -253,6 +254,7 @@ describe('referral attribution', () => {
         'cookie' in over
           ? over.cookie
           : buildAffiliateCookieValue('friend', Date.now() - DAY),
+      code: over.code,
     });
     return { result, repository };
   };
@@ -293,6 +295,46 @@ describe('referral attribution', () => {
     });
     expect(result).toBe(false);
   });
+
+  it('uses the code sent with the sign-up when there is no cookie', async () => {
+    const { result, repository } = await attribute({
+      cookie: undefined,
+      code: 'Friend',
+    });
+
+    expect(result).toBe(true);
+    expect(repository.getProfileByCode).toHaveBeenCalledWith('friend');
+    expect(repository.attributeOrganization).toHaveBeenCalledWith(
+      'org-new',
+      'p1',
+      'friend'
+    );
+  });
+
+  it('keeps the first touch of a valid cookie over the sign-up code', async () => {
+    const { repository } = await attribute({ code: 'someone-else' });
+    expect(repository.getProfileByCode).toHaveBeenCalledWith('friend');
+  });
+
+  it('falls back to the sign-up code when the cookie expired', async () => {
+    const { repository } = await attribute({
+      cookie: buildAffiliateCookieValue('old-one', Date.now() - 61 * DAY),
+      code: 'friend',
+    });
+    expect(repository.getProfileByCode).toHaveBeenCalledWith('friend');
+  });
+
+  it.each(['', 'ab', 'bad code', '-nope', 'x'.repeat(30)])(
+    'ignores the malformed sign-up code %p',
+    async (code) => {
+      const { result, repository } = await attribute({
+        cookie: undefined,
+        code,
+      });
+      expect(result).toBe(false);
+      expect(repository.getProfileByCode).not.toHaveBeenCalled();
+    }
+  );
 
   it('ignores a garbage cookie', async () => {
     const { result } = await attribute({ cookie: 'friend' });

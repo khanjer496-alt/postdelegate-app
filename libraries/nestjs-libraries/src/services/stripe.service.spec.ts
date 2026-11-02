@@ -692,6 +692,28 @@ describe('StripeService cardless trial', () => {
     );
   });
 
+  it.each([
+    ['without the pixel cookies (no analytics consent)', {}, false],
+    ['with the pixel cookies', { fbc: 'fb.1.1', fbp: 'fb.1.2' }, true],
+  ])('sends the StartTrial pixel event only %s', async (_, cookies, sent) => {
+    userService.getUserById.mockResolvedValue({ email: 'a@b.com' });
+    trackService.track.mockResolvedValue(undefined);
+    const event = subscriptionEvent('customer.subscription.created', {
+      status: 'trialing',
+      trial_end: 1793664000,
+      ...cardless,
+    });
+    event.data.object.metadata = {
+      ...event.data.object.metadata,
+      userId: 'user_1',
+      ...cookies,
+    };
+    await service.processWebhook(event);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(trackService.track).toHaveBeenCalledTimes(sent ? 1 : 0);
+  });
+
   it('still rejects a card trial that has no card', async () => {
     await service.processWebhook(
       subscriptionEvent('customer.subscription.created', {

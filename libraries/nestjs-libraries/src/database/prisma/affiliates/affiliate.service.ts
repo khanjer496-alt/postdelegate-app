@@ -7,6 +7,7 @@ import { getAffiliateConfig } from '@gitroom/nestjs-libraries/database/prisma/af
 import {
   AFFILIATE_CODE_REGEX,
   parseAffiliateCookieValue,
+  parseReferralCode,
 } from '@gitroom/helpers/affiliate/affiliate.cookie';
 
 // Without 0/o/1/l/i, a code can be read aloud and typed by hand
@@ -249,12 +250,15 @@ export class AffiliateService {
     userId: string;
     email: string;
     cookie?: string;
+    // the ?ref= code sent with the sign-up when there is no consented cookie
+    code?: string;
   }) {
     try {
-      const code = parseAffiliateCookieValue(
-        params.cookie,
-        getAffiliateConfig().cookieDays
-      );
+      const code =
+        parseAffiliateCookieValue(
+          params.cookie,
+          getAffiliateConfig().cookieDays
+        ) || parseReferralCode(params.code);
       if (!code) {
         return false;
       }

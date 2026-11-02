@@ -2,6 +2,7 @@ import {
   AFFILIATE_CODE_REGEX,
   buildAffiliateCookieValue,
   parseAffiliateCookieValue,
+  parseReferralCode,
 } from './affiliate.cookie';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -62,4 +63,17 @@ describe('affiliate cookie', () => {
     expect(AFFILIATE_CODE_REGEX.test('My-code')).toBe(false);
     expect(AFFILIATE_CODE_REGEX.test('my_code')).toBe(false);
   });
+});
+
+describe('referral code from the link', () => {
+  it('normalises a valid code', () => {
+    expect(parseReferralCode(' Friend-1 ')).toBe('friend-1');
+  });
+
+  it.each([undefined, null, '', 'ab', 'bad code', '-nope', 'my_code', 'x'.repeat(25)])(
+    'rejects %p',
+    (value) => {
+      expect(parseReferralCode(value as any)).toBeUndefined();
+    }
+  );
 });

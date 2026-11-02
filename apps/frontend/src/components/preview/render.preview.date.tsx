@@ -1,9 +1,23 @@
 'use client';
 
 import { FC } from 'react';
-import { fromUtc } from '@gitroom/frontend/components/layout/set.timezone';
+import {
+  fromUtc,
+  getTimezone,
+  timezoneOffset,
+} from '@gitroom/frontend/components/layout/set.timezone';
 
+// the timezone goes with the time: a client reviewing the preview may be in
+// another one than the team that scheduled it
 export const RenderPreviewDate: FC<{ date: string }> = ({ date }) => {
-  console.log(date);
-  return <>{fromUtc(date).format('MMMM D, YYYY h:mm A')}</>;
+  const day = fromUtc(date);
+  const timezone = getTimezone();
+  return (
+    <>
+      {day.format('MMMM D, YYYY h:mm A')}{' '}
+      <span className="text-textItemBlur">
+        {timezone} ({timezoneOffset(timezone, day.valueOf())})
+      </span>
+    </>
+  );
 };
