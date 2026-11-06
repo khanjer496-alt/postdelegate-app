@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+exec docker compose --project-name postdelegate-staging --env-file /etc/postiz/staging.env --project-directory /opt/postiz-staging -f /opt/postiz-staging/compose.yaml "$@"
