@@ -1,0 +1,24 @@
+FROM ghcr.io/gitroomhq/postiz-app:v2.25.3@sha256:1e376ff2cb781022d528f171719cf174cf693a985a30cb40eefb13eae3ddda13
+
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.title="PostDelegate"
+LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
+LABEL org.opencontainers.image.source="https://app.postdelegate.com/source"
+
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV MAIN_URL=https://app.postdelegate.com
+ENV FRONTEND_URL=https://app.postdelegate.com
+ENV NEXT_PUBLIC_BACKEND_URL=https://app.postdelegate.com/api
+ENV IS_GENERAL=true
+# The upstream base image sets NEXT_PUBLIC_VERSION to its own release; blank it so
+# the sidebar does not show upstream's version number.
+ENV NEXT_PUBLIC_VERSION=""
+ENV STORAGE_PROVIDER=cloudflare
+
+# Reuse upstream's installed dependencies and backend/orchestrator binaries.
+COPY apps/frontend /app/apps/frontend
+COPY libraries/react-shared-libraries /app/libraries/react-shared-libraries
+COPY i18n.json /app/i18n.json
+RUN rm -rf /app/apps/frontend/.next /app/libraries/react-shared-libraries/src/translation/locales/he \
+    && NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter ./apps/frontend run build

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The sub-processors PostDelegate uses to host the service, store media, send email and take payments: what each one processes, where, and the transfer safeguard.">
+  <title>Sub-processors · PostDelegate</title>
+  <style>
+    :root{color-scheme:light;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033;background:#f7f8fb;line-height:1.65}body{margin:0}header,main,footer{max-width:820px;margin:auto;padding:24px}header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}nav{display:flex;gap:20px}a{color:#5035bd;text-underline-offset:3px}a:focus-visible{outline:3px solid #5035bd;outline-offset:4px}.brand{font-weight:750;font-size:22px}.meta{color:#4a5365}h1{font-size:36px;line-height:1.2}h2{font-size:23px;line-height:1.3;margin-top:32px}li{margin:8px 0}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left;vertical-align:top;border:1px solid #c7ccd7;padding:12px}th{background:#eae7f7}footer{font-size:14px;border-top:1px solid #c7ccd7}@media(max-width:520px){header,main,footer{padding:18px}h1{font-size:30px}th,td{padding:9px}}
+  </style>
+</head>
+<body>
+  <header><span class="brand">PostDelegate</span><nav aria-label="Legal"><a href="/legal/privacy/">Privacy</a><a href="/legal/terms/">Terms</a><a href="/legal/data-deletion/">Data deletion</a><a href="/legal/dpa/">DPA</a></nav></header>
+  <main>
+    <h1>Sub-processors</h1>
+    <p class="meta">PostDelegate is operated by Nasida Apps LLC. Last updated: 2 November 2026</p>
+
+    <p>These are the third parties Nasida Apps LLC engages to process customer personal data for PostDelegate. This page is the current version of Annex III of our <a href="/legal/dpa/">Data Processing Addendum</a>. We give at least 30 days' notice before adding or replacing a sub-processor, as described in <a href="/legal/dpa/#sub-processors">section 6 of the DPA</a>.</p>
+
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Authorized sub-processors">
+      <table>
+        <caption>Authorized sub-processors</caption>
+        <thead><tr><th scope="col">Sub-processor</th><th scope="col">Purpose</th><th scope="col">Data processed</th><th scope="col">Location of processing</th><th scope="col">Transfer safeguard</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">OVHcloud (OVH SAS / OVH Ltd)</th><td>VPS hosting of the application server, its databases and the scheduling service</td><td>All customer personal data stored by the service</td><td>United Kingdom (London-area data centre)</td><td>UK: domestic. EU→UK: EU adequacy decision for the UK</td></tr>
+          <tr><th scope="row">Cloudflare, Inc.</th><td>DNS, proxy/CDN, TLS and security services; R2 object storage for uploaded media and for encrypted off-site backups; email routing for postdelegate.com addresses</td><td>Request metadata (IP address, headers); uploaded media; encrypted backups (Cloudflare cannot read them); support emails sent to @postdelegate.com addresses</td><td>Global edge network; R2 storage location as configured by Cloudflare; United States</td><td>SCCs / UK Addendum in Cloudflare's DPA; EU-U.S. Data Privacy Framework</td></tr>
+          <tr><th scope="row">Resend (Plus Five Five, Inc.)</th><td>Transactional email: account activation, password reset, invitations, publishing notifications, digests and scheduled analytics reports</td><td>Recipient email address and name, email content (for example post status, channel names and analytics summaries), delivery metadata</td><td>United States</td><td>SCCs / UK Addendum in Resend's DPA</td></tr>
+          <tr><th scope="row">Stripe, Inc. (and Stripe Payments Europe, Ltd. where applicable)</th><td>Subscription billing and payment processing</td><td>Customer billing contact, Stripe customer and subscription identifiers, invoices; card data entered directly with Stripe</td><td>United States and other Stripe locations</td><td>SCCs / UK Addendum in Stripe's DPA; EU-U.S. Data Privacy Framework. Note: for billing data PostDelegate acts mainly as an independent controller (DPA section 2.2)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Not sub-processors</h2>
+    <p><strong>Recipients you choose (DPA section 2.3):</strong> the social and publishing platforms you connect (Meta/Facebook/Instagram/Threads, TikTok, LinkedIn, Google/YouTube/Google Business Profile, X, Pinterest, Reddit, Discord, Slack, Telegram, Mastodon, Bluesky, WordPress, Medium, Dev.to, Hashnode, Listmonk and others); OpenAI when your workspace adds its own API key; and any AI assistant you connect through MCP/OAuth. They process data under their own terms and privacy policies.</p>
+    <p><strong>PostDelegate's own controller processing (DPA section 2.2):</strong> PayPal (affiliate commission payouts only).</p>
+    <p>We do not currently use a third-party advertising, analytics, error-tracking or session-recording provider (see <a href="/legal/privacy/#cookies">Privacy Policy section 12</a>).</p>
+
+    <h2>Get notified of changes</h2>
+    <p>Email <!--email_off--><a href="mailto:support@postdelegate.com?subject=Sub-processor%20updates">support@postdelegate.com</a><!--/email_off--> with the subject "Sub-processor updates" and we will email the workspace owner's address before a change takes effect.</p>
+
+    <p>Related documents: <a href="/legal/dpa/">Data Processing Addendum</a>, <a href="/legal/privacy/">Privacy Policy</a>, <a href="/legal/terms/">Terms of Service</a>.</p>
+  </main>
+  <footer>PostDelegate includes open-source software licensed under AGPL-3.0; see <a href="https://postdelegate.com/licenses">Licenses</a> and the application's <a href="/source">source code</a>.</footer>
+</body>
+</html>

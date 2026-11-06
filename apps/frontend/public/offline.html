@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080a0f" />
+    <title>Offline · PostDelegate</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+        background: #080a0f;
+        color: #f7f7f2;
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        text-align: center;
+      }
+      main {
+        max-width: 360px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 0;
+        color: #9299aa;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+      button {
+        min-height: 44px;
+        padding: 0 24px;
+        border: 0;
+        border-radius: 10px;
+        background: #c8ff4d;
+        color: #0b0f05;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid #c8ff4d;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <!-- inline, the offline page cannot load other files -->
+      <svg width="72" height="72" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="#11141C" />
+        <path d="M14.5 38.5C19.7 21.4 39.3 15.1 50.3 24.5C58.4 31.5 48.5 46.7 33 47.8C19.8 48.8 8.7 41.8 13.4 31.1C17.8 21.1 34 17.2 45.4 22.5" stroke="#7357FF" stroke-width="4.5" stroke-linecap="round" />
+        <path d="M18.4 19.1C29.2 13.4 47.2 20.9 50.7 32.4C54.2 43.9 37.6 51.5 24.8 45.4C12.8 39.7 8.5 27.4 18.4 19.1Z" stroke="#F7F7F2" stroke-width="3" stroke-linecap="round" stroke-dasharray="55 15" />
+        <circle cx="49.2" cy="23.7" r="4.7" fill="#C8FF4D" stroke="#11141C" stroke-width="2.4" />
+      </svg>
+      <h1>You're offline</h1>
+      <p>
+        PostDelegate needs a connection to load your calendar. Your scheduled
+        posts still go out on time.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

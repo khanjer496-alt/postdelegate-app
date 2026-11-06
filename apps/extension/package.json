@@ -1,0 +1,14 @@
+{
+  "name": "postdelegate-extension",
+  "version": "1.0.0",
+  "description": "Share to PostDelegate: send the page you are reading to your PostDelegate channels",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rm -rf dist && vite build",
+    "dev": "rm -rf dist && vite build --mode development --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "zip": "node scripts/zip.mjs",
+    "package": "pnpm run build && pnpm run zip"
+  }
+}
