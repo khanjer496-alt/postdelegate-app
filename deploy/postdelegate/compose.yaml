@@ -1,0 +1,136 @@
+name: postdelegate-postiz
+
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postiz:
+    <<: *service
+    image: ${POSTIZ_IMAGE:-ghcr.io/gitroomhq/postiz-app:v2.25.3@sha256:1e376ff2cb781022d528f171719cf174cf693a985a30cb40eefb13eae3ddda13}
+    env_file:
+      - /etc/postiz/runtime.env
+      - /etc/postiz/r2.env
+    environment:
+      DATABASE_URL: postgresql://postiz:${POSTIZ_DB_PASSWORD:?required}@postgres:5432/postiz
+      REDIS_URL: redis://redis:6379
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      BACKEND_INTERNAL_URL: http://localhost:3000
+    ports:
+      - 127.0.0.1:4007:5000
+    volumes:
+      - postiz-config:/config
+      - postiz-uploads:/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5000/api/auth/can-register').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+
+  postgres:
+    <<: *service
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postiz
+      POSTGRES_DB: postiz
+      POSTGRES_PASSWORD: ${POSTIZ_DB_PASSWORD:?required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postiz -d postiz]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    <<: *service
+    image: redis:7.2-alpine
+    command: [redis-server, --appendonly, "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal-postgresql:
+    <<: *service
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:?required}
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U temporal]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    <<: *service
+    image: temporalio/auto-setup:1.28.1
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:?required}
+      POSTGRES_SEEDS: temporal-postgresql
+      ENABLE_ES: "false"
+      SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES: "true"
+      TEMPORAL_NAMESPACE: default
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/production-sql.yaml
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    depends_on:
+      temporal-postgresql:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, temporal:7233]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 45s
+
+  caddy:
+    <<: *service
+    image: caddy:2.10-alpine
+    profiles: [edge]
+    ports:
+      - 80:80
+      - 443:443
+      - 443:443/udp
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./source:/source:ro
+      - ./legal-public:/legal-public:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      postiz:
+        condition: service_healthy
+
+volumes:
+  postiz-config:
+  postiz-uploads:
+  postgres-data:
+  redis-data:
+  temporal-postgres-data:
+  caddy-config:
+  caddy-data:
+    external: true
+    name: postdelegate-prod_caddy_data

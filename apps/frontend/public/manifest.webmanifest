@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "PostDelegate",
+  "short_name": "PostDelegate",
+  "description": "Plan, publish, and manage your social content with PostDelegate.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#080a0f",
+  "background_color": "#080a0f",
+  "icons": [
+    {
+      "src": "/postdelegate-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/postdelegate-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/postdelegate-apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

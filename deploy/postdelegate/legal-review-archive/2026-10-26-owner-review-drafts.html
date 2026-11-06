@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Owner review — PostDelegate policy drafts</title>
+  <style>body{max-width:780px;margin:32px auto;padding:0 20px;font:17px/1.6 system-ui,sans-serif;color:#172033;background:#f7f8fb}a{color:#5035bd;text-underline-offset:3px}a:focus-visible{outline:3px solid #5035bd;outline-offset:4px}.draft{background:#fff1b8;border:2px solid #805700;border-radius:8px;padding:18px}li{margin:9px 0}code{overflow-wrap:anywhere}h1{line-height:1.2}h2{font-size:22px}</style>
+</head>
+<body>
+  <main>
+    <h1>PostDelegate policies: owner review</h1>
+    <p class="draft"><strong>REVIEW DRAFT — not published or effective.</strong> Prepared on 26 October 2026 for one bundled owner review before account creation or publication. No deployment or approval is implied.</p>
+    <p>Review the standalone <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>. Production cross-links inside those drafts target only the proposed privacy/terms routes and the existing source offer; local review starts from these two file links.</p>
+
+    <h2>Material changes from the existing BrightBean templates</h2>
+    <ul>
+      <li>Describes the deployed application on OVHcloud, Cloudflare and R2; includes the AGPL-3.0 licence statement and links <code>/source</code>.</li>
+      <li>Limits Google sign-in to basic profile/email permissions; identifies the account ID and email used by the current handler. It makes no Gmail, Drive, Calendar or YouTube-content permission claim.</li>
+      <li>Removes active Anthropic/AI, outbound email, Stripe billing and 14-day trial descriptions. These providers are not active in the current deployment.</li>
+      <li>Discloses public R2 media URLs. Removes unverified MFA, encrypted social-token, instant deletion, 14-day deletion grace period and exact legacy-cookie claims.</li>
+      <li>Preserves the existing minimum age of 16, disclaimers, liability cap, indemnity and Wyoming governing-law text. No new operator identity or address was invented.</li>
+    </ul>
+
+    <h2>Operator values carried forward from source defaults</h2>
+    <p><strong>Nasida Apps LLC</strong> and <!--email_off--><a href="mailto:support@postdelegate.com">support@postdelegate.com</a><!--/email_off--> match the selected public legacy runtime metadata supplied by the deployment agent. Wyoming company-jurisdiction wording is only a source default and remains unconfirmed. The existing governing-law provision (“the State of Wyoming, USA”) is retained for owner review. The legacy address and effective-date values are empty. No private runtime files or secrets were read to prepare these drafts.</p>
+
+    <h2>Fields and operational facts still unresolved</h2>
+    <ol>
+      <li><strong>Registered business address:</strong> the source default is a placeholder. Supply the actual address approved for publication.</li>
+      <li><strong>Operator jurisdiction:</strong> confirm the entity's legal jurisdiction; the Wyoming source default is not independent corporate evidence. Review the retained Wyoming governing-law clause at the same time.</li>
+      <li><strong>Effective date and approval:</strong> choose the effective date and approve the final text; draft-preparation date is not an effective date.</li>
+      <li><strong>Retention/deletion:</strong> confirm periods and a working process for live records, media, logs and recovery copies. No fixed timing was source-verified.</li>
+      <li><strong>Processing locations/transfers:</strong> confirm the actual VPS/R2 locations and any applicable transfer arrangements; the draft does not assume an EU region or executed safeguards.</li>
+      <li><strong>Support contact:</strong> confirm that the source-default mailbox is monitored and can receive privacy/deletion requests.</li>
+      <li><strong>Optional tracking:</strong> confirm the active tracking flags and cookie behavior before finalizing the cookie and no-advertising statements.</li>
+    </ol>
+
+    <p>After review, fill confirmed fields, reconcile any remaining factual changes and remove the review banners before publishing. Owner approval of this draft alone does not verify missing operational facts or establish legal compliance.</p>
+
+    <h2>Evidence used</h2>
+    <p>Existing legacy <code>templates/legal/privacy.html</code> and <code>terms.html</code>; current <code>apps/backend/src/services/auth/providers/google.provider.ts:27–30,58–61</code>; password hashing in <code>libraries/helpers/src/auth/auth.service.ts:35–40</code>; the deployed stack and completed media test recorded in the operations README. Google disclosure requirements were checked against the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener noreferrer">Google API Services User Data Policy</a>. This is a preparation aid for owner/legal review, not a statement of legal approval.</p>
+  </main>
+</body>
+</html>

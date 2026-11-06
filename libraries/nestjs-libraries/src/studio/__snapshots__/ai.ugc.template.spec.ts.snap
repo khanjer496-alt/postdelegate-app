@@ -1,0 +1,38 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`AI UGC template plans a typed script without a voice on a silent track for the picked length 1`] = `"[0:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=5.783,setpts=PTS-STARTPTS,format=yuv420p[p0];[1:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=5.06,setpts=PTS-STARTPTS,format=yuv420p[p1];[2:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=6.265,setpts=PTS-STARTPTS,format=yuv420p[p2];[3:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=2.892,setpts=PTS-STARTPTS,format=yuv420p[p3];[p0][p1][p2][p3]concat=n=4:v=1:a=0[vcat];[vcat]ass=filename=captions.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[4:a]anull[aout]"`;
+
+exports[`AI UGC template plans the footage cut to the parts, a panning still, the voice and karaoke captions 1`] = `"[0:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=1.7,setpts=PTS-STARTPTS,format=yuv420p[p0];[1:v]scale=1242:2208:force_original_aspect_ratio=increase,crop=1242:2208,setsar=1,crop=1080:1920:x=(iw-ow)*(1-t/1.5):y=(ih-oh)/2,fps=30,trim=duration=1.5,setpts=PTS-STARTPTS,format=yuv420p[p1];[2:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=1.4,setpts=PTS-STARTPTS,format=yuv420p[p2];[3:v]setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:x=(iw-1080)*0.5:y=(ih-1920)*0.5,setsar=1,trim=duration=1.4,setpts=PTS-STARTPTS,format=yuv420p[p3];[p0][p1][p2][p3]concat=n=4:v=1:a=0[vcat];[vcat]ass=filename=captions.ass:fontsdir=/usr/share/fonts/truetype/postdelegate-studio,format=yuv420p[vout];[4:a]aresample=48000,apad=whole_dur=6[aout]"`;
+
+exports[`AI UGC template plans the footage cut to the parts, a panning still, the voice and karaoke captions 2`] = `
+"[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Captions,Montserrat ExtraBold,80,&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,6,0,2,80,80,420,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.10,0:00:00.30,Captions,,0,0,0,,{\\1c&H0088FF00&}My{\\1c&H00FFFFFF&} back stopped
+Dialogue: 0,0:00:00.30,0:00:00.60,Captions,,0,0,0,,My {\\1c&H0088FF00&}back{\\1c&H00FFFFFF&} stopped
+Dialogue: 0,0:00:00.60,0:00:01.00,Captions,,0,0,0,,My back {\\1c&H0088FF00&}stopped{\\1c&H00FFFFFF&}
+Dialogue: 0,0:00:01.00,0:00:01.70,Captions,,0,0,0,,{\\1c&H0088FF00&}hurting{\\1c&H00FFFFFF&} This desk
+Dialogue: 0,0:00:01.70,0:00:01.90,Captions,,0,0,0,,hurting {\\1c&H0088FF00&}This{\\1c&H00FFFFFF&} desk
+Dialogue: 0,0:00:01.90,0:00:02.20,Captions,,0,0,0,,hurting This {\\1c&H0088FF00&}desk{\\1c&H00FFFFFF&}
+Dialogue: 0,0:00:02.20,0:00:02.60,Captions,,0,0,0,,{\\1c&H0088FF00&}folds{\\1c&H00FFFFFF&} flat It
+Dialogue: 0,0:00:02.60,0:00:03.20,Captions,,0,0,0,,folds {\\1c&H0088FF00&}flat{\\1c&H00FFFFFF&} It
+Dialogue: 0,0:00:03.20,0:00:03.30,Captions,,0,0,0,,folds flat {\\1c&H0088FF00&}It{\\1c&H00FFFFFF&}
+Dialogue: 0,0:00:03.30,0:00:03.60,Captions,,0,0,0,,{\\1c&H0088FF00&}fits{\\1c&H00FFFFFF&} \\{\\⁠fs200\\} anywhere
+Dialogue: 0,0:00:03.60,0:00:03.80,Captions,,0,0,0,,fits {\\1c&H0088FF00&}\\{\\⁠fs200\\}{\\1c&H00FFFFFF&} anywhere
+Dialogue: 0,0:00:03.80,0:00:04.40,Captions,,0,0,0,,fits \\{\\⁠fs200\\} {\\1c&H0088FF00&}anywhere{\\1c&H00FFFFFF&}
+Dialogue: 0,0:00:04.60,0:00:04.80,Captions,,0,0,0,,{\\1c&H0088FF00&}Link{\\1c&H00FFFFFF&} in bio
+Dialogue: 0,0:00:04.80,0:00:04.90,Captions,,0,0,0,,Link {\\1c&H0088FF00&}in{\\1c&H00FFFFFF&} bio
+Dialogue: 0,0:00:04.90,0:00:05.20,Captions,,0,0,0,,Link in {\\1c&H0088FF00&}bio{\\1c&H00FFFFFF&}
+"
+`;

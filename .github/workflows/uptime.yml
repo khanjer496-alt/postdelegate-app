@@ -1,0 +1,70 @@
+---
+name: Uptime
+
+# External uptime monitor. A failed run makes GitHub email the repository
+# owner, and it does not depend on the VPS being alive. No checkout, one tiny
+# job: hourly is about 720 billed minutes a month (GitHub Free: 2,000); reduce the
+# schedule if the private-repo minute allowance gets tight.
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe endpoints and TLS certificates
+        shell: bash
+        run: |
+          # GitHub runs bash with -e and pipefail; keep going so every failure is reported.
+          set +e +o pipefail
+          set -u
+          failed=0
+          ua='PostDelegate-uptime-monitor/1.0'
+          min_cert_days=14
+
+          probe() {
+            local url=$1 code
+            code=$(curl --silent --show-error --location --output /dev/null \
+              --write-out '%{http_code}' --max-time 20 \
+              --retry 3 --retry-delay 5 --retry-all-errors \
+              --user-agent "$ua" "$url") || code=${code:-000}
+            if [[ $code =~ ^2[0-9][0-9]$ ]]; then
+              echo "ok    $url -> $code"
+            else
+              echo "::error title=Site down::$url returned $code"
+              failed=1
+            fi
+          }
+
+          cert_check() {
+            local host=$1 end
+            end=$(echo | openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null \
+              | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+            if [ -z "$end" ]; then
+              echo "::error title=TLS unreadable::could not read the certificate of $host"
+              failed=1
+            elif echo | openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null \
+              | openssl x509 -noout -checkend $((min_cert_days * 86400)) > /dev/null; then
+              echo "ok    $host certificate valid until $end (more than $min_cert_days days)"
+            else
+              echo "::error title=TLS expiring::certificate of $host expires $end (less than $min_cert_days days)"
+              failed=1
+            fi
+          }
+
+          probe https://app.postdelegate.com/api/auth/can-register
+          probe https://app.postdelegate.com/
+          probe https://postdelegate.com/
+          cert_check app.postdelegate.com
+          cert_check postdelegate.com
+
+          exit "$failed"
