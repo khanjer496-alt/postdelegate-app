@@ -1,0 +1,196 @@
+name: postdelegate-postiz
+
+x-service: &service
+  restart: unless-stopped
+  # No process in any of these containers needs to gain privileges it was not
+  # started with, and nothing here uses setuid binaries.
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postiz:
+    <<: *service
+    image: ${POSTIZ_IMAGE:-ghcr.io/gitroomhq/postiz-app:v2.25.3@sha256:1e376ff2cb781022d528f171719cf174cf693a985a30cb40eefb13eae3ddda13}
+    env_file:
+      - /etc/postiz/runtime.env
+      - /etc/postiz/r2.env
+    environment:
+      DATABASE_URL: postgresql://postiz:${POSTIZ_DB_PASSWORD:?required}@postgres:5432/postiz
+      REDIS_URL: redis://default:${POSTIZ_REDIS_PASSWORD:?set POSTIZ_REDIS_PASSWORD in /etc/postiz/runtime.env}@redis:6379
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      BACKEND_INTERNAL_URL: http://localhost:3000
+    ports:
+      - 127.0.0.1:4007:5000
+    volumes:
+      - postiz-config:/config
+      - postiz-uploads:/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5000/api/auth/can-register').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+
+  postgres:
+    <<: *service
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postiz
+      POSTGRES_DB: postiz
+      POSTGRES_PASSWORD: ${POSTIZ_DB_PASSWORD:?required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postiz -d postiz]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    <<: *service
+    image: redis:7.2-alpine
+    # Redis holds queue state and cache and is reachable from every container
+    # on this network, so it asks for a password. POSTIZ_REDIS_PASSWORD has no
+    # default on purpose: Compose refuses to start without it rather than
+    # quietly running an open Redis again.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - "${POSTIZ_REDIS_PASSWORD:?set POSTIZ_REDIS_PASSWORD in /etc/postiz/runtime.env}"
+    environment:
+      # redis-cli reads this, so the healthcheck authenticates without putting
+      # the password in the healthcheck command
+      REDISCLI_AUTH: ${POSTIZ_REDIS_PASSWORD:?set POSTIZ_REDIS_PASSWORD in /etc/postiz/runtime.env}
+    # Runs as the redis user rather than root. This is required for cap_drop,
+    # not just nicer: the image's entrypoint starts as root and switches with
+    # gosu, which needs SETUID/SETGID, so cap_drop ALL on its own makes Redis
+    # exit with "setpriv: setresuid failed" - and depends_on would then stop
+    # the app starting at all. Starting as redis skips the switch entirely.
+    # uid 999 / gid 1000, which is what already owns the redis-data volume.
+    #
+    # Postgres, Temporal and Caddy keep their capabilities deliberately: their
+    # entrypoints need chown/setuid too, and Caddy needs NET_BIND_SERVICE for
+    # 80/443.
+    user: redis
+    cap_drop:
+      - ALL
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal-postgresql:
+    <<: *service
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:?required}
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U temporal]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    <<: *service
+    image: temporalio/auto-setup:1.28.1
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:?required}
+      POSTGRES_SEEDS: temporal-postgresql
+      ENABLE_ES: "false"
+      SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES: "true"
+      TEMPORAL_NAMESPACE: default
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/production-sql.yaml
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    depends_on:
+      temporal-postgresql:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, temporal:7233]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 45s
+
+  caddy:
+    <<: *service
+    image: caddy:2.10-alpine
+    # The staging basic-auth login is a {$PLACEHOLDER} in the committed
+    # Caddyfile so no credential is committed; Caddy resolves it from here at
+    # start. Without this the placeholders expand to empty strings, Caddy still
+    # reports a valid config, and staging's gate silently stops working.
+    #
+    # A bcrypt hash is full of $ and Compose interpolates env_file values, so
+    # the hash in that file has every $ written as $$. Unescaped, the container
+    # receives a truncated hash, basic_auth matches nothing and staging answers
+    # 401 to the right password - which reads like a wrong credential, not a
+    # config fault. Check with:
+    #   docker exec postdelegate-postiz-caddy-1 sh -c 'echo ${#STAGING_BASIC_AUTH_HASH}'
+    # It must print 60.
+    env_file:
+      - /etc/postiz/caddy.env
+    # Caddy proxies staging.postdelegate.com to a container in the separate
+    # staging project, so it has to be on that project's network as well as its
+    # own. It used to be attached by hand, which a `compose up --force-recreate
+    # caddy` silently undoes: the gate then answers but every staging page is a
+    # 502 that only the Caddy log explains.
+    networks:
+      - default
+      - staging
+    profiles: [edge]
+    ports:
+      - 80:80
+      - 443:443
+      - 443:443/udp
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./source:/source:ro
+      - ./legal-public:/legal-public:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      postiz:
+        condition: service_healthy
+
+networks:
+  default:
+  # created by the staging project; `external` so this project never tries to
+  # create or remove it
+  staging:
+    external: true
+    name: postdelegate-staging
+
+volumes:
+  postiz-config:
+  postiz-uploads:
+  postgres-data:
+  redis-data:
+  temporal-postgres-data:
+  caddy-config:
+  caddy-data:
+    external: true
+    name: postdelegate-prod_caddy_data

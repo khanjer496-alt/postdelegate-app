@@ -1,0 +1,158 @@
+# PostDelegate STAGING: a separate Compose project with its own network,
+# volumes, databases, Redis and Temporal. Installed as
+# /opt/postiz-staging/compose.yaml and run through postiz-staging-compose.
+# Usage is in deploy/postdelegate/STAGING.md.
+#
+# No host ports are published: the shared production Caddy is attached to the
+# postdelegate-staging network and proxies staging.postdelegate.com to
+# postdelegate-staging-app-1:5000.
+#
+# Service names deliberately differ from production's (postiz, postgres, redis,
+# temporal, temporal-postgresql, caddy). The Caddy container sits on both
+# networks, and Docker DNS answers from every attached network, so a shared
+# name could send production traffic to a staging container.
+name: postdelegate-staging
+
+x-service: &service
+  restart: unless-stopped
+  # Mirrors production: no process here needs to gain privileges it was not
+  # started with.
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  app:
+    <<: *service
+    image: ${POSTIZ_IMAGE:?set POSTIZ_IMAGE in /etc/postiz/staging.env}
+    env_file:
+      - /etc/postiz/staging.env
+    environment:
+      # Authoritative, and it overrides the env_file: Redis now needs
+      # credentials and an env file cannot interpolate them. The plain
+      # REDIS_URL left in /etc/postiz/staging.env is deliberately NOT removed -
+      # the compose file currently on the server still reads it from there, so
+      # deleting it would break staging on its next restart, before this file
+      # is deployed. Remove it once this compose is live.
+      REDIS_URL: redis://default:${POSTIZ_REDIS_PASSWORD:?set POSTIZ_REDIS_PASSWORD in /etc/postiz/staging.env}@app-redis:6379
+    # The release image inlines https://app.postdelegate.com/api into the
+    # frontend's server bundle at build time. frontend-url.sh repoints it at
+    # NEXT_PUBLIC_BACKEND_URL inside this container, then starts the app the
+    # same way as production (the image's nginx + pm2 command).
+    command: [/staging/frontend-url.sh, sh, -c, "nginx && pnpm run pm2"]
+    volumes:
+      - app-config:/config
+      - app-uploads:/uploads
+      - ./frontend-url.sh:/staging/frontend-url.sh:ro
+    mem_limit: 2560m
+    depends_on:
+      app-db:
+        condition: service_healthy
+      app-redis:
+        condition: service_healthy
+      temporal-server:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5000/api/auth/can-register').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+
+  app-db:
+    <<: *service
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postiz
+      POSTGRES_DB: postiz
+      POSTGRES_PASSWORD: ${POSTIZ_DB_PASSWORD:?required}
+    volumes:
+      - app-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postiz -d postiz]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app-redis:
+    <<: *service
+    image: redis:7.2-alpine
+    # Mirrors production (see ../compose.yaml for the reasoning): a password,
+    # and the redis user so cap_drop does not break the entrypoint's gosu
+    # switch. Staging's password is its own, from /etc/postiz/staging.env.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - "${POSTIZ_REDIS_PASSWORD:?set POSTIZ_REDIS_PASSWORD in /etc/postiz/staging.env}"
+    environment:
+      REDISCLI_AUTH: ${POSTIZ_REDIS_PASSWORD:?set POSTIZ_REDIS_PASSWORD in /etc/postiz/staging.env}
+    user: redis
+    cap_drop:
+      - ALL
+    volumes:
+      - app-redis-data:/data
+    mem_limit: 256m
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal-db:
+    <<: *service
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:?required}
+    volumes:
+      - temporal-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U temporal]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal-server:
+    <<: *service
+    image: temporalio/auto-setup:1.28.1
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:?required}
+      POSTGRES_SEEDS: temporal-db
+      ENABLE_ES: "false"
+      SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES: "true"
+      TEMPORAL_NAMESPACE: default
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/production-sql.yaml
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    mem_limit: 512m
+    depends_on:
+      temporal-db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, temporal-server:7233]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 45s
+
+networks:
+  default:
+    name: postdelegate-staging
+
+volumes:
+  app-config:
+  app-uploads:
+  app-db-data:
+  app-redis-data:
+  temporal-db-data:

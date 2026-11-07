@@ -1,0 +1,177 @@
+app.postdelegate.com {
+    encode zstd gzip
+    header {
+        -Server
+        -X-Powered-By
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Nothing embeds the app; refuse framing so the login page cannot be clickjacked.
+        X-Frame-Options SAMEORIGIN
+        # base-uri and object-src cost nothing and remove two levers an
+        # injected tag would otherwise have. A script-src is the real XSS
+        # mitigation and needs nonces threaded through Next, so it is its own
+        # job rather than a header edit. Cross-Origin-Opener-Policy is
+        # deliberately absent: the social connect popups talk back through
+        # window.opener and same-origin COOP severs that.
+        Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+        # the app asks for none of these
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+    # Only Cloudflare may reach the origin, so CF-Connecting-IP (used for
+    # per-visitor rate limits, TRUST_CF_CONNECTING_IP) cannot be forged.
+    # Ranges: https://www.cloudflare.com/ips/ (fetched 2026-10-30)
+    @direct not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+    handle @direct {
+        abort
+    }
+    # The API reference is internal: never serve Swagger publicly
+    @swagger path /api/docs /api/docs/* /api/docs-json /api/docs-yaml
+    handle @swagger {
+        respond 404
+    }
+    # The AGPL source offer. postdelegate-latest.tar.gz is a symlink the
+    # release updates to that release's tarball, so this file never needs an
+    # edit (and caddy never needs a restart) to publish a new one. Every
+    # release's tarball stays downloadable by its own name, and
+    # /source/REVISION names the one the symlink points at.
+    handle /source {
+        header Cache-Control "no-store"
+        redir * /source/postdelegate-latest.tar.gz 302
+    }
+    # Never cached at the edge: this name stays the same across releases, and
+    # Cloudflare has served a stale archive from a stable alias here before.
+    # The 302 above carries no-store for the redirect; this carries it for the
+    # body. Only the files the offer is made of are published - the directory
+    # is a working directory during a release.
+    @sourceFiles path /source/*.tar.gz /source/REVISION
+    handle @sourceFiles {
+        header Cache-Control "no-store"
+        root * /source
+        uri strip_prefix /source
+        file_server
+    }
+    @privacy path /legal/privacy /legal/privacy/
+    handle @privacy {
+        root * /legal-public
+        rewrite * /privacy.html
+        file_server
+    }
+    @terms path /legal/terms /legal/terms/
+    handle @terms {
+        root * /legal-public
+        rewrite * /terms.html
+        file_server
+    }
+    # MCP OAuth (custom connectors in Claude/ChatGPT): clients probe the
+    # resource and its discovery documents at the origin root; the backend
+    # serves them under /api, so re-enter the /api mapping.
+    @mcpOauth path /mcp-oauth-dynamic /mcp-oauth-dynamic/* /.well-known/oauth-protected-resource/mcp-oauth-dynamic /.well-known/oauth-authorization-server/mcp-oauth-dynamic
+    handle @mcpOauth {
+        rewrite * /api{uri}
+        reverse_proxy postiz:5000
+    }
+    # MCP discovery documents for directories and the ChatGPT app domain
+    # check, served by the backend under /api: the protected-resource
+    # metadata of /api/mcp (path-inserted only, the root stays unanswered),
+    # the server card and the OpenAI challenge. The bare root is listed too,
+    # so the backend answers it with its own 404 JSON: unrouted it reached the
+    # frontend instead and redirected a discovery client to /auth/login.
+    @mcpWellKnown path /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/api/mcp /.well-known/mcp.json /.well-known/mcp/server-card.json /.well-known/openai-apps-challenge
+    handle @mcpWellKnown {
+        rewrite * /api{uri}
+        reverse_proxy postiz:5000
+    }
+    @affiliateTerms path /legal/affiliate-terms /legal/affiliate-terms/
+    handle @affiliateTerms {
+        root * /legal-public
+        rewrite * /affiliate-terms.html
+        file_server
+    }
+    @dpa path /legal/dpa /legal/dpa/
+    handle @dpa {
+        root * /legal-public
+        rewrite * /dpa.html
+        file_server
+    }
+    @subprocessors path /legal/subprocessors /legal/subprocessors/
+    handle @subprocessors {
+        root * /legal-public
+        rewrite * /subprocessors.html
+        file_server
+    }
+    @deletion path /legal/data-deletion /legal/data-deletion/ /data-deletion /data-deletion/
+    handle @deletion {
+        root * /legal-public
+        rewrite * /data-deletion.html
+        file_server
+    }
+    handle {
+        reverse_proxy postiz:5000
+    }
+}
+
+# STAGING (deploy/postdelegate/STAGING.md): a separate Compose project,
+# postdelegate-staging, reached over the postdelegate-staging Docker network.
+# Behind basic auth, except the machine paths that carry their own API-key or
+# OAuth-token Authorization header (basic auth would need that same header).
+# The login itself lives only in the live /opt/postiz/Caddyfile; here it reads
+# from the environment, so no credential is committed.
+staging.postdelegate.com {
+    encode zstd gzip
+    header {
+        -Server
+        -X-Powered-By
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000"
+        X-Frame-Options SAMEORIGIN
+        # base-uri and object-src cost nothing and remove two levers an
+        # injected tag would otherwise have. A script-src is the real XSS
+        # mitigation and needs nonces threaded through Next, so it is its own
+        # job rather than a header edit. Cross-Origin-Opener-Policy is
+        # deliberately absent: the social connect popups talk back through
+        # window.opener and same-origin COOP severs that.
+        Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+        # the app asks for none of these
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        X-Robots-Tag "noindex, nofollow"
+    }
+    # Only Cloudflare may reach the origin (same ranges as app.postdelegate.com).
+    @direct not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+    handle @direct {
+        abort
+    }
+    # The API reference is internal: never serve Swagger publicly
+    @swagger path /api/docs /api/docs/* /api/docs-json /api/docs-yaml
+    handle @swagger {
+        respond 404
+    }
+    # Public API, MCP and the MCP OAuth endpoints: own auth, no basic auth.
+    @machine path /api/public/* /api/mcp* /api/sse/* /api/message/* /api/.well-known/* /api/oauth/register /api/oauth/token /api/oauth/userinfo
+    handle @machine {
+        reverse_proxy postdelegate-staging-app-1:5000
+    }
+    @mcpOauth path /mcp-oauth-dynamic /mcp-oauth-dynamic/* /.well-known/oauth-protected-resource/mcp-oauth-dynamic /.well-known/oauth-authorization-server/mcp-oauth-dynamic
+    handle @mcpOauth {
+        rewrite * /api{uri}
+        reverse_proxy postdelegate-staging-app-1:5000
+    }
+    # MCP discovery documents for directories and the ChatGPT app domain
+    # check, served by the backend under /api. The bare root is listed too, so
+    # the backend answers it with its own 404 JSON: unrouted it reached the
+    # frontend instead and redirected a discovery client to /auth/login.
+    @mcpWellKnown path /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/api/mcp /.well-known/mcp.json /.well-known/mcp/server-card.json /.well-known/openai-apps-challenge
+    handle @mcpWellKnown {
+        rewrite * /api{uri}
+        reverse_proxy postdelegate-staging-app-1:5000
+    }
+    handle {
+        basic_auth {
+            {$STAGING_BASIC_AUTH_USER} {$STAGING_BASIC_AUTH_HASH}
+        }
+        reverse_proxy postdelegate-staging-app-1:5000 {
+            header_up -Authorization
+        }
+    }
+}

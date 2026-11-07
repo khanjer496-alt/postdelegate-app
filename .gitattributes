@@ -1,0 +1,52 @@
+# Files below are internal (planning, operations, review evidence) and are left
+# out of `git archive`, which produces the public source download. Everything
+# needed to build and run the application stays in the archive: apps/,
+# libraries/, root package and config files, Dockerfiles, and the build recipe
+# in deploy/postdelegate (Dockerfile.release, Dockerfile.branding, BUILD.md,
+# compose.yaml, Caddyfile, runtime.env.example, dynamicconfig, legal-public).
+
+# Planning, launch and assistant material
+/POSTDELEGATE-*.md export-ignore
+/GROK-*.md export-ignore
+/chatgpt-app-submission.json export-ignore
+CLAUDE.md export-ignore
+AGENTS.md export-ignore
+/HANDOFF.md export-ignore
+/CODEX-*.md export-ignore
+/.claude export-ignore
+/docs/superpowers export-ignore
+/reports export-ignore
+
+# Server operations, backups, owner tooling and review evidence
+/deploy/postdelegate/README.md export-ignore
+/deploy/postdelegate/PUBLISHING-SDK-CLI.md export-ignore
+/deploy/postdelegate/authorization-lifecycle-operations.md export-ignore
+/deploy/postdelegate/backup-retention-proposal.md export-ignore
+/deploy/postdelegate/evidence export-ignore
+/deploy/postdelegate/review export-ignore
+/deploy/postdelegate/ops-tests export-ignore
+/deploy/postdelegate/__pycache__ export-ignore
+/deploy/postdelegate/.shellcheckrc export-ignore
+/deploy/postdelegate/set-secret.sh export-ignore
+/deploy/postdelegate/restore-drill.sh export-ignore
+/deploy/postdelegate/restore-scratch.compose.yaml export-ignore
+/deploy/postdelegate/comp-owner-plan.sh export-ignore
+/deploy/postdelegate/backup-* export-ignore
+/deploy/postdelegate/snapshot-brightbean export-ignore
+/deploy/postdelegate/offsite-backup-postiz export-ignore
+/deploy/postdelegate/postiz-backup.* export-ignore
+/deploy/postdelegate/postiz-offsite-backup.* export-ignore
+/deploy/postdelegate/postiz-healthcheck* export-ignore
+/deploy/postdelegate/postiz-compose export-ignore
+/deploy/postdelegate/install-ops.sh export-ignore
+/deploy/postdelegate/ops-lib.sh export-ignore
+/deploy/postdelegate/alerts.env.example export-ignore
+/deploy/postdelegate/verify-r2.py export-ignore
+/deploy/postdelegate/plan-postiz-backup-retention.py export-ignore
+/deploy/postdelegate/initialize.py export-ignore
+/deploy/postdelegate/bootstrap-owner.py export-ignore
+
+# Marketing site has its own source download (postdelegate.com/website-source.tar.gz).
+/site export-ignore
+# Internal review notes for the legal pages; only the *.html policies are served.
+/deploy/postdelegate/legal-public/index.html export-ignore

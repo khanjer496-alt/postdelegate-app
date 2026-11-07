@@ -1,0 +1,54 @@
+import { createContext, FC, useCallback, useContext, useEffect } from 'react';
+import './providers/image-text-slides.provider';
+import './providers/seedance.provider';
+import { videosList } from '@gitroom/frontend/components/videos/video.wrapper';
+import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
+import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
+
+const VideoFunctionWrapper = createContext({
+  identifier: '',
+});
+
+export const useVideoFunction = () => {
+  const { identifier } = useContext(VideoFunctionWrapper);
+  const fetch = useFetch();
+
+  return useCallback(
+    async (funcName: string, params: any) => {
+      return (
+        await fetch(`/media/video/function`, {
+          method: 'POST',
+          body: JSON.stringify({ identifier, functionName: funcName, params }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+      ).json();
+    },
+    [identifier]
+  );
+};
+
+export const VideoWrapper: FC<{ identifier: string }> = (props) => {
+  const blockExit = useLaunchStore((e) => e.blockExit);
+  const releaseExit = useLaunchStore((e) => e.releaseExit);
+  useEffect(() => {
+    blockExit();
+    return () => {
+      releaseExit();
+    };
+  }, []);
+
+  const { identifier } = props;
+  const Component = videosList.find(
+    (v) => v.identifier === identifier
+  )?.Component;
+  if (!Component) {
+    return null;
+  }
+  return (
+    <VideoFunctionWrapper.Provider value={{ identifier }}>
+      <Component />
+    </VideoFunctionWrapper.Provider>
+  );
+};

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 6.5 52 52" width="52" height="52" fill="none" role="img" aria-labelledby="t">
+  <title id="t">PostDelegate</title>
+  <rect x="18" y="22" width="28" height="25" rx="7" stroke="#F7F7F2" stroke-width="4"/>
+  <path d="M25 18v6.5M39 18v6.5" stroke="#F7F7F2" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="36" cy="31" r="4.4" fill="#C8FF4D"/>
+  <path d="M51.23 24.59A24 8 -21 0 1 54.41 26.9A24 8 -21 0 1 34.87 42.97A24 8 -21 0 1 9.59 44.1A24 8 -21 0 1 12 38.27" stroke="#7357FF" stroke-width="3.6" stroke-linecap="round"/>
+</svg>

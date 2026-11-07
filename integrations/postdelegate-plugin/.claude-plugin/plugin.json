@@ -1,0 +1,19 @@
+{
+  "name": "postdelegate",
+  "displayName": "PostDelegate",
+  "version": "1.0.0",
+  "description": "Draft, schedule and manage social media posts on your PostDelegate calendar through the hosted PostDelegate MCP server, with a skill that teaches the draft-first workflow and per-network rules. Sign in with your PostDelegate account on first connect.",
+  "author": {
+    "name": "PostDelegate",
+    "email": "support@postdelegate.com",
+    "url": "https://postdelegate.com"
+  },
+  "homepage": "https://postdelegate.com/docs/mcp",
+  "license": "AGPL-3.0-only",
+  "keywords": ["postdelegate", "postdelegate mcp", "postdelegate posts", "postdelegate calendar"],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://postdelegate.com/docs/mcp",
+  "supportUrl": "https://postdelegate.com/support",
+  "privacyPolicyUrl": "https://app.postdelegate.com/legal/privacy/",
+  "termsOfServiceUrl": "https://app.postdelegate.com/legal/terms/"
+}
