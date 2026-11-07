@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "removeComments": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "es2022",
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "rootDir": "../../",
+    "incremental": false,
+    "types": ["node", "jest"],
+    "paths": {
+      "@postdelegate/node": ["apps/sdk/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

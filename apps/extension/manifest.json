@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Share to PostDelegate",
+  "version": "1.0.0",
+  "description": "Share the page, selected text or image you are viewing to your PostDelegate channels: post now, schedule or save a draft.",
+  "minimum_chrome_version": "127",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "action": {
+    "default_title": "Share to PostDelegate",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png"
+    }
+  },
+  "permissions": ["activeTab", "contextMenus", "storage", "scripting"],
+  "host_permissions": ["https://app.postdelegate.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

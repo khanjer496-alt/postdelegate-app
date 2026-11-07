@@ -1,0 +1,15 @@
+{
+  "name": "postdelegate",
+  "description": "The PostDelegate plugin for Claude Code: the hosted PostDelegate MCP server and the PostDelegate skill.",
+  "owner": {
+    "name": "PostDelegate",
+    "email": "support@postdelegate.com"
+  },
+  "plugins": [
+    {
+      "name": "postdelegate",
+      "source": "./",
+      "description": "Draft, schedule and manage posts on your PostDelegate calendar from Claude Code."
+    }
+  ]
+}

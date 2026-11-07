@@ -1,0 +1,102 @@
+FROM ghcr.io/gitroomhq/postiz-app:v2.25.3@sha256:1e376ff2cb781022d528f171719cf174cf693a985a30cb40eefb13eae3ddda13
+
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.title="PostDelegate"
+LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
+LABEL org.opencontainers.image.source="https://app.postdelegate.com/source"
+
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV MAIN_URL=https://app.postdelegate.com
+ENV FRONTEND_URL=https://app.postdelegate.com
+ENV NEXT_PUBLIC_BACKEND_URL=https://app.postdelegate.com/api
+ENV IS_GENERAL=true
+# The upstream base image sets NEXT_PUBLIC_VERSION to its own release; blank it so
+# the sidebar does not show upstream's version number.
+ENV NEXT_PUBLIC_VERSION=""
+ENV STORAGE_PROVIDER=cloudflare
+
+# Studio renders videos on this server with ffmpeg. The base image is Debian
+# bookworm (node:22-bookworm-slim), whose ffmpeg 5.1 carries libass (with
+# harfbuzz and fribidi), freetype, fontconfig, x264 and the native aac
+# encoder. apt over a pinned static build so it gets Debian security updates.
+# Only OFL fonts are bundled (licences in fonts/OFL.txt); renders pin this
+# directory with ass=...:fontsdir= so a caption never falls back to a font
+# the preview does not have. The checks fail the build if a filter, an
+# encoder or the fonts are missing instead of failing the first render.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig \
+    && rm -rf /var/lib/apt/lists/*
+COPY deploy/postdelegate/fonts/ /usr/share/fonts/truetype/postdelegate-studio/
+ENV STUDIO_FONTS_DIR=/usr/share/fonts/truetype/postdelegate-studio
+RUN fc-cache -f \
+    && fc-list | grep -q "Montserrat" \
+    && fc-list | grep -q "Anton" \
+    && ffmpeg -hide_banner -filters | grep -qE '\bass\b' \
+    && ffmpeg -hide_banner -filters | grep -q drawtext \
+    && ffmpeg -hide_banner -encoders | grep -q libx264 \
+    && ffmpeg -hide_banner -encoders | grep -qE '\baac\b' \
+    && ffprobe -version > /dev/null \
+    && ffmpeg -hide_banner -loglevel error \
+      -f lavfi -i testsrc=size=108x192:rate=30:duration=1 \
+      -f lavfi -i anullsrc=r=48000:cl=stereo \
+      -t 1 -c:v libx264 -preset veryfast -c:a aac -f null -
+
+# The apps are built against the pinned image's own node_modules, and no
+# install runs for this repo's package.json, so a dependency we declare and
+# that image does not carry is absent at build time: the 6 Nov upstream sync
+# brought upstream's SES email provider, and v2.25.3 has no
+# @aws-sdk/client-sesv2, so the backend build failed on its import.
+#
+# pnpm and not npm: the tree is pnpm's (hoisted linking), and npm reconciles it
+# and dies on peer conflicts that have nothing to do with this package. Note
+# that `pnpm add -w` reconciles the workspace as well, against the BASE IMAGE's
+# package.json and lockfile - this repo's are never copied in - and upstream's
+# shipped node_modules is not a frozen install of its own lockfile, so the
+# install also re-hoists other packages to versions that lockfile already
+# carries. Keep the staging click-through for that reason.
+#
+# The version is asserted against our own pnpm-lock.yaml so it cannot drift
+# when a later upstream sync bumps it, the module must resolve the way the
+# build imports it, and pnpm's store is dropped afterwards: linking is hoisted,
+# so node_modules keeps the files and the store is 2.4 GB of dead weight in
+# the image.
+COPY pnpm-lock.yaml /tmp/pd-pnpm-lock.yaml
+RUN grep -qE "@aws-sdk/client-sesv2@3\.1003\.0'?:" /tmp/pd-pnpm-lock.yaml \
+    && pnpm add -w @aws-sdk/client-sesv2@3.1003.0 \
+    && node -e "require.resolve('@aws-sdk/client-sesv2')" \
+    && node -e "const v=require('/app/node_modules/@aws-sdk/client-sesv2/package.json').version; if (v !== '3.1003.0') { throw new Error('installed ' + v); }" \
+    && rm -rf "$(pnpm store path)" /tmp/pd-pnpm-lock.yaml \
+    && node -e "require.resolve('@aws-sdk/client-sesv2')"
+
+# The provider changes are used by both HTTP handlers and Temporal workers.
+# Rebuild all three applications with the pinned image's installed dependencies.
+# COPY only adds and overwrites, so clear the upstream sources and public
+# assets first: files deleted or renamed in this repo (old upstream logos, a
+# set.timezone.tsx that became .ts) must not survive in the image, or the build
+# can resolve the stale upstream copy. The pinned image keeps no node_modules
+# inside these folders.
+RUN rm -rf /app/apps/frontend/public /app/apps/frontend/src \
+      /app/apps/backend/src /app/apps/orchestrator/src /app/libraries
+COPY apps/frontend /app/apps/frontend
+COPY apps/backend /app/apps/backend
+COPY apps/orchestrator /app/apps/orchestrator
+COPY libraries /app/libraries
+COPY tsconfig.base.json /app/tsconfig.base.json
+COPY i18n.json /app/i18n.json
+# The schema gained the affiliate models, so the Prisma client generated in
+# the pinned upstream image must be regenerated before the apps are built.
+# The schema is the file copied in with /app/libraries above.
+RUN pnpm run prisma-generate
+RUN rm -rf /app/apps/backend/dist /app/apps/orchestrator/dist \
+    && NODE_OPTIONS=--max-old-space-size=4096 pnpm --filter ./apps/backend run build \
+    && NODE_OPTIONS=--max-old-space-size=4096 pnpm --filter ./apps/orchestrator run build
+# Operator tool for permanent erasure on a verified request. It is compiled by
+# the backend build above (apps/backend/src/commands) and is not part of the
+# API or the worker. Run it with: docker exec ... erase-account --email <email>
+RUN test -f /app/apps/backend/dist/apps/backend/src/commands/erase-account.js \
+    && printf '%s\n' '#!/bin/sh' \
+      'exec node --experimental-require-module /app/apps/backend/dist/apps/backend/src/commands/erase-account.js "$@"' \
+      > /usr/local/bin/erase-account \
+    && chmod 0755 /usr/local/bin/erase-account
+RUN rm -rf /app/apps/frontend/.next /app/libraries/react-shared-libraries/src/translation/locales/he \
+    && NODE_OPTIONS=--max-old-space-size=4096 pnpm --filter ./apps/frontend run build

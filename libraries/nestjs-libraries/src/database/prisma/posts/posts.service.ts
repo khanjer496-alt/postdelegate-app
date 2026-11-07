@@ -1,0 +1,2877 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ValidationPipe,
+} from '@nestjs/common';
+import { PostsRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.repository';
+import { CreatePostDto } from '@gitroom/nestjs-libraries/dtos/posts/create.post.dto';
+import dayjs from 'dayjs';
+import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
+import {
+  Integration,
+  Post,
+  Media,
+  From,
+  CreationMethod,
+  State,
+} from '@prisma/client';
+import { GetPostsDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.dto';
+import { GetPostsListDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.list.dto';
+import { groupBy, shuffle, uniqBy } from 'lodash';
+import { v4 as uuidv4 } from 'uuid';
+import { CreateGeneratedPostsDto } from '@gitroom/nestjs-libraries/dtos/generator/create.generated.posts.dto';
+import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
+import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import utc from 'dayjs/plugin/utc';
+import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
+import { ShortLinkService } from '@gitroom/nestjs-libraries/short-linking/short.link.service';
+import { CreateTagDto } from '@gitroom/nestjs-libraries/dtos/posts/create.tag.dto';
+import {
+  minifyPostsList,
+  minifyPosts,
+} from '@gitroom/helpers/utils/posts.list.minify';
+import { getSsrfSafeAxios } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
+import sharp from 'sharp';
+import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
+import { Readable } from 'stream';
+import { resolve, sep } from 'path';
+import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
+dayjs.extend(utc);
+import * as Sentry from '@sentry/nestjs';
+import { TemporalService } from 'nestjs-temporal-core';
+import { TypedSearchAttributes } from '@temporalio/common';
+import {
+  organizationId,
+  postId as postIdSearchParam,
+} from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
+import { AnalyticsData } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
+import { timer } from '@gitroom/helpers/utils/timer';
+import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
+import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { stripLinks } from '@gitroom/helpers/utils/strip.links';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
+import { postContentPlainText } from '@gitroom/helpers/utils/sanitize.post.content';
+import { CreatePublicCommentDto } from '@gitroom/nestjs-libraries/dtos/comments/add.comment.dto';
+import { countLength } from '@gitroom/helpers/utils/count.length';
+import {
+  ApprovalActor,
+  ApprovalPolicyService,
+  actorName,
+} from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
+import { ActivityLogService } from '@gitroom/nestjs-libraries/database/prisma/activity-log/activity.log.service';
+import {
+  planMonth,
+  SubscriptionService,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
+import {
+  isCappedProvider,
+  pricing,
+  TRIAL_POSTS_CAP_TIER,
+} from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { PaymentService } from '@gitroom/nestjs-libraries/services/payment/payment.service';
+import { curatedPostError } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.curated.error';
+import {
+  isChannelConnected,
+  isChannelReady,
+} from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.state';
+import {
+  AuthorizationActions,
+  Sections,
+  SubscriptionException,
+} from '@gitroom/backend/services/auth/permissions/permission.exception.class';
+
+type PostWithConditionals = Post & {
+  integration?: Integration;
+  childrenPost: Post[];
+};
+
+@Injectable()
+export class PostsService {
+  private storage = UploadFactory.createStorage();
+  constructor(
+    private _postRepository: PostsRepository,
+    private _integrationManager: IntegrationManager,
+    private _integrationService: IntegrationService,
+    private _mediaService: MediaService,
+    private _shortLinkService: ShortLinkService,
+    private _openaiService: OpenaiService,
+    private _temporalService: TemporalService,
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _approvalPolicyService: ApprovalPolicyService,
+    private _activityLogService: ActivityLogService,
+    private _subscriptionService: SubscriptionService,
+    private _paymentService: PaymentService
+  ) {}
+
+  searchForMissingThreeHoursPosts() {
+    return this._postRepository.searchForMissingThreeHoursPosts();
+  }
+
+  async updatePost(id: string, postId: string, releaseURL: string) {
+    const updated = await this._postRepository.updatePost(
+      id,
+      postId,
+      releaseURL
+    );
+    // comments are skipped there, only the main post is in the history
+    await this._activityLogService.recordPublished(id);
+    return updated;
+  }
+
+  updateResolvedRelease(
+    id: string,
+    orgId: string,
+    releaseId: string,
+    releaseURL: string,
+    expectedIntegrationId?: string
+  ) {
+    return this._postRepository.updateResolvedRelease(
+      id,
+      orgId,
+      releaseId,
+      releaseURL,
+      expectedIntegrationId
+    );
+  }
+
+  async getMissingContent(
+    orgId: string,
+    postId: string,
+    forceRefresh = false
+  ): Promise<{ id: string; url: string }[]> {
+    const post = await this._postRepository.getPostById(postId, orgId);
+    if (!post || post.releaseId !== 'missing') {
+      return [];
+    }
+
+    const integrationProvider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+
+    if (!integrationProvider.missing) {
+      return [];
+    }
+
+    const getIntegration = post.integration!;
+
+    if (
+      dayjs(getIntegration?.tokenExpiration).isBefore(dayjs()) ||
+      forceRefresh
+    ) {
+      const data = await this._refreshIntegrationService.refresh(
+        getIntegration
+      );
+      if (!data) {
+        return [];
+      }
+
+      const { accessToken } = data;
+
+      if (accessToken) {
+        getIntegration.token = accessToken;
+
+        if (integrationProvider.refreshWait) {
+          await timer(10000);
+        }
+      } else {
+        await this._integrationService.disconnectChannel(orgId, getIntegration);
+        return [];
+      }
+    }
+
+    try {
+      return await integrationProvider.missing(
+        getIntegration.internalId,
+        getIntegration.token
+      );
+    } catch (e) {
+      console.log(e);
+      if (e instanceof RefreshToken) {
+        return this.getMissingContent(orgId, postId, true);
+      }
+    }
+
+    return [];
+  }
+
+  async getPostById(postId: string, orgId: string) {
+    return this._postRepository.getPostById(postId, orgId);
+  }
+
+  async getPostTimeline(postId: string, orgId: string) {
+    return this._postRepository.getPostTimeline(postId, orgId);
+  }
+
+  async updateReleaseId(orgId: string, postId: string, releaseId: string) {
+    const post = await this._postRepository.getPostById(postId, orgId);
+    if (!post || post.deletedAt || !post.integration || !isChannelConnected(post.integration)) {
+      throw new BadRequestException('Post is no longer available.');
+    }
+
+    // the URL is a bonus: connecting must not fail when it cannot be fetched
+    let releaseURL: string | undefined;
+    if (post?.releaseId === 'missing') {
+      try {
+        releaseURL = await this._integrationManager
+          .getSocialIntegration(post.integration.providerIdentifier)
+          .releaseUrl?.(
+            post.integration.token,
+            String(releaseId),
+            post.integration
+          );
+      } catch (e) {
+        console.log(e);
+      }
+    }
+
+    return this._postRepository.updateReleaseId(
+      postId,
+      orgId,
+      releaseId,
+      releaseURL,
+      post.integration.id
+    );
+  }
+
+  async resolveRelease(
+    orgId: string,
+    post: {
+      id: string;
+      releaseId: string;
+      releaseURL: string;
+      settings: string;
+      integration: Integration;
+    }
+  ) {
+    const integrationProvider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+
+    const resolved = await integrationProvider.resolveReleaseId?.(
+      post.integration.token,
+      post.releaseId,
+      post.integration,
+      JSON.parse(post.settings || '{}'),
+      post.releaseURL
+    );
+    if (
+      !resolved ||
+      !('postId' in resolved) ||
+      resolved.postId === post.releaseId
+    ) {
+      return {
+        releaseId: post.releaseId,
+        releaseURL: post.releaseURL,
+        pending: !!resolved && 'pending' in resolved,
+        unavailable: !!resolved && 'unavailable' in resolved,
+      };
+    }
+
+    await this._postRepository.updateResolvedRelease(
+      post.id,
+      orgId,
+      resolved.postId,
+      resolved.releaseURL,
+      post.integration.id
+    );
+    return {
+      releaseId: resolved.postId,
+      releaseURL: resolved.releaseURL,
+      pending: false,
+      unavailable: false,
+    };
+  }
+
+  private async canReturnProviderData(
+    orgId: string,
+    postId: string,
+    expectedIntegration: Integration
+  ): Promise<boolean> {
+    const current = await this._postRepository.getPostById(postId, orgId);
+    return !!current && !current.deletedAt &&
+      current.integrationId === expectedIntegration.id &&
+      !!current.integration && isChannelReady(current.integration) &&
+      current.integration.token === expectedIntegration.token;
+  }
+
+  async getReleaseURL(
+    orgId: string,
+    postId: string,
+    forceRefresh = false
+  ): Promise<{
+    releaseURL: string;
+    pending?: boolean;
+    unavailable?: boolean;
+    reconnect?: boolean;
+  }> {
+    const post = await this._postRepository.getPostById(postId, orgId);
+    if (!post || !post.releaseURL) {
+      return { releaseURL: '' };
+    }
+    if (post.deletedAt || !post.integration || !isChannelConnected(post.integration)) {
+      return { releaseURL: '', unavailable: true };
+    }
+
+    const integrationProvider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+
+    if (!integrationProvider.resolveReleaseId) {
+      return { releaseURL: post.releaseURL };
+    }
+
+    const getIntegration = post.integration!;
+
+    // only refreshed once the platform rejects the token, so a post that is
+    // already resolved never reaches the platform
+    if (forceRefresh) {
+      const data = await this._refreshIntegrationService.refresh(
+        getIntegration
+      );
+      if (!data) {
+        return { releaseURL: post.releaseURL, reconnect: true };
+      }
+
+      const { accessToken } = data;
+
+      if (accessToken) {
+        getIntegration.token = accessToken;
+
+        if (integrationProvider.refreshWait) {
+          await timer(10000);
+        }
+      } else {
+        await this._integrationService.disconnectChannel(orgId, getIntegration);
+        return { releaseURL: post.releaseURL, reconnect: true };
+      }
+    }
+
+    try {
+      if (integrationProvider.authorizationPolicy && !await this.canReturnProviderData(orgId, postId, getIntegration)) {
+        return { releaseURL: '', unavailable: true };
+      }
+      const { releaseURL, pending, unavailable } = await this.resolveRelease(
+        orgId,
+        post
+      );
+      if (integrationProvider.authorizationPolicy && !await this.canReturnProviderData(orgId, postId, getIntegration)) {
+        return { releaseURL: '', unavailable: true };
+      }
+      return { releaseURL, pending, unavailable };
+    } catch (e) {
+      console.log(e);
+      if (e instanceof RefreshToken && !forceRefresh) {
+        return this.getReleaseURL(orgId, postId, true);
+      }
+    }
+
+    if (integrationProvider.authorizationPolicy && !await this.canReturnProviderData(orgId, postId, getIntegration)) {
+      return { releaseURL: '', unavailable: true };
+    }
+    return { releaseURL: post.releaseURL, pending: true };
+  }
+
+  async checkPostAnalytics(
+    orgId: string,
+    postId: string,
+    date: number,
+    forceRefresh = false
+  ): Promise<AnalyticsData[] | { missing: true }> {
+    const post = await this._postRepository.getPostById(postId, orgId);
+    if (!post || !post.releaseId) {
+      return [];
+    }
+    if (post.deletedAt || !post.integration || !isChannelConnected(post.integration)) {
+      return [];
+    }
+
+    if (post.releaseId === 'missing') {
+      return { missing: true };
+    }
+
+    const integrationProvider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+
+    if (!integrationProvider.postAnalytics) {
+      return [];
+    }
+
+    const getIntegration = post.integration!;
+
+    if (
+      dayjs(getIntegration?.tokenExpiration).isBefore(dayjs()) ||
+      forceRefresh
+    ) {
+      const data = await this._refreshIntegrationService.refresh(
+        getIntegration
+      );
+      if (!data) {
+        return [];
+      }
+
+      const { accessToken } = data;
+
+      if (accessToken) {
+        getIntegration.token = accessToken;
+
+        if (integrationProvider.refreshWait) {
+          await timer(10000);
+        }
+      } else {
+        await this._integrationService.disconnectChannel(orgId, getIntegration);
+        return [];
+      }
+    }
+
+    try {
+      if (integrationProvider.authorizationPolicy && !await this.canReturnProviderData(orgId, postId, getIntegration)) {
+        return [];
+      }
+      const { releaseId } = await this.resolveRelease(orgId, post);
+      if (integrationProvider.authorizationPolicy && !await this.canReturnProviderData(orgId, postId, getIntegration)) {
+        return [];
+      }
+
+      const loadAnalytics = await integrationProvider.postAnalytics(
+        getIntegration.internalId,
+        getIntegration.token,
+        releaseId,
+        date
+      );
+      if (integrationProvider.authorizationPolicy && !await this.canReturnProviderData(orgId, postId, getIntegration)) {
+        return [];
+      }
+      if (!integrationProvider.authorizationPolicy?.bypassAnalyticsCache) {
+        await ioRedis.set(
+          `integration:${orgId}:${post.id}:${date}`,
+          JSON.stringify(loadAnalytics),
+          'EX',
+          !process.env.NODE_ENV || process.env.NODE_ENV === 'development'
+            ? 1
+            : 3600
+        );
+      }
+      return loadAnalytics;
+    } catch (e) {
+      // Retry once with a refreshed token
+      if (e instanceof RefreshToken && !forceRefresh) {
+        return this.checkPostAnalytics(orgId, postId, date, true);
+      }
+      console.log(e);
+    }
+
+    return [];
+  }
+
+  async getStatistics(orgId: string, id: string) {
+    const getPost = await this.getPostsRecursively(id, true, orgId, true);
+    const content = getPost.map((p) => p.content);
+    const shortLinksTracking = await this._shortLinkService.getStatistics(
+      content
+    );
+
+    return {
+      clicks: shortLinksTracking,
+    };
+  }
+
+  async mapTypeToPost(
+    body: CreatePostDto,
+    organization: string,
+    replaceDraft: boolean = false,
+    validationOperation?: CreatePostDto['type']
+  ): Promise<CreatePostDto> {
+    if (!body?.posts?.every((p) => p?.integration?.id)) {
+      throw new BadRequestException('All posts must have an integration id');
+    }
+
+    const mappedType = replaceDraft ? 'schedule' : body?.type;
+    const operation = validationOperation ?? mappedType;
+    const mappedValues = {
+      ...body,
+      type: mappedType,
+      posts: await Promise.all(
+        body?.posts?.map(async (post) => {
+          const integration = await this._integrationService.getIntegrationById(
+            organization,
+            post.integration.id
+          );
+
+          if (!integration) {
+            throw new BadRequestException(
+              `Integration with id ${post.integration.id} not found`
+            );
+          }
+
+          return {
+            ...post,
+            // Actual saves execute one operation for the whole request. Child
+            // hints are only used by the separate validation-preview endpoint.
+            type: mappedType,
+            settings: {
+              ...(post.settings || ({} as any)),
+              __type: integration.providerIdentifier,
+              __validationOperation: operation,
+              __validationDate: post.date || body?.date,
+            },
+          };
+        }) || []
+      ),
+    };
+
+    const validationPipe = new ValidationPipe({
+      skipMissingProperties: false,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    });
+
+    const validated = await validationPipe.transform(mappedValues, {
+      type: 'body',
+      metatype: CreatePostDto,
+    });
+    // The trusted operation and date are validation context, never stored
+    // post settings.
+    for (const post of validated.posts) {
+      delete (post.settings as any).__validationOperation;
+      delete (post.settings as any).__validationDate;
+    }
+    return validated;
+  }
+
+  async getPostsRecursively(
+    id: string,
+    includeIntegration = false,
+    orgId?: string,
+    isFirst?: boolean
+  ): Promise<PostWithConditionals[]> {
+    const post = await this._postRepository.getPost(
+      id,
+      includeIntegration,
+      orgId,
+      isFirst
+    );
+
+    if (!post) {
+      return [];
+    }
+
+    return [
+      post!,
+      ...(post?.childrenPost?.length
+        ? await this.getPostsRecursively(
+            post?.childrenPost?.[0]?.id,
+            false,
+            orgId,
+            false
+          )
+        : []),
+    ];
+  }
+
+  async getPosts(orgId: string, query: GetPostsDto) {
+    return this._postRepository.getPosts(orgId, query);
+  }
+
+  // the calendar gets a label per published post instead of its settings
+  async getPostsMinified(orgId: string, query: GetPostsDto) {
+    return minifyPosts({
+      posts: this.firstMediaOnly(
+        await this._postRepository.getPosts(orgId, query, true)
+      ).map(({ settings, ...post }) => {
+        const publishedLabel = this.publishedLabel(post, settings);
+        return publishedLabel ? { ...post, publishedLabel } : post;
+      }),
+    });
+  }
+
+  // a provider can name the published state for some settings, like media
+  // that was only sent to an inbox
+  private publishedLabel(
+    post: { state: State; integration?: { providerIdentifier: string } },
+    settings?: string | null
+  ) {
+    if (post.state !== State.PUBLISHED || !post.integration) {
+      return undefined;
+    }
+    const provider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+    if (!provider?.publishedLabel) {
+      return undefined;
+    }
+    try {
+      return provider.publishedLabel(JSON.parse(settings || '{}') || {});
+    } catch (err) {
+      return undefined;
+    }
+  }
+
+  // The link to the published post for the shared preview page, which anyone
+  // with the link opens without logging in, or nothing when there is no URL we
+  // can vouch for. Only a provider that declares the release URL it stored to
+  // be a public permalink gets one, so a release URL that is really an inbox,
+  // a self-hosted admin page or a workspace-internal link is never handed out.
+  // This is the whole gate, the URL check included, so no caller can reach the
+  // stored URL through a half-checked answer. Deliberately works off the post
+  // row the caller already read: no provider call and no token refresh on an
+  // unauthenticated request.
+  async publicPostLink(post: {
+    state: State;
+    deletedAt?: Date | null;
+    releaseURL?: string | null;
+    settings?: string | null;
+    integration?: {
+      providerIdentifier: string;
+      deletedAt?: Date | null;
+      disabled?: boolean | null;
+      inBetweenSteps?: boolean | null;
+      refreshNeeded?: boolean | null;
+    } | null;
+  }): Promise<string | undefined> {
+    if (
+      post.state !== State.PUBLISHED ||
+      post.deletedAt ||
+      !post.releaseURL ||
+      !post.integration
+    ) {
+      return undefined;
+    }
+
+    // the same channel states that keep getReleaseURL from handing back
+    // provider data, plus refreshNeeded: a channel that lost its grant is
+    // never spoken for on a public page
+    if (!isChannelReady(post.integration)) {
+      return undefined;
+    }
+
+    const provider = this._integrationManager.getSocialIntegration(
+      post.integration.providerIdentifier
+    );
+    if (!provider?.isPublicReleaseURL) {
+      return undefined;
+    }
+
+    // a provider under an authorizationPolicy may only show platform data to
+    // the authorized user, so its posts get no link on an anonymous page
+    if (provider.authorizationPolicy) {
+      return undefined;
+    }
+
+    // providers that publish to several targets at once comma-join the URLs,
+    // the calendar links the first one too
+    const url = post.releaseURL.split(',')[0]?.trim();
+    if (!url) {
+      return undefined;
+    }
+
+    let settings: any;
+    try {
+      settings = JSON.parse(post.settings || '{}');
+    } catch (err) {
+      return undefined;
+    }
+
+    // a provider reads its own fields off these settings, and every miss reads
+    // as "not set", so anything that is not an object would open the guards
+    // that keep a community or story post private
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+      return undefined;
+    }
+
+    try {
+      if (!provider.isPublicReleaseURL(url, settings)) {
+        return undefined;
+      }
+    } catch (err) {
+      return undefined;
+    }
+
+    // the release URL is tenant data however well the provider vouches for it,
+    // so it leaves only as a public HTTPS URL that resolves off our own
+    // network, never as something that could turn a trusted-looking page into
+    // a redirect to an internal host
+    return (await isSafePublicHttpsUrl(url)) ? url : undefined;
+  }
+
+  async getPostsList(orgId: string, query: GetPostsListDto) {
+    const list = await this._postRepository.getPostsList(orgId, query);
+    return minifyPostsList({
+      ...list,
+      posts: this.firstMediaOnly(list.posts),
+    });
+  }
+
+  // the calendar preview shows only the first picture, the rest stays out of
+  // the response
+  private firstMediaOnly<T extends { image?: string | null }>(posts: T[]) {
+    return posts.map((post) => {
+      let first: { path?: string; thumbnail?: string } | undefined;
+      try {
+        first = JSON.parse(post.image || '[]')?.[0];
+      } catch (err) {
+        first = undefined;
+      }
+
+      return {
+        ...post,
+        image: first?.path
+          ? JSON.stringify([{ path: first.path, thumbnail: first.thumbnail }])
+          : null,
+      };
+    });
+  }
+
+  async updateMedia(
+    id: string,
+    orgId: string,
+    imagesList: any[],
+    convertToJPEG = false
+  ) {
+    try {
+      let imageUpdateNeeded = false;
+      const getImageList = await Promise.all(
+        (
+          await Promise.all(
+            (imagesList || []).map(async (p: any) => {
+              if (!p.id) {
+                return p;
+              }
+
+              if (!p.path) {
+                imageUpdateNeeded = true;
+                return this._mediaService.getOrgMediaById(orgId, p.id);
+              }
+
+              // the normalizer may have replaced the file after the post was
+              // composed; a record still processing publishes the original
+              const fresh = await this._mediaService.getOrgMediaById(
+                orgId,
+                p.id
+              );
+              if (fresh?.status === 'ready' && fresh.path !== p.path) {
+                imageUpdateNeeded = true;
+                return { ...p, name: fresh.name, path: fresh.path };
+              }
+
+              return p;
+            })
+          )
+        )
+          .filter((m) => m && this.isAllowedMediaPath(m.path))
+          .map((m) => {
+            return {
+              ...m,
+              url:
+                m.path.indexOf('http') === -1
+                  ? process.env.FRONTEND_URL +
+                    '/' +
+                    process.env.NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY +
+                    m.path
+                  : m.path,
+              type: 'image',
+              path:
+                m.path.indexOf('http') === -1
+                  ? process.env.UPLOAD_DIRECTORY + m.path
+                  : m.path,
+            };
+          })
+          .map(async (m) => {
+            if (!convertToJPEG) {
+              return m;
+            }
+
+            if (hasExtension(m.path, 'png')) {
+              imageUpdateNeeded = true;
+              // the media url is user-influenced, so it goes through the same
+              // SSRF-safe client as the providers' media reads
+              const response = await getSsrfSafeAxios().get(m.url, {
+                responseType: 'arraybuffer',
+              });
+
+              const imageBuffer = Buffer.from(response.data);
+
+              // Use sharp to get the metadata of the image
+              const buffer = await sharp(imageBuffer)
+                .jpeg({ quality: 100 })
+                .toBuffer();
+
+              const { path, originalname } = await this.storage.uploadFile({
+                buffer,
+                mimetype: 'image/jpeg',
+                size: buffer.length,
+                path: '',
+                fieldname: '',
+                destination: '',
+                stream: new Readable(),
+                filename: '',
+                originalname: '',
+                encoding: '',
+              });
+
+              return {
+                ...m,
+                name: originalname,
+                url:
+                  path.indexOf('http') === -1
+                    ? process.env.FRONTEND_URL +
+                      '/' +
+                      process.env.NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY +
+                      path
+                    : path,
+                type: 'image',
+                path:
+                  path.indexOf('http') === -1
+                    ? process.env.UPLOAD_DIRECTORY + path
+                    : path,
+              };
+            }
+
+            return m;
+          })
+      );
+
+      if (imageUpdateNeeded) {
+        await this._postRepository.updateImages(
+          id,
+          JSON.stringify(getImageList)
+        );
+      }
+
+      return getImageList;
+    } catch (err: any) {
+      return (imagesList || []).filter((m) =>
+        this.isAllowedMediaPath(m?.path)
+      );
+    }
+  }
+
+  // a media path that isn't a remote url is read straight from the worker's
+  // disk, so it has to resolve inside UPLOAD_DIRECTORY
+  private isAllowedMediaPath(path: unknown) {
+    if (typeof path !== 'string' || /^https?:\/\//.test(path)) {
+      return true;
+    }
+
+    // containing "http" anywhere skips the UPLOAD_DIRECTORY prefix, and the
+    // providers would then read it relative to the working directory
+    if (path.indexOf('http') > -1) {
+      return false;
+    }
+
+    const base = resolve(String(process.env.UPLOAD_DIRECTORY));
+    const filePath = resolve(process.env.UPLOAD_DIRECTORY + path);
+    return filePath.startsWith(base + sep);
+  }
+
+  async getPostGroupDebugExport(orgId: string, group: string) {
+    const loadAll = await this._postRepository.getPostsByGroup(orgId, group);
+    const errors = await this._postRepository.getErrorsByPostIds(
+      loadAll.map((p) => p.id)
+    );
+    const posts = this.arrangePostsByGroup(loadAll, undefined);
+    const rootPost = posts[0] as any;
+
+    return {
+      type: 'draft' as const,
+      shortLink: false,
+      date: rootPost.publishDate.toISOString(),
+      tags:
+        rootPost.tags?.map((t: any) => ({
+          value: t.tag.id,
+          label: t.tag.name,
+        })) || [],
+      posts: [
+        {
+          integration: { id: 'REPLACE_WITH_LOCAL_INTEGRATION_ID' },
+          group: rootPost.group,
+          settings: JSON.parse(rootPost.settings || '{}'),
+          value: posts.map((post) => ({
+            content: post.content,
+            image: JSON.parse(post.image || '[]'),
+            delay: post.delay || 0,
+          })),
+        },
+      ],
+      _debug: {
+        providerIdentifier: rootPost.integration?.providerIdentifier,
+        providerName: rootPost.integration?.name,
+        state: rootPost.state,
+        error: rootPost.error,
+        errors: errors.map((e) => ({
+          message: e.message,
+          platform: e.platform,
+          body: e.body,
+          createdAt: e.createdAt,
+        })),
+        originalGroup: group,
+        originalPublishDate: rootPost.publishDate,
+        exportedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  async getPostsByGroup(orgId: string, group: string) {
+    const loadAll = await this._postRepository.getPostsByGroup(orgId, group);
+    const posts = this.arrangePostsByGroup(loadAll, undefined);
+    if (!posts.length) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const batch = posts[0].batchId
+      ? await this._postRepository.getPostsByBatch(
+          orgId,
+          posts[0].batchId,
+          group
+        )
+      : [];
+
+    // the other channels the post was created with, the editor holds one
+    // post per channel, and a channel that repeats differently is its own post
+    const siblings = uniqBy(
+      Object.values(groupBy(batch, (post) => post.group))
+        .map((batchPosts) => this.arrangePostsByGroup(batchPosts, undefined))
+        .filter(
+          (batchPosts) =>
+            batchPosts.length &&
+            batchPosts[0].integrationId !== posts[0].integrationId &&
+            batchPosts[0].intervalInDays === posts[0].intervalInDays
+        ),
+      (batchPosts) => batchPosts[0].integrationId
+    );
+
+    return {
+      ...(await this.groupForEditor(posts)),
+      siblings: await Promise.all(
+        siblings.map((batchPosts) => this.groupForEditor(batchPosts))
+      ),
+    };
+  }
+
+  // the post as the editor loads it, its channel without the tokens
+  private async groupForEditor(
+    posts: PostWithConditionals[],
+    convertToJPEG = false
+  ) {
+    return {
+      group: posts?.[0]?.group,
+      posts: await Promise.all(
+        (posts || []).map(async ({ integration, ...post }) => ({
+          ...post,
+          // the raw column is the serialized workflow failure; the editor and
+          // the approvals inbox get the same curated message as the calendar
+          error: curatedPostError(post.error),
+          ...(integration
+            ? {
+                integration: {
+                  id: integration.id,
+                  name: integration.name,
+                  picture: integration.picture,
+                  providerIdentifier: integration.providerIdentifier,
+                  profile: integration.profile,
+                },
+              }
+            : {}),
+          image: await this.updateMedia(
+            post.id,
+            post.organizationId,
+            JSON.parse(post.image || '[]'),
+            convertToJPEG
+          ),
+        }))
+      ),
+      integrationPicture: posts[0]?.integration?.picture,
+      integration: posts[0].integrationId,
+      settings: JSON.parse(posts[0].settings || '{}'),
+    };
+  }
+
+  arrangePostsByGroup(all: any, parent?: string): PostWithConditionals[] {
+    const findAll = all
+      .filter((p: any) =>
+        !parent ? !p.parentPostId : p.parentPostId === parent
+      )
+      .map(({ integration, ...all }: any) => ({
+        ...all,
+        ...(!parent ? { integration } : {}),
+      }));
+
+    return [
+      ...findAll,
+      ...(findAll.length
+        ? findAll.flatMap((p: any) => this.arrangePostsByGroup(all, p.id))
+        : []),
+    ];
+  }
+
+  async getPost(orgId: string, id: string, convertToJPEG = false) {
+    const posts = await this.getPostsRecursively(id, true, orgId, true);
+    if (!posts?.[0]) {
+      throw new NotFoundException('Post not found');
+    }
+
+    return this.groupForEditor(posts, convertToJPEG);
+  }
+
+  async getOldPosts(orgId: string, date: string) {
+    return this._postRepository.getOldPosts(orgId, date);
+  }
+
+  public async updateTags(orgId: string, post: Post[]): Promise<Post[]> {
+    const plainText = JSON.stringify(post);
+    const extract = Array.from(
+      plainText.match(/\(post:[a-zA-Z0-9-_]+\)/g) || []
+    );
+    if (!extract.length) {
+      return post;
+    }
+
+    const ids = (extract || []).map((e) =>
+      e.replace('(post:', '').replace(')', '')
+    );
+    const urls = await this._postRepository.getPostUrls(orgId, ids);
+    const replaceTags = (text: string, escape = (url: string) => url) =>
+      ids.reduce((acc, value) => {
+        const findUrl = urls?.find?.((u) => u.id === value)?.releaseURL || '';
+        return acc.replace(new RegExp(`\\(post:${value}\\)`, 'g'), () =>
+          escape(findUrl.split(',')[0])
+        );
+      }, text);
+
+    // the release url is whatever the platform answered, so it only goes where
+    // a tag is written, the content and the settings (escaped for their json),
+    // and never into the media list, which was validated before this runs
+    return post.map((p) => ({
+      ...p,
+      content: p.content && replaceTags(p.content),
+      settings:
+        p.settings &&
+        replaceTags(p.settings, (url) => JSON.stringify(url).slice(1, -1)),
+    }));
+  }
+
+  public async checkInternalPlug(
+    integration: Integration,
+    orgId: string,
+    id: string,
+    settings: any
+  ) {
+    const plugs = Object.entries(settings).filter(([key]) => {
+      return key.indexOf('plug-') > -1;
+    });
+
+    if (plugs.length === 0) {
+      return [];
+    }
+
+    const parsePlugs = plugs.reduce((all, [key, value]) => {
+      const [_, name, identifier] = key.split('--');
+      all[name] = all[name] || { name };
+      all[name][identifier] = value;
+      return all;
+    }, {} as any);
+
+    const list: {
+      name: string;
+      integrations: { id: string }[];
+      delay: string;
+      active: boolean;
+    }[] = Object.values(parsePlugs);
+
+    return (list || []).flatMap((trigger) => {
+      return (trigger?.integrations || []).flatMap((int) => ({
+        type: 'internal-plug',
+        post: id,
+        originalIntegration: integration.id,
+        integration: int.id,
+        plugName: trigger.name,
+        orgId: orgId,
+        delay: +trigger.delay,
+        information: trigger,
+      }));
+    });
+  }
+
+  public async checkPlugs(
+    orgId: string,
+    providerName: string,
+    integrationId: string
+  ) {
+    const loadAllPlugs = this._integrationManager.getAllPlugs();
+    const getPlugs = await this._integrationService.getPlugs(
+      orgId,
+      integrationId
+    );
+
+    const currentPlug = loadAllPlugs.find((p) => p.identifier === providerName);
+
+    return getPlugs
+      .filter((plug) => {
+        return currentPlug?.plugs?.some(
+          (p: any) => p.methodName === plug.plugFunction
+        );
+      })
+      .map((plug) => {
+        const runPlug = currentPlug?.plugs?.find(
+          (p: any) => p.methodName === plug.plugFunction
+        )!;
+        return {
+          type: 'global',
+          plugId: plug.id,
+          delay: runPlug.runEveryMilliseconds,
+          totalRuns: runPlug.totalRuns,
+        };
+      });
+  }
+
+  async deletePost(orgId: string, group: string) {
+    const post = await this._postRepository.deletePost(orgId, group);
+
+    if (post?.id) {
+      try {
+        const workflows = this._temporalService.client
+          .getRawClient()
+          ?.workflow.list({
+            query: `postId="${post.id}" AND ExecutionStatus="Running"`,
+          });
+
+        for await (const executionInfo of workflows) {
+          try {
+            const workflow =
+              await this._temporalService.client.getWorkflowHandle(
+                executionInfo.workflowId
+              );
+            if (
+              workflow &&
+              (await workflow.describe()).status.name !== 'TERMINATED'
+            ) {
+              await workflow.terminate();
+            }
+          } catch (err) {}
+        }
+      } catch (err) {}
+
+      return { id: post.id };
+    }
+
+    return { error: true };
+  }
+
+  async countPostsFromDay(orgId: string, date: Date) {
+    return this._postRepository.countPostsFromDay(orgId, date);
+  }
+
+  getPostByForWebhookId(id: string, integrationId: string) {
+    return this._postRepository.getPostByForWebhookId(id, integrationId);
+  }
+
+  async startWorkflow(
+    taskQueue: string,
+    postId: string,
+    orgId: string,
+    state: State
+  ) {
+    try {
+      const workflows = this._temporalService.client
+        .getRawClient()
+        ?.workflow.list({
+          query: `postId="${postId}" AND ExecutionStatus="Running"`,
+        });
+
+      for await (const executionInfo of workflows) {
+        try {
+          const workflow = await this._temporalService.client.getWorkflowHandle(
+            executionInfo.workflowId
+          );
+          if (
+            workflow &&
+            (await workflow.describe()).status.name !== 'TERMINATED'
+          ) {
+            await workflow.terminate();
+          }
+        } catch (err) {}
+      }
+    } catch (err) {}
+
+    if (state === 'DRAFT') {
+      return;
+    }
+
+    try {
+      await this._temporalService.client
+        .getRawClient()
+        ?.workflow.start('postWorkflowV112', {
+          workflowId: `post_${postId}`,
+          taskQueue: 'main',
+          workflowIdConflictPolicy: 'TERMINATE_EXISTING',
+          args: [
+            {
+              taskQueue: taskQueue,
+              postId: postId,
+              organizationId: orgId,
+            },
+          ],
+          typedSearchAttributes: new TypedSearchAttributes([
+            {
+              key: postIdSearchParam,
+              value: postId,
+            },
+            {
+              key: organizationId,
+              value: orgId,
+            },
+          ]),
+        });
+    } catch (err) {}
+  }
+
+  /**
+   * Server-side validation that used to live on the client (`checkValidity` +
+   * the manage modal loop). Runs the provider's settings DTO validation, the
+   * provider `checkValidity` (media rules) and the empty-content / too-long
+   * character checks. Returns one result per post so the frontend can show the
+   * same toasts it did before — and so `/posts` can refuse to create invalid
+   * posts.
+   */
+  async validatePosts(
+    orgId: string,
+    posts: Array<{
+      type?: CreatePostDto['type'];
+      // a channel that keeps a date of its own, the others use `date`
+      date?: string;
+      integration: { id: string };
+      value: Array<{
+        content?: string;
+        image?: Array<{ path: string; thumbnail?: string }>;
+      }>;
+      settings?: any;
+    }>,
+    operation: CreatePostDto['type'] = 'schedule',
+    allowPerPostOperation = false,
+    // when the post goes out, for the settings that must be checked against it
+    date?: string
+  ) {
+    return Promise.all(
+      (posts || []).map(async (post) => {
+        const integration = await this._integrationService.getIntegrationById(
+          orgId,
+          post?.integration?.id
+        );
+
+        if (!integration) {
+          throw new BadRequestException(
+            `Integration with id ${post?.integration?.id} not found`
+          );
+        }
+
+        const provider = this._integrationManager.getSocialIntegration(
+          integration.providerIdentifier
+        );
+
+        let additionalSettings: any[] = [];
+        try {
+          additionalSettings = JSON.parse(
+            integration.additionalSettings || '[]'
+          );
+        } catch {
+          additionalSettings = [];
+        }
+
+        const settings: Record<string, any> = {
+          ...(post.settings || {}),
+          __type: integration.providerIdentifier,
+        };
+        delete settings.__validationOperation;
+        delete settings.__validationDate;
+        const validationOperation = allowPerPostOperation
+          ? post.type || operation
+          : operation;
+        const media = (post.value || []).map((p) => p.image || []);
+
+        // Settings DTO validation — mirrors the client `form.trigger()`.
+        let valid = true;
+        let settingsError = '';
+        if (provider?.dto) {
+          const instance = plainToInstance(
+            provider.dto,
+            {
+              ...settings,
+              __validationOperation: validationOperation,
+              __validationDate: post.date || date,
+            },
+            { enableImplicitConversion: false }
+          );
+          const validationErrors = await validate(instance as object, {
+            skipMissingProperties: false,
+          });
+          settingsError = this.firstValidationError(validationErrors);
+          valid = validationErrors.length === 0;
+        }
+
+        // Provider-specific media validation (the old client `checkValidity`).
+        let errors: string | true = true;
+        try {
+          errors = await provider.checkValidity(
+            media,
+            settings,
+            additionalSettings,
+            // each entry as the provider receives it when it publishes
+            (post.value || []).map((p) =>
+              stripHtmlValidation(
+                provider.editor,
+                p.content || '',
+                true,
+                false,
+                !/<\/?[a-z][\s\S]*>/i.test(p.content || ''),
+                provider.mentionFormat,
+                !!provider.inlineImages?.(settings)
+              )
+            )
+          );
+        } catch (err: any) {
+          errors = err?.message || 'Invalid media';
+        }
+
+        const maximumCharacters = provider.maxLength(
+          additionalSettings,
+          settings
+        );
+
+        const emptyContent = (post.value || []).some((a) => {
+          const strip = stripHtmlValidation('normal', a.content || '', true);
+          const length = countLength(integration.providerIdentifier, strip);
+          return length === 0 && (a.image || []).length === 0;
+        });
+
+        const tooLong = (post.value || []).some((a) => {
+          const strip = stripHtmlValidation('normal', a.content || '', true);
+          const counted = countLength(integration.providerIdentifier, strip);
+          return counted > (maximumCharacters || 1000000);
+        });
+
+        return {
+          id: integration.id,
+          identifier: integration.providerIdentifier,
+          name: integration.name,
+          valid,
+          settingsError,
+          errors,
+          emptyContent,
+          tooLong,
+          maximumCharacters,
+          // a turned off channel never publishes, API and MCP refuse it
+          disabled: !!integration.disabled,
+        };
+      })
+    );
+  }
+
+  /** Returns the first class-validator message (incl. nested children), or ''. */
+  private firstValidationError(errors: any[]): string {
+    for (const e of errors || []) {
+      if (e?.constraints) {
+        return Object.values(e.constraints as Record<string, string>)[0] || '';
+      }
+      const child = e?.children?.length
+        ? this.firstValidationError(e.children)
+        : '';
+      if (child) {
+        return child;
+      }
+    }
+    return '';
+  }
+
+  // A schedule-type save targeting an already-PUBLISHED post republishes it to
+  // the platform: require the explicit `republish` opt-in instead. The message
+  // doubles as the confirmation dialog for API/MCP automation.
+  private guardAgainstRepublish(
+    post: {
+      state: State;
+      publishDate: Date;
+      integration?: { providerIdentifier: string };
+    } | null,
+    source: 'createPost' | 'changeDate'
+  ) {
+    if (post?.state !== 'PUBLISHED') {
+      return;
+    }
+
+    const howToUpdate =
+      source === 'createPost' ? `use type 'update'` : `use action 'update'`;
+
+    throw new BadRequestException(
+      `This post was already published on ${dayjs
+        .utc(post.publishDate)
+        .format(
+          'YYYY-MM-DD HH:mm'
+        )} UTC. Saving it this way would publish it again to ${
+        post.integration?.providerIdentifier || 'the channel'
+      }. To edit without republishing, ${howToUpdate}. To intentionally publish again, pass republish: true.`
+    );
+  }
+
+  async createPost(
+    orgId: string,
+    body: CreatePostDto,
+    creationMethod: CreationMethod,
+    keepGroup = false,
+    // who saves the post, decides whether it waits for an approver. Internal
+    // callers (auto post, clipping, settings updates) pass nothing.
+    actor?: ApprovalActor
+  ): Promise<any[]> {
+    if (actor?.type === 'agent') {
+      // an agent's in-place update must point at posts that exist, it can't
+      // be used to create posts around the guardrails
+      if (body.type === 'update') {
+        for (const post of body.posts) {
+          const id = post.value?.[0]?.id;
+          if (!id || !(await this._postRepository.getPostById(id, orgId))) {
+            throw new BadRequestException(
+              'This post was not found. To create a post, use the type "schedule", "now" or "draft".'
+            );
+          }
+        }
+      }
+      await this._approvalPolicyService.assertAgentGuardrails(
+        orgId,
+        actor,
+        body.posts.map((p) => p.integration.id),
+        { countsTowardLimit: body.type !== 'update' }
+      );
+    }
+
+    const cappedChannels = await this.checkProviderPostsLimit(orgId, body);
+    await this.checkPostingLimits(orgId, body);
+
+    const postList = [];
+    // posts sent for review in this save, the approvers hear about them once
+    const submitted: { id: string; content: string; integrationName?: string; provider?: string }[] = [];
+    const batchId = uuidv4();
+    for (const post of body.posts) {
+      // Defensive boundary for internal callers that skip mapTypeToPost.
+      post.settings = { ...post.settings };
+      delete (post.settings as any).__validationOperation;
+      delete (post.settings as any).__validationDate;
+      const existing =
+        post.value?.[0]?.id && (actor || body.type === 'schedule' || body.type === 'now')
+          ? await this._postRepository.getPostById(post.value[0].id, orgId)
+          : null;
+      if (
+        (body.type === 'schedule' || body.type === 'now') &&
+        !body.republish &&
+        post.value?.[0]?.id
+      ) {
+        this.guardAgainstRepublish(existing, 'createPost');
+      }
+      const decision = actor
+        ? await this._approvalPolicyService.decide(
+            orgId,
+            actor,
+            body.type,
+            existing
+          )
+        : undefined;
+      const provider = this._integrationManager.getSocialIntegration(
+        (post.settings as any)?.__type
+      );
+      const removeLinks = !!provider?.stripLinks?.();
+
+      const messages = (post.value || []).map((p) => p.content);
+      // No point shortlinking links on platforms that strip them out anyway
+      const updateContent =
+        !body.shortLink || removeLinks
+          ? messages
+          : await this._shortLinkService.convertTextToShortLinks(
+              orgId,
+              messages
+            );
+
+      post.value = (post.value || []).map((p, i) => ({
+        ...p,
+        content: removeLinks ? stripLinks(updateContent[i]) : updateContent[i],
+      }));
+
+      const { posts } = await this._postRepository.createOrUpdatePost(
+        // a post that waits for an approver is kept as a draft until approved
+        decision?.hold ? 'draft' : body.type,
+        orgId,
+        body.type === 'now'
+          ? dayjs().format('YYYY-MM-DDTHH:mm:00')
+          : // a passed date on a capped network is stored as now, the
+          // plan month it was counted in. Not for an in-place update: it
+          // keeps the date of posts already published, and the new entries
+          // it adds are counted in the current month and checked again
+          // when they go out
+          cappedChannels.has(post.integration.id) &&
+            body.type === 'schedule' &&
+            dayjs(post.date || body.date).isBefore(dayjs())
+          ? dayjs().format('YYYY-MM-DDTHH:mm:ss')
+          : post.date || body.date,
+        post,
+        body.tags,
+        creationMethod,
+        body.inter,
+        keepGroup,
+        batchId,
+        {
+          approvalStatus: decision?.approvalStatus,
+          agentSource: actor?.type === 'agent' ? actor.source : undefined,
+        }
+      );
+
+      if (!posts?.length) {
+        return [] as any[];
+      }
+
+      const existingIds = (post.value || []).map((p) => p.id).filter(Boolean);
+      await this.detachStaleAnchors(
+        posts.filter((p) => existingIds.includes(p.id))
+      );
+
+      // an update held for review must stop the workflow already waiting
+      if (body.type !== 'update' || decision?.hold) {
+        this.startWorkflow(
+          post.settings.__type.split('-')[0].toLowerCase(),
+          posts[0].id,
+          orgId,
+          posts[0].state
+        ).catch((err) => {});
+      }
+
+      if (actor) {
+        const saved = {
+          id: posts[0].id,
+          content: posts[0].content,
+          integrationName: (post.integration as any)?.name,
+          provider: (post.settings as any)?.__type,
+        };
+        const outcome = await this._approvalPolicyService.afterSave(
+          orgId,
+          saved,
+          actor,
+          { created: !existing, decision, notify: false }
+        );
+        if (outcome.submitted) {
+          submitted.push(saved);
+        }
+      }
+
+      Sentry.metrics.count('post_created', 1);
+      postList.push({
+        postId: posts[0].id,
+        integration: post.integration.id,
+        ...(decision?.approvalStatus === 'IN_REVIEW'
+          ? { approvalStatus: 'IN_REVIEW' }
+          : {}),
+      });
+    }
+
+    if (actor && submitted.length) {
+      await this._approvalPolicyService.notifyApprovers(
+        orgId,
+        submitted[0],
+        actorName(actor),
+        submitted.length
+      );
+    }
+
+    return postList;
+  }
+
+  // The plan's monthly caps (provider_posts_per_month) and the capped network
+  // of a channel, null when nothing is capped
+  private async providerCaps(orgId: string) {
+    const plan = await this._subscriptionService.getProviderPostsLimits(orgId);
+    if (!plan || !Object.keys(plan.limits).length) {
+      return null;
+    }
+
+    const providers = new Map(
+      (await this._integrationService.getIntegrationsList(orgId)).map((p) => [
+        p.id,
+        p.providerIdentifier,
+      ])
+    );
+
+    return {
+      plan,
+      capped: (integrationId?: string) => {
+        const provider = providers.get(integrationId || '');
+        return provider && plan.limits[provider] !== undefined
+          ? provider
+          : undefined;
+      },
+    };
+  }
+
+  // The plan counts a post when it is published, a repeating or evergreen post
+  // is published again without being saved, so it is refused on a network the
+  // plan caps a month
+  private repeatError(provider: string, plan: string) {
+    const social = this._integrationManager.getSocialIntegration(provider);
+    return new BadRequestException(
+      social?.planRepeatHint ||
+        `Repeating and evergreen posts on ${
+          social?.name || provider
+        } aren't available on the ${plan} plan.`
+    );
+  }
+
+  async checkRepeatAllowed(orgId: string, integrationIds: string[]) {
+    const caps = await this.providerCaps(orgId);
+    const provider = integrationIds.map((id) => caps?.capped(id)).find(Boolean);
+    if (caps && provider) {
+      throw this.repeatError(provider, caps.plan.plan);
+    }
+  }
+
+  // The early warning of a plan's monthly cap on a network
+  // (provider_posts_per_month), for the whole save before anything is stored:
+  // the posts already published this plan month (ProviderPostUsage) and the
+  // ones queued in it, plus the entries this save queues, each in the plan
+  // month it publishes in (a passed date publishes now). The publish activity
+  // enforces the cap again when a post goes out (providerPublishProblem).
+  // Returns the capped channels of the save.
+  async checkProviderPostsLimit(
+    orgId: string,
+    body: {
+      type: CreatePostDto['type'];
+      date?: string | Date;
+      inter?: number | null;
+      posts: {
+        integration: { id: string };
+        date?: string | Date;
+        value?: { id?: string }[];
+      }[];
+    }
+  ): Promise<Set<string>> {
+    const caps = await this.providerCaps(orgId);
+    const saving = (body.posts || [])
+      .map((post) => ({ post, provider: caps?.capped(post.integration?.id) }))
+      .filter(({ provider }) => !!provider);
+    if (!caps || !saving.length) {
+      return new Set();
+    }
+
+    if (body.inter) {
+      throw this.repeatError(saving[0].provider!, caps.plan.plan);
+    }
+
+    const cappedChannels = new Set(
+      saving.map(({ post }) => post.integration.id)
+    );
+    if (body.type === 'draft') {
+      return cappedChannels;
+    }
+
+    const ids = saving
+      .flatMap(({ post }) => post.value || [])
+      .map((value) => value.id!)
+      .filter(Boolean);
+    const stored = new Map(
+      (await this._postRepository.getPostsState(orgId, ids)).map((row) => [
+        row.id,
+        row,
+      ])
+    );
+
+    const windows = groupBy(
+      saving.map((item) => ({
+        ...item,
+        window: planMonth(
+          caps.plan.anchor,
+          this.publishAt(body.type, item.post.date || body.date)
+        ),
+      })),
+      ({ provider, window }) => `${provider} ${window.from.getTime()}`
+    );
+
+    const trialing = this.liveTrial(orgId);
+    for (const group of Object.values(windows)) {
+      const { provider, window } = group[0];
+      const values = group.flatMap(({ post }) => post.value || []);
+
+      // after the save: schedule and now queue every entry, an update keeps
+      // the state of the stored ones and queues the new ones
+      const queued = values.filter((value) => {
+        const row = stored.get(value.id || '');
+        return body.type !== 'update' || !row || row.state === 'QUEUE';
+      });
+      // already counted: stored entries queued in this plan month
+      const counted = values.filter((value) => {
+        const row = stored.get(value.id || '');
+        return (
+          row?.state === 'QUEUE' &&
+          !row.deletedAt &&
+          row.publishDate >= window.from &&
+          row.publishDate < window.until
+        );
+      });
+      if (queued.length <= counted.length) {
+        continue;
+      }
+
+      const used =
+        (await this._postRepository.countProviderUsage(
+          orgId,
+          provider!,
+          window.from,
+          window.until
+        )) +
+        (await this._postRepository.countQueuedProviderPosts(
+          orgId,
+          provider!,
+          window.from,
+          window.until,
+          ids
+        ));
+
+      const { limit, trial } = await this.capFor(
+        caps.plan,
+        provider!,
+        used + queued.length,
+        trialing
+      );
+      if (used + queued.length <= limit) {
+        continue;
+      }
+
+      const social = this._integrationManager.getSocialIntegration(provider!);
+      const name = social?.name || provider;
+      const period = dayjs(window.from).isAfter(dayjs())
+        ? `the plan month starting ${dayjs(window.from).format('MMMM D')}`
+        : 'this month';
+      const left = Math.max(0, limit - used);
+      const plan = `${caps.plan.plan} ${trial ? 'trial' : 'plan'}`;
+      throw new SubscriptionException({
+        action: AuthorizationActions.Create,
+        section: Sections.PROVIDER_POSTS_PER_MONTH,
+        message: `${
+          left
+            ? `Only ${left} of your ${limit} ${name} posts for ${period} on the ${plan} are left, and this needs ${queued.length} (every post of a thread counts).`
+            : `You've used your ${limit} ${name} posts for ${period} on the ${plan}.`
+        } ${this.limitHint(trial, social?.planLimitHint)}`,
+      });
+    }
+
+    return cappedChannels;
+  }
+
+  // when a saved post publishes: now for "now" and for a date that passed
+  private publishAt(type: CreatePostDto['type'], date?: string | Date) {
+    return type === 'now' || !date || dayjs(date).isBefore(dayjs())
+      ? new Date()
+      : dayjs(date).toDate();
+  }
+
+  // The same check for a stored post that is queued again (a draft or a
+  // published post scheduled through the API, rescheduled, or approved), with
+  // every post of its thread, at its new date when it moves. Tells whether
+  // its network is capped
+  async checkStoredPostLimit(
+    orgId: string,
+    postId: string,
+    date?: string | Date
+  ) {
+    // without billing nothing is capped, the thread isn't loaded
+    if (!(await this._subscriptionService.getProviderPostsLimits(orgId))) {
+      return false;
+    }
+
+    const ordered = await this.getPostsRecursively(postId, false, orgId, true);
+    const [root] = ordered;
+    if (!root) {
+      return false;
+    }
+
+    const capped = await this.checkProviderPostsLimit(orgId, {
+      type: 'schedule',
+      date: date || root.publishDate,
+      inter: root.intervalInDays,
+      posts: [
+        {
+          integration: { id: root.integrationId },
+          value: ordered.map((post) => ({ id: post.id })),
+        },
+      ],
+    });
+    return capped.size > 0;
+  }
+
+  // The backstop when a post goes out, whatever path queued it: a network the
+  // plan caps a month only gets posts while the posts published this plan
+  // month leave room for the whole thread. Returns why it can't go out
+  async providerPublishProblem(
+    orgId: string,
+    providerIdentifier: string,
+    posts: { id: string; parentPostId?: string | null }[]
+  ): Promise<string | null> {
+    if (!isCappedProvider(providerIdentifier) || !posts.length) {
+      return null;
+    }
+
+    const plan = await this._subscriptionService.getProviderPostsLimits(orgId);
+    if (!plan || plan.limits[providerIdentifier] === undefined) {
+      return null;
+    }
+
+    // a main post reserves its comments, they go out right after it
+    const count =
+      posts.length === 1 && !posts[0].parentPostId
+        ? Math.max(
+            1,
+            (await this.getPostsRecursively(posts[0].id, false, orgId)).length
+          )
+        : posts.length;
+
+    const window = planMonth(plan.anchor);
+    const used = await this._postRepository.countProviderUsage(
+      orgId,
+      providerIdentifier,
+      window.from,
+      window.until
+    );
+    const { limit, trial } = await this.capFor(
+      plan,
+      providerIdentifier,
+      used + count,
+      this.liveTrial(orgId)
+    );
+    if (used + count <= limit) {
+      return null;
+    }
+
+    const social =
+      this._integrationManager.getSocialIntegration(providerIdentifier);
+    return `Monthly ${
+      social?.name || providerIdentifier
+    } post limit reached on the ${plan.plan} ${
+      trial ? 'trial' : 'plan'
+    } (${limit}). ${this.limitHint(trial, social?.planLimitHint)}`;
+  }
+
+  // The early warning of a network's posting rules for one connected account
+  // (postingLimits, e.g. Reddit's 5 a day, 10 minutes apart), for the whole
+  // save before anything is stored: each entry at the time it publishes,
+  // against the account's published and queued posts around it. The publish
+  // activity enforces the rules again when a post goes out
+  // (postingLimitProblem).
+  async checkPostingLimits(
+    orgId: string,
+    body: {
+      type: CreatePostDto['type'];
+      date?: string | Date;
+      posts: {
+        integration: { id: string };
+        date?: string | Date;
+        settings?: any;
+        value?: { id?: string }[];
+      }[];
+    }
+  ) {
+    if (body.type === 'draft') {
+      return;
+    }
+
+    for (const post of body.posts || []) {
+      const provider = this._integrationManager.getSocialIntegration(
+        post.settings?.__type
+      );
+      if (!provider?.postingLimits) {
+        continue;
+      }
+
+      const ids = (post.value || []).map((value) => value.id!).filter(Boolean);
+      // an update keeps the state of a stored post: only a queued one (or a
+      // new one) still has to go out
+      if (body.type === 'update') {
+        const [root] = await this._postRepository.getPostsState(
+          orgId,
+          ids.slice(0, 1)
+        );
+        if (root && root.state !== 'QUEUE') {
+          continue;
+        }
+      }
+
+      const integration = await this._integrationService.getIntegrationById(
+        orgId,
+        post.integration.id
+      );
+      if (
+        !integration ||
+        integration.providerIdentifier !== provider.identifier
+      ) {
+        continue;
+      }
+
+      const problem = await this.postingLimitsProblemAt(
+        integration,
+        this.publishAt(body.type, post.date || body.date),
+        true,
+        ids
+      );
+      if (problem) {
+        throw new BadRequestException(problem);
+      }
+    }
+  }
+
+  // The backstop when a post goes out, whatever path queued it: the account's
+  // posts already published leave room for this one under the network's
+  // posting rules. A published post counts at its publishDate, the time it
+  // was due, which is when it went out unless the queue was backed up.
+  // Returns why it can't go out
+  async postingLimitProblem(
+    integration: {
+      providerIdentifier: string;
+      internalId: string;
+    },
+    posts: { id: string }[]
+  ): Promise<string | null> {
+    // 30 seconds of slack: a post saved exactly 10 minutes after the last
+    // one (accepted when saved) still goes out when the worker picks it up a
+    // few seconds early or the clocks drift
+    return this.postingLimitsProblemAt(
+      integration,
+      new Date(Date.now() + 30 * 1000),
+      false,
+      posts.map((post) => post.id)
+    );
+  }
+
+  // The same check for a stored post that is queued again (a draft
+  // scheduled, a post rescheduled or approved), at its new date when it moves.
+  // Takes the post the caller already loaded: nothing is read for a network
+  // without posting rules
+  async checkStoredPostingLimits(
+    orgId: string,
+    post: {
+      id: string;
+      parentPostId?: string | null;
+      publishDate: Date;
+      integration?: {
+        id: string;
+        providerIdentifier: string;
+        internalId?: string;
+      } | null;
+    },
+    date?: string | Date
+  ) {
+    if (
+      !post.integration ||
+      post.parentPostId ||
+      !this._integrationManager.getSocialIntegration(
+        post.integration.providerIdentifier
+      )?.postingLimits
+    ) {
+      return;
+    }
+
+    const integration = post.integration.internalId
+      ? post.integration
+      : await this._integrationService.getIntegrationById(
+          orgId,
+          post.integration.id
+        );
+    if (!integration?.internalId) {
+      return;
+    }
+
+    const problem = await this.postingLimitsProblemAt(
+      {
+        providerIdentifier: integration.providerIdentifier,
+        internalId: integration.internalId,
+      },
+      this.publishAt('schedule', date || post.publishDate),
+      true,
+      [post.id]
+    );
+    if (problem) {
+      throw new BadRequestException(problem);
+    }
+  }
+
+  // Whether one more post of the account at `at` keeps at most perDay posts
+  // in any 24 hours and minSpacingMinutes between two posts, and if not, the
+  // first time it could go out
+  private async postingLimitsProblemAt(
+    integration: {
+      providerIdentifier: string;
+      internalId: string;
+    },
+    at: Date,
+    includeQueued: boolean,
+    excludeIds: string[]
+  ): Promise<string | null> {
+    const provider = this._integrationManager.getSocialIntegration(
+      integration.providerIdentifier
+    );
+    const limits = provider?.postingLimits;
+    if (!limits) {
+      return null;
+    }
+
+    const day = 24 * 60 * 60 * 1000;
+    const spacing = limits.minSpacingMinutes * 60 * 1000;
+    const dates = (
+      await this._postRepository.getAccountPostingDates(
+        integration.providerIdentifier,
+        integration.internalId,
+        new Date(at.getTime() - day),
+        // queued posts up to two days ahead: the next allowed time can be
+        // up to a day after the last post around `at`
+        new Date(at.getTime() + (includeQueued ? 2 : 1) * day),
+        includeQueued,
+        excludeIds
+      )
+    ).map((date) => date.getTime());
+
+    const fits = (time: number) => {
+      if (dates.some((date) => Math.abs(date - time) < spacing)) {
+        return false;
+      }
+      // the busiest 24 hours around `time` start at one of the posts
+      const all = [...dates, time];
+      return all
+        .filter((start) => start <= time && start > time - day)
+        .every(
+          (start) =>
+            all.filter((date) => date >= start && date < start + day).length <=
+            limits.perDay
+        );
+    };
+
+    if (fits(at.getTime())) {
+      return null;
+    }
+
+    // the first moment that fits: right after a post's spacing, or when a
+    // post leaves the 24 hours
+    const next = dates
+      .flatMap((date) => [date + spacing, date + day])
+      .filter((time) => time > at.getTime())
+      .sort((a, b) => a - b)
+      .find(fits);
+
+    return `${provider.name} allows ${limits.perDay} posts a day per account, at least ${
+      limits.minSpacingMinutes
+    } minutes apart.${
+      next
+        ? ` Next allowed at ${dayjs
+            .utc(Math.ceil(next / 60000) * 60000)
+            .format('YYYY-MM-DD HH:mm')} UTC.`
+        : ''
+    }`;
+  }
+
+  // Asks the payment provider once, and only when a check needs it, whether
+  // the workspace is really in its trial
+  private liveTrial(orgId: string) {
+    let asked: Promise<boolean> | undefined;
+    return () => (asked = asked || this._paymentService.isTrialing(orgId));
+  }
+
+  // The cap `total` posts are held to: the plan's, or the lower trial cap when
+  // only that one would refuse them and the payment provider says the
+  // subscription is trialing right now. isTrailing alone is not enough, it is
+  // also set for a paid renewal being retried, and a provider that can't be
+  // reached keeps the plan's cap
+  private async capFor(
+    plan: {
+      limits: Record<string, number>;
+      trialLimits?: Record<string, number>;
+    },
+    provider: string,
+    total: number,
+    trialing: () => Promise<boolean>
+  ) {
+    const limit = plan.limits[provider];
+    const trialLimit = plan.trialLimits?.[provider];
+    if (
+      trialLimit === undefined ||
+      trialLimit >= limit ||
+      total <= trialLimit ||
+      total > limit ||
+      !(await trialing())
+    ) {
+      return { limit, trial: false };
+    }
+    return { limit: trialLimit, trial: true };
+  }
+
+  // What to do at a network's monthly cap. A trial has the trial cap whatever
+  // plan it tries, a card and the end of the trial lift it to the plan's
+  private limitHint(trial: boolean, planLimitHint?: string) {
+    return trial
+      ? `A free trial posts here as much as the ${pricing[TRIAL_POSTS_CAP_TIER].label} plan. Add a card, then end your trial on the Billing page to get your plan's full limit.`
+      : planLimitHint || 'Upgrade your plan to post more.';
+  }
+
+  // the posts that went out to a capped network, what the cap counts
+  async recordProviderPublish(
+    orgId: string,
+    providerIdentifier: string,
+    postIds: string[]
+  ) {
+    if (!isCappedProvider(providerIdentifier) || !postIds.length) {
+      return;
+    }
+    await this._postRepository.recordProviderUsage(
+      orgId,
+      providerIdentifier,
+      postIds
+    );
+  }
+
+  // Update ONLY the provider settings of a not-yet-published post (scheduled or
+  // draft). The passed keys are merged into the existing settings; content and
+  // publish date stay as they are, so the running publish workflow is left
+  // untouched (type "update"). Shared by the agent/MCP tool and the public API
+  // PUT /posts/:id/settings so both go through one path.
+  async updatePostSettings(
+    orgId: string,
+    postId: string,
+    settings: Record<string, any>,
+    creationMethod: CreationMethod,
+    // an agent's change to an approved or waiting post goes back to review
+    actor?: ApprovalActor
+  ): Promise<{ postId: string; publishDate: string }> {
+    // Ordered as post -> comments, root includes integration and tags.
+    const ordered = await this.getPostsRecursively(postId, true, orgId, true);
+
+    const [root] = ordered;
+    if (!root) {
+      throw new NotFoundException('Post not found');
+    }
+
+    if (root.parentPostId) {
+      throw new BadRequestException(
+        'This id belongs to a comment, pass the id of the main post'
+      );
+    }
+
+    if (root.state !== 'QUEUE' && root.state !== 'DRAFT') {
+      throw new BadRequestException(
+        'Only scheduled posts that were not published yet (or drafts) can be updated'
+      );
+    }
+
+    if (
+      root.state === 'QUEUE' &&
+      dayjs.utc(root.publishDate).isBefore(dayjs.utc())
+    ) {
+      throw new BadRequestException(
+        'The publish time of this post already passed, it cannot be updated'
+      );
+    }
+
+    const integration = (root as any).integration;
+
+    let existingSettings: Record<string, any>;
+    try {
+      existingSettings = JSON.parse(root.settings || '{}');
+    } catch (err) {
+      existingSettings = {};
+    }
+
+    // Merge: only the passed keys change, everything else stays.
+    const mergedSettings = {
+      ...existingSettings,
+      ...(settings || {}),
+      __type: integration.providerIdentifier,
+    };
+
+    // Keep the existing content/ids so the posts are updated in place (the
+    // workflow identity is preserved) - only the settings differ.
+    const value = ordered.map((p) => {
+      let image = [];
+      try {
+        image = JSON.parse(p.image || '[]');
+      } catch (err) {}
+      return {
+        id: p.id,
+        content: p.content,
+        delay: p.delay || 0,
+        image,
+      };
+    });
+
+    // Same server-side validation as the dashboard / public create route.
+    const [validation] = await this.validatePosts(
+      orgId,
+      [
+        {
+          integration: { id: integration.id },
+          date: dayjs.utc(root.publishDate).format('YYYY-MM-DDTHH:mm:ss'),
+          settings: mergedSettings,
+          value: value.map((p) => ({ content: p.content, image: p.image })),
+        },
+      ],
+      'update'
+    );
+
+    if (validation.emptyContent) {
+      throw new BadRequestException(
+        `${validation.name}: Your post should have at least one character or one image.`
+      );
+    }
+
+    if (root.state !== 'DRAFT') {
+      if (!validation.valid) {
+        throw new BadRequestException(
+          `${validation.name}: ${
+            validation.settingsError || 'Please fix your settings'
+          }`
+        );
+      }
+
+      if (validation.errors !== true) {
+        throw new BadRequestException(
+          `${validation.name}: ${validation.errors}`
+        );
+      }
+
+      if (validation.tooLong) {
+        throw new BadRequestException(
+          `${validation.name}: The maximum characters is ${validation.maximumCharacters}`
+        );
+      }
+    }
+
+    const date = dayjs.utc(root.publishDate).format('YYYY-MM-DDTHH:mm:ss');
+
+    const [output] = await this.createPost(
+      orgId,
+      {
+        date,
+        // Settings-only update: keep the current state and leave the running
+        // publish workflow alone.
+        type: 'update',
+        shortLink: false,
+        tags: ((root as any).tags || []).map((t: any) => ({
+          value: t.tag.name,
+          label: t.tag.name,
+        })),
+        posts: [
+          {
+            integration,
+            group: root.group,
+            settings: mergedSettings,
+            value,
+          },
+        ],
+      } as any,
+      creationMethod,
+      // Keep the group stable: a client may have the calendar open while the
+      // settings are updated out of band, and the calendar links posts by group.
+      true,
+      actor
+    );
+
+    if (!output) {
+      throw new BadRequestException('Failed to update the post');
+    }
+
+    return {
+      postId: output.postId,
+      publishDate: date,
+    };
+  }
+
+  async separatePosts(orgId: string, content: string, len: number) {
+    return this._openaiService.separatePosts(orgId, content, len);
+  }
+
+  async changeState(id: string, state: State, err?: any, body?: any) {
+    return this._postRepository.changeState(id, state, err, body);
+  }
+
+  async changePostStatus(
+    orgId: string,
+    id: string,
+    status: 'draft' | 'schedule',
+    actor?: ApprovalActor
+  ) {
+    const getPostById = await this._postRepository.getPostById(id, orgId);
+    if (!getPostById) {
+      throw new BadRequestException('Post not found');
+    }
+
+    // queued again from a draft, a failure or a published post (a draft held
+    // for review is scheduled once approved, the check can't wait)
+    if (status === 'schedule' && getPostById.state !== 'QUEUE') {
+      await this.checkStoredPostLimit(orgId, id);
+      await this.checkStoredPostingLimits(orgId, getPostById);
+    }
+
+    if (status === 'schedule' && actor?.type === 'agent') {
+      await this._approvalPolicyService.assertAgentGuardrails(
+        orgId,
+        actor,
+        [getPostById.integrationId],
+        { countsTowardLimit: false }
+      );
+    }
+
+    const decision =
+      status === 'schedule' && actor
+        ? await this._approvalPolicyService.decide(
+            orgId,
+            actor,
+            'schedule',
+            getPostById
+          )
+        : undefined;
+
+    if (decision?.hold) {
+      // a post that went out, or is going out now, can't be held anymore
+      if (getPostById.state === 'PUBLISHED') {
+        throw new BadRequestException('This post was already published.');
+      }
+      if (
+        getPostById.state === 'QUEUE' &&
+        dayjs(getPostById.publishDate).isBefore(dayjs())
+      ) {
+        throw new BadRequestException('This post is already being published.');
+      }
+      if (
+        getPostById.approvalStatus !== 'IN_REVIEW' ||
+        getPostById.state !== 'DRAFT'
+      ) {
+        await this._postRepository.holdForReview(orgId, getPostById.group);
+        // stops a publish workflow that may already be waiting
+        await this.startWorkflow(
+          getPostById.integration.providerIdentifier
+            .split('-')[0]
+            .toLowerCase(),
+          getPostById.id,
+          orgId,
+          'DRAFT'
+        );
+        await this._approvalPolicyService.afterSave(
+          orgId,
+          {
+            id: getPostById.id,
+            content: getPostById.content,
+            integrationName: getPostById.integration?.name,
+            provider: getPostById.integration?.providerIdentifier,
+          },
+          actor!,
+          { created: false, decision }
+        );
+      }
+      // it stays a draft until an approver approves it
+      return {
+        id,
+        state: 'DRAFT' as State,
+        approvalStatus: 'IN_REVIEW',
+        message:
+          'The post is waiting for approval in PostDelegate, it will be scheduled once a teammate approves it.',
+      };
+    }
+
+    const state: State = status === 'draft' ? 'DRAFT' : 'QUEUE';
+    await this._postRepository.changeState(id, state);
+
+    try {
+      await this.startWorkflow(
+        getPostById.integration.providerIdentifier.split('-')[0].toLowerCase(),
+        getPostById.id,
+        orgId,
+        state
+      );
+    } catch (err) {}
+
+    return { id, state };
+  }
+
+  // What would stop a stored post from publishing, checked again when it is
+  // approved: it may have been saved as a draft (unchecked) while it waited.
+  // Same checks and messages as updatePostSettings.
+  async getStoredPostProblem(
+    orgId: string,
+    postId: string
+  ): Promise<string | null> {
+    const ordered = await this.getPostsRecursively(postId, true, orgId, true);
+    const [root] = ordered;
+    const integration = (root as any)?.integration;
+    if (!root || !integration) {
+      return null;
+    }
+
+    let settings: Record<string, any>;
+    try {
+      settings = JSON.parse(root.settings || '{}');
+    } catch (err) {
+      settings = {};
+    }
+
+    const [validation] = await this.validatePosts(orgId, [
+      {
+        integration: { id: integration.id },
+        date: dayjs.utc(root.publishDate).format('YYYY-MM-DDTHH:mm:ss'),
+        settings: { ...settings, __type: integration.providerIdentifier },
+        value: ordered.map((p) => {
+          let image = [];
+          try {
+            image = JSON.parse(p.image || '[]');
+          } catch (err) {}
+          return { content: p.content, image };
+        }),
+      },
+    ]);
+
+    if (!validation) {
+      return null;
+    }
+    if (validation.emptyContent) {
+      return 'it needs at least one character or one image';
+    }
+    if (!validation.valid) {
+      return validation.settingsError || 'its channel settings need fixing';
+    }
+    if (validation.errors !== true) {
+      return String(validation.errors);
+    }
+    if (validation.tooLong) {
+      return `it is longer than the ${validation.maximumCharacters} characters the channel allows`;
+    }
+    return null;
+  }
+
+  // Review feedback joins the post's comments, the preview page shows them
+  addReviewComment(
+    orgId: string,
+    postId: string,
+    content: string,
+    userId: string | null,
+    displayName?: string
+  ) {
+    return this._postRepository.createComment(orgId, userId, postId, content, {
+      displayName: userId ? undefined : displayName,
+    });
+  }
+
+  async changeDate(
+    orgId: string,
+    id: string,
+    date: string,
+    action: 'schedule' | 'update' = 'schedule',
+    republish = false
+  ) {
+    const getPostById = await this._postRepository.getPostById(id, orgId);
+
+    if (action === 'schedule' && !republish) {
+      this.guardAgainstRepublish(getPostById, 'changeDate');
+    }
+
+    // a post that ends up queued, again or in another plan month, is checked
+    // against the plan's monthly cap on its network at its new date
+    const queued =
+      getPostById.state !== 'DRAFT' &&
+      (action === 'schedule' || getPostById.state === 'QUEUE');
+    if (queued) {
+      await this.checkStoredPostingLimits(orgId, getPostById, date);
+    }
+    if (
+      queued &&
+      (await this.checkStoredPostLimit(orgId, id, date)) &&
+      dayjs(date).isBefore(dayjs())
+    ) {
+      // a passed date publishes now, stored in the plan month it counted in
+      date = dayjs().format('YYYY-MM-DDTHH:mm:ss');
+    }
+
+    // schedule: Set status to QUEUE and change date (reschedule the post)
+    // update: Just change the date without changing the status
+    const newDate = await this._postRepository.changeDate(
+      orgId,
+      id,
+      date,
+      getPostById.state === 'DRAFT',
+      action
+    );
+
+    if (action === 'schedule') {
+      try {
+        await this.startWorkflow(
+          getPostById.integration.providerIdentifier
+            .split('-')[0]
+            .toLowerCase(),
+          getPostById.id,
+          orgId,
+          getPostById.state === 'DRAFT' ? 'DRAFT' : 'QUEUE'
+        );
+      } catch (err) {}
+    }
+
+    return newDate;
+  }
+
+  async generatePostsDraft(orgId: string, body: CreateGeneratedPostsDto) {
+    const getAllIntegrations = (
+      await this._integrationService.getIntegrationsList(orgId)
+    ).filter((f) => !f.disabled && f.providerIdentifier !== 'reddit');
+
+    // const posts = chunk(body.posts, getAllIntegrations.length);
+    const allDates = dayjs()
+      .isoWeek(body.week)
+      .year(body.year)
+      .startOf('isoWeek');
+
+    const dates = [...new Array(7)].map((_, i) => {
+      return allDates.add(i, 'day').format('YYYY-MM-DD');
+    });
+
+    const findTime = (): string => {
+      const totalMinutes = Math.floor(Math.random() * 144) * 10;
+
+      // Convert total minutes to hours and minutes
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+
+      // Format hours and minutes to always be two digits
+      const formattedHours = hours.toString().padStart(2, '0');
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+      const randomDate =
+        shuffle(dates)[0] + 'T' + `${formattedHours}:${formattedMinutes}:00`;
+
+      if (dayjs(randomDate).isBefore(dayjs())) {
+        return findTime();
+      }
+
+      return randomDate;
+    };
+
+    for (const integration of getAllIntegrations) {
+      for (const toPost of body.posts) {
+        const group = makeId(10);
+        const randomDate = findTime();
+
+        await this.createPost(
+          orgId,
+          {
+            type: 'draft',
+            date: randomDate,
+            order: '',
+            shortLink: false,
+            tags: [],
+            posts: [
+              {
+                group,
+                integration: {
+                  id: integration.id,
+                },
+                settings: {
+                  __type: integration.providerIdentifier as any,
+                  title: '',
+                  tags: [],
+                  subreddit: [],
+                },
+                value: [
+                  ...toPost.list.map((l) => ({
+                    id: '',
+                    content: l.post,
+                    delay: 0,
+                    image: [],
+                  })),
+                  {
+                    id: '',
+                    delay: 0,
+                    content: `Check out the full story here:\n${
+                      body.postId || body.url
+                    }`,
+                    image: [],
+                  },
+                ],
+              },
+            ],
+          },
+          'WEB'
+        );
+      }
+    }
+  }
+
+  findAllExistingCategories() {
+    return this._postRepository.findAllExistingCategories();
+  }
+
+  findAllExistingTopicsOfCategory(category: string) {
+    return this._postRepository.findAllExistingTopicsOfCategory(category);
+  }
+
+  findPopularPosts(category: string, topic?: string) {
+    return this._postRepository.findPopularPosts(category, topic);
+  }
+
+  // the dates channels already post at, for a bulk schedule
+  getPublishDatesOfIntegrations(
+    orgId: string,
+    integrationIds: string[],
+    from: Date,
+    until: Date
+  ) {
+    return this._postRepository.getPublishDatesOfIntegrations(
+      orgId,
+      integrationIds,
+      from,
+      until
+    );
+  }
+
+  async findFreeDateTime(orgId: string, integrationId?: string) {
+    const findTimes = await this._integrationService.findFreeDateTime(
+      orgId,
+      integrationId
+    );
+    return this.findFreeDateTimeRecursive(
+      orgId,
+      findTimes.length ? findTimes : [120, 400, 700],
+      dayjs.utc().startOf('day'),
+      0
+    );
+  }
+
+  async createPopularPosts(post: {
+    category: string;
+    topic: string;
+    content: string;
+    hook: string;
+  }) {
+    return this._postRepository.createPopularPosts(post);
+  }
+
+  private async findFreeDateTimeRecursive(
+    orgId: string,
+    times: number[],
+    date: dayjs.Dayjs,
+    daysChecked: number
+  ): Promise<string> {
+    // stop searching after a year so an empty times list can never recurse forever
+    if (daysChecked > 365) {
+      return date
+        .clone()
+        .add(times[0] || 0, 'minutes')
+        .format('YYYY-MM-DDTHH:mm:00');
+    }
+
+    const list = await this._postRepository.getPostsCountsByDates(
+      orgId,
+      times,
+      date
+    );
+
+    if (!list.length) {
+      return this.findFreeDateTimeRecursive(
+        orgId,
+        times,
+        date.add(1, 'day'),
+        daysChecked + 1
+      );
+    }
+
+    const num = list.reduce<null | number>((prev, curr) => {
+      if (prev === null || prev > curr) {
+        return curr;
+      }
+      return prev;
+    }, null) as number;
+
+    return date.clone().add(num, 'minutes').format('YYYY-MM-DDTHH:mm:00');
+  }
+
+  async getComments(previewId: string) {
+    const posts = await this.getPostsRecursively(previewId, false);
+    const comments = await this._postRepository.getCommentsForPosts(
+      posts.map((p) => p.id)
+    );
+
+    return comments.map((comment) => ({
+      id: comment.id,
+      postId: comment.postId,
+      parentId: comment.parentId,
+      content: comment.content,
+      anchorStart: comment.anchorStart,
+      anchorEnd: comment.anchorEnd,
+      anchorQuote: comment.anchorQuote,
+      resolvedAt: comment.resolvedAt,
+      createdAt: comment.createdAt,
+      name: comment.userId
+        ? [comment.user?.name, comment.user?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || null
+        : comment.displayName,
+    }));
+  }
+
+  async createPublicComment(
+    previewId: string,
+    body: CreatePublicCommentDto,
+    userId: string | null,
+    ip: string,
+    // authenticated flow: the post must belong to the caller's organization
+    orgId?: string
+  ) {
+    const posts = await this.getPostsRecursively(previewId, false);
+    if (!posts.length || (orgId && posts[0].organizationId !== orgId)) {
+      throw new NotFoundException('Post not found');
+    }
+
+    let post = body.postId ? posts.find((p) => p.id === body.postId) : posts[0];
+    if (!post) {
+      throw new BadRequestException('Post does not belong to this preview');
+    }
+
+    if (!userId) {
+      if (!body.displayName?.trim()) {
+        throw new BadRequestException('Name is required');
+      }
+      await this.verifyRecaptcha(body.recaptchaToken, ip);
+    }
+
+    const hasStart = typeof body.anchorStart === 'number';
+    const hasEnd = typeof body.anchorEnd === 'number';
+    if (hasStart !== hasEnd) {
+      throw new BadRequestException('Both anchor offsets are required');
+    }
+
+    if (body.parentId) {
+      const parent = await this._postRepository.getCommentById(body.parentId);
+      if (!parent || !posts.some((p) => p.id === parent.postId)) {
+        throw new BadRequestException('Parent comment not found');
+      }
+      if (parent.parentId) {
+        throw new BadRequestException(
+          'Replies can only be added to a root comment'
+        );
+      }
+      if (hasStart || body.anchorQuote) {
+        throw new BadRequestException('Replies cannot be anchored');
+      }
+      post = posts.find((p) => p.id === parent.postId)!;
+    }
+
+    if (hasStart) {
+      const plainText = postContentPlainText(post.content);
+      if (
+        body.anchorStart! < 0 ||
+        body.anchorStart! >= body.anchorEnd! ||
+        body.anchorEnd! > plainText.length
+      ) {
+        throw new BadRequestException('Anchor is out of range');
+      }
+      if (
+        body.anchorQuote !== plainText.slice(body.anchorStart!, body.anchorEnd!)
+      ) {
+        throw new BadRequestException('Anchor does not match the post text');
+      }
+    }
+
+    return this._postRepository.createComment(
+      post.organizationId,
+      userId,
+      post.id,
+      body.content,
+      {
+        displayName: userId ? undefined : body.displayName!.trim(),
+        parentId: body.parentId,
+        anchorStart: hasStart ? body.anchorStart : undefined,
+        anchorEnd: hasStart ? body.anchorEnd : undefined,
+        anchorQuote: hasStart ? body.anchorQuote : undefined,
+      }
+    );
+  }
+
+  private async verifyRecaptcha(token: string | undefined, ip: string) {
+    if (!process.env.RECAPTCHA_SECRET_KEY) {
+      return;
+    }
+
+    if (!token) {
+      throw new BadRequestException('Captcha verification failed');
+    }
+
+    const result = await (
+      await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          secret: process.env.RECAPTCHA_SECRET_KEY,
+          response: token,
+          remoteip: ip,
+        }),
+      })
+    ).json();
+
+    if (!result?.success) {
+      throw new BadRequestException('Captcha verification failed');
+    }
+  }
+
+  async resolveComment(orgId: string, commentId: string, resolved: boolean) {
+    const comment = await this._postRepository.getCommentById(commentId);
+    if (!comment || comment.post.organizationId !== orgId) {
+      throw new NotFoundException('Comment not found');
+    }
+    if (comment.parentId) {
+      throw new BadRequestException('Only root comments can be resolved');
+    }
+
+    return this._postRepository.setCommentResolved(
+      commentId,
+      resolved ? new Date() : null
+    );
+  }
+
+  // A comment anchored to a span of text keeps its quote but loses the
+  // highlight once the span no longer reads the same on the new content.
+  async detachStaleAnchors(posts: { id: string; content: string }[]) {
+    for (const post of posts) {
+      const anchored = await this._postRepository.getAnchoredCommentsForPost(
+        post.id
+      );
+      if (!anchored.length) {
+        continue;
+      }
+
+      const plainText = postContentPlainText(post.content);
+      const stale = anchored
+        .filter(
+          (c) => c.anchorQuote !== plainText.slice(c.anchorStart!, c.anchorEnd!)
+        )
+        .map((c) => c.id);
+
+      if (stale.length) {
+        await this._postRepository.detachAnchorsForPost(post.id, stale);
+      }
+    }
+  }
+
+  getTags(orgId: string) {
+    return this._postRepository.getTags(orgId);
+  }
+
+  createTag(orgId: string, body: CreateTagDto) {
+    return this._postRepository.createTag(orgId, body);
+  }
+
+  editTag(id: string, orgId: string, body: CreateTagDto) {
+    return this._postRepository.editTag(id, orgId, body);
+  }
+
+  deleteTag(id: string, orgId: string) {
+    return this._postRepository.deleteTag(id, orgId);
+  }
+}

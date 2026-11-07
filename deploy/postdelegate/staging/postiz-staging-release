@@ -1,0 +1,80 @@
+#!/bin/sh
+# Switch the STAGING app to a release image and wait until it is healthy.
+#   sudo postiz-staging-release release-<rev>
+#   sudo postiz-staging-release postdelegate-postiz:release-<rev>
+# Only the staging app container is recreated; staging databases, Redis and
+# Temporal keep running, and production is never touched.
+set -eu
+
+env_file=/etc/postiz/staging.env
+compose=/usr/local/bin/postiz-staging-compose
+app=postdelegate-staging-app-1
+temporal=postdelegate-staging-temporal-server-1
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "run with sudo" >&2
+    exit 1
+fi
+if [ $# -ne 1 ] || [ -z "$1" ]; then
+    echo "usage: postiz-staging-release <tag|image>   e.g. release-fab42624" >&2
+    exit 2
+fi
+
+case "$1" in
+    *:*) image=$1 ;;
+    *) image=postdelegate-postiz:$1 ;;
+esac
+case "$image" in
+    *[!A-Za-z0-9._:/@-]*) echo "invalid image reference: $image" >&2; exit 2 ;;
+esac
+
+if ! docker image inspect "$image" > /dev/null 2>&1; then
+    echo "image $image is not on this server; build it first (BUILD.md)" >&2
+    exit 1
+fi
+
+previous=$(sed -n 's/^POSTIZ_IMAGE=//p' "$env_file" | tail -n 1)
+cp -p "$env_file" "$env_file.previous"
+if grep -q '^POSTIZ_IMAGE=' "$env_file"; then
+    sed -i "s#^POSTIZ_IMAGE=.*#POSTIZ_IMAGE=$image#" "$env_file"
+else
+    printf 'POSTIZ_IMAGE=%s\n' "$image" >> "$env_file"
+fi
+
+echo "staging: ${previous:-none} -> $image; waiting for the app to become healthy"
+if ! "$compose" up -d --no-deps --wait --wait-timeout 600 app; then
+    echo "staging app did not become healthy on $image" >&2
+    echo "logs: sudo postiz-staging-compose logs --tail 200 app" >&2
+    echo "back: sudo postiz-staging-release ${previous:-<previous tag>}" >&2
+    exit 1
+fi
+
+running=$(docker inspect -f '{{.Config.Image}}' "$app")
+if [ "$running" != "$image" ]; then
+    echo "staging app runs $running, expected $image" >&2
+    exit 1
+fi
+
+# The Docker healthcheck covers the API. Also require the Temporal worker
+# (orchestrator) to reach Temporal and to be polling the main task queue.
+i=0
+until docker exec "$app" node -e "fetch('http://127.0.0.1:3002/health/status').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" 2> /dev/null; do
+    i=$((i + 1))
+    if [ "$i" -ge 30 ]; then
+        echo "orchestrator health did not pass within 5 minutes" >&2
+        exit 1
+    fi
+    sleep 10
+done
+i=0
+until docker exec "$temporal" temporal task-queue describe --task-queue main --address temporal-server:7233 2> /dev/null \
+    | awk '/^Pollers:/ { p = 1; next } p && / workflow / { found = 1 } END { exit !found }'; do
+    i=$((i + 1))
+    if [ "$i" -ge 18 ]; then
+        echo "no worker is polling the Temporal main task queue" >&2
+        exit 1
+    fi
+    sleep 10
+done
+
+echo "staging app healthy on $image (API, orchestrator and Temporal worker)"
