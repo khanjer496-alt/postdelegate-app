@@ -1,0 +1,109 @@
+---
+// "Post to <network> from <assistant>": one assistant's setup, then what it can do on one live
+// network. Setup comes from agent-guides.ts (the same snippets as /docs/mcp), the network's
+// settings, limits and questions from schedulers.ts. English only.
+import Doc from '../../layouts/Doc.astro';
+import Faq from '../Faq.astro';
+import NetworkBadge from '../NetworkBadge.astro';
+import { SITE } from '../../data/site';
+import { TRIAL_DAYS } from '../../data/plans';
+import type { Network } from '../../data/networks';
+import { SCHEDULERS } from '../../data/schedulers';
+import { AGENTS, GUIDE_NETWORKS, NETWORK_ASKS, agentGuideHref, type Agent } from '../../data/agent-guides';
+interface Props { agent: Agent; network: Network }
+const { agent, network } = Astro.props;
+const s = SCHEDULERS.find((item) => item.key === network.key)!;
+const a = agent.name;
+// "Listmonk (email)" reads as "Listmonk" in a headline.
+const n = network.name.replace(/\s*\(.*\)$/, '');
+const href = agentGuideHref(agent, network);
+const asks = NETWORK_ASKS[network.key].slice(0, agent.kind === 'code' ? 3 : 2);
+const limit = network.limit.toLocaleString('en-US');
+// Answers are plain text with optional [label](/path) links, as in schedulers.ts.
+const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const withLinks = (text: string) => escape(text).replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+const plain = (text: string) => text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+const title = `Post to ${n} from ${a} | PostDelegate`;
+const description = `Connect ${a} to PostDelegate over MCP and have it draft and schedule ${n} posts for you to approve. ${TRIAL_DAYS}-day free trial, no card.`;
+const steps = [
+  { name: `Add PostDelegate to ${a}`, text: agent.setup.steps.join(' ') },
+  { name: `Connect ${n} in PostDelegate`, text: s.steps?.[0]?.text ?? `On the calendar page choose Add Channel, then ${n}.` },
+  { name: `Ask ${a} for a draft`, text: `Describe the post in plain words. ${a} checks your ${n} channel's rules, creates the post and sends back a preview link.` },
+];
+const faq = [
+  { q: `Will ${a} publish to ${n} without asking me?`, a: `Not unless you ask it to. Ask for a draft and the post waits on your calendar until you schedule it, and your workspace's [approvals](/docs/approvals) apply as usual. Tools that change data are marked as such, so ${a} can ask you before it schedules or deletes anything.` },
+  { q: `Do I need an API key to connect ${a}?`, a: `No. ${a} signs in with your PostDelegate account through your browser. An API key is only for clients that cannot sign in, as described in [MCP clients](/docs/mcp/clients).` },
+  { q: `Does it cost extra to use ${a} with PostDelegate?`, a: `No. The MCP server is on every plan, and ${a} runs on your own ${a} account, so PostDelegate never charges for AI. Every plan starts with a ${TRIAL_DAYS}-day free trial with no card.` },
+  { q: `Can ${a} attach images or video to a ${n} post?`, a: `It can use files already in your media library, or add one from a public link. It cannot fetch files from your computer, so upload those in the app first${agent.kind === 'chat' ? `, or through the upload widget where ${a} shows it` : ''}. See [MCP tools](/docs/mcp/tools#media).` },
+  ...(s.faq ?? []).slice(0, 2),
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'AI agents', item: `${SITE.url}/agents` },
+  { '@type': 'ListItem', position: 2, name: `${n} from ${a}`, item: `${SITE.url}${href}` }] };
+const howToLd = { '@context': 'https://schema.org', '@type': 'HowTo', name: `How to post to ${n} from ${a}`, step: steps.map((step, i) => ({ '@type': 'HowToStep', position: i + 1, name: step.name, text: step.text })) };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: plain(item.a) } })) };
+const otherAgents = AGENTS.filter((other) => other.slug !== agent.slug);
+const otherNetworks = GUIDE_NETWORKS.filter((other) => other.key !== network.key);
+---
+<Doc title={title} description={description} h1={`Post to ${n} from ${a}`} eyebrow={`${a} + ${n}`} lead={`Connect ${a} to PostDelegate once, then ask it for ${n} posts ${agent.where}. Ask for a draft and it waits on your calendar until you schedule it.`} jsonLd={[crumbs, howToLd, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">Start your {TRIAL_DAYS}-day free trial</a>
+  <a slot="actions" href={agent.docs} class="button button-outline">{a} setup guide</a>
+  <div class="ag-head">
+    <NetworkBadge n={network} size="lg" />
+    <p><strong>{a} drafts it. You approve it. PostDelegate posts it.</strong><span>{n}: {network.blurb}</span></p>
+  </div>
+
+  <h2>How to post to {n} from {a}</h2>
+  <ol>{steps.map((step, i) => <li><strong>{step.name}.</strong> {step.text}{i === 0 && <>
+    <p class="ag-label">{agent.setup.codeLabel}</p>
+    <pre><code>{agent.setup.code}</code></pre>
+    {agent.setup.after && <p>{agent.setup.after}</p>}
+  </>}</li>)}</ol>
+
+  <h2>Teach {a} the posting rules</h2>
+  <p>{agent.teach.text} <a href={agent.teach.href}>Agent files</a> has the steps.</p>
+
+  <h2>What to ask {a}</h2>
+  <p>Mention any {n} setting in plain words and {a} fills it in. {agent.kind === 'code' ? `${a} can also read text files in your project, such as a changelog or a draft in Markdown.` : `Start with something harmless, like asking which channels you have.`}</p>
+  <ul class="ag-asks">{asks.map((ask) => <li>{ask}</li>)}</ul>
+
+  <h2>What {a} can do on your {n} channel</h2>
+  <ul>
+    <li><strong>Check the rules first.</strong> Before writing, it reads your {n} channel's length limit{network.limit < 100000 && ` (${limit} characters)`} and required settings.</li>
+    <li><strong>Draft, schedule or post.</strong> It creates a draft, a scheduled post or an immediate post, and runs the same checks as the app.</li>
+    <li><strong>Use your media.</strong> It attaches files from your media library or adds one from a public link.</li>
+    <li><strong>Review and fix.</strong> It lists what is scheduled, changes the {n} settings of a post that has not gone out, and deletes posts you no longer want.</li>
+  </ul>
+  {s.about?.[0] && <p>{s.about[0]}</p>}
+
+  {!!s.settings?.length && <>
+    <h2>{n} settings {a} can fill in</h2>
+    <table>
+      <thead><tr><th>Setting</th><th>Notes</th></tr></thead>
+      <tbody>{s.settings.map((row) => <tr><td><strong>{row.label}</strong></td><td>{row.note}</td></tr>)}</tbody>
+    </table>
+  </>}
+
+  <h2>Before you start</h2>
+  <ul>{s.limits.map((point) => <li>{point}</li>)}</ul>
+  <p>The <a href={s.docs}>{n} channel guide</a> has every field, and <a href="/docs/mcp/tools">MCP tools</a> lists exactly what an assistant can and cannot do.</p>
+
+  <h2>Questions</h2>
+  <Faq items={faq.map((item) => ({ q: item.q, a: withLinks(item.a) }))} />
+
+  <h2>{n} from other assistants</h2>
+  <ul class="ag-links">{otherAgents.map((other) => <li><a href={agentGuideHref(other, network)}>{other.name}</a></li>)}</ul>
+  <h2>Other networks from {a}</h2>
+  <ul class="ag-links">{otherNetworks.map((other) => <li><a href={agentGuideHref(agent, other)}>{other.name}</a></li>)}</ul>
+  <p>Prefer to plan {n} posts yourself? See the <a href={`/${s.slug}`}>{n} scheduler</a>.</p>
+</Doc>
+<style>
+  .ag-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 16px; margin: 0 0 22px; padding: 18px 20px; border: 1px solid #2c2c2c; border-radius: 18px; background: linear-gradient(180deg, #17151c, #131313); }
+  .ag-head p { display: flex; flex: 1 1 220px; flex-direction: column; gap: 2px; margin: 0; font-size: 14px; line-height: 1.5; }
+  .ag-head p strong { color: #fff; font-size: 16px; }
+  .ag-label { margin-bottom: -12px; color: #9a9a9a; font-size: 13px; font-weight: 650; }
+  .ag-asks li { margin: 10px 0; color: #e2e2e2; }
+  .ag-links { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0 !important; list-style: none !important; }
+  .ag-links li { margin: 0; padding: 0; }
+</style>

@@ -1,0 +1,17 @@
+{
+  "name": "PostDelegate",
+  "slug": "postdelegate",
+  "site": "https://postdelegate.com",
+  "pricingUrl": "https://postdelegate.com/pricing",
+  "checked": "2026-11-02",
+  "kind": { "value": "Hosted open-source scheduler (AGPL-3.0), run by Nasida Apps LLC", "src": "https://postdelegate.com/licenses" },
+  "hosting": { "value": "Hosted only; the modified source is published under AGPL-3.0", "src": "https://postdelegate.com/licenses" },
+  "license": { "value": "AGPL-3.0 (application source)", "src": "https://postdelegate.com/licenses" },
+  "pricingModel": { "value": "Flat monthly plans, tiered by number of channels", "src": "https://postdelegate.com/pricing" },
+  "freeOption": { "value": "A 7-day free trial with no card, then paid plans", "src": "https://postdelegate.com/pricing" },
+  "trial": { "value": "7-day free trial, no credit card", "src": "https://postdelegate.com/docs/billing" },
+  "api": { "value": "Public REST API and webhooks on every plan", "src": "https://postdelegate.com/docs/api" },
+  "mcp": { "value": "MCP server on every plan, with sign-in (OAuth) or an API key", "src": "https://postdelegate.com/docs/mcp" },
+  "ai": { "value": "Bring your own: AI runs on your own OpenAI key or the assistant you connect over MCP; PostDelegate never charges for AI", "src": "https://postdelegate.com/docs/ai" },
+  "teams": { "value": "Team members on Team, Pro and Ultimate; client approval links that need no account", "src": "https://postdelegate.com/docs/approvals" }
+}

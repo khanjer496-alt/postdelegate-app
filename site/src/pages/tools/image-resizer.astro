@@ -1,0 +1,57 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHero from '../../components/PageHero.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import Faq from '../../components/Faq.astro';
+import ImageResizer from '../../components/ImageResizer.astro';
+import { RESIZER_GROUPS } from '../../data/image-sizes';
+import { SITE, CTA_LABEL } from '../../data/site';
+import AppShot from '../../components/AppShot.astro';
+const url = `${SITE.url}/tools/image-resizer`;
+const app = { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Social media image resizer', applicationCategory: 'MultimediaApplication', operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }, url };
+const faq = [
+  { q: 'Is my image uploaded anywhere?', a: 'No. The image is read and resized by your browser on your own device. It is never uploaded, and nothing is saved after you close the page.' },
+  { q: 'What is the difference between cover and contain?', a: '<strong>Cover</strong> fills the whole size and crops what does not fit, so nothing is left empty. <strong>Contain</strong> fits the whole image inside the size and fills the leftover space with a colour you choose, so nothing is cropped.' },
+  { q: 'Should I save as PNG or JPEG?', a: 'JPEG makes much smaller files for photos and is what most networks prefer. PNG keeps sharp edges on text, logos and screenshots, and it can keep a transparent background. If a network has a file size limit, check the size shown under the preview before you save.' },
+  { q: 'Which Dribbble size does PostDelegate need?', a: 'Images of at least 400×300 are cropped from the centre to 800×600 or 400×300. GIFs must already be exactly one of those sizes. Use a Dribbble preset to choose the crop yourself instead of leaving it to the centre. See the <a href="/dribbble-scheduler">Dribbble scheduler</a>.' },
+  { q: 'Where do these sizes come from?', a: 'Where a platform publishes a size on its own help pages, the preset uses it; the <a href="/tools/social-image-sizes">social media image sizes</a> page lists each one with its source. X and Bluesky do not publish a size for images in posts, so those presets use common shapes.' },
+];
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) };
+---
+<Base title="Social media image resizer: free and private | PostDelegate" description="Resize an image for YouTube thumbnails, Instagram, Bluesky, Pinterest, LinkedIn or Dribbble. It runs in your browser, so the image never leaves your device." jsonLd={[app, faqLd]}>
+  <PageHero eyebrow="Free tool" title="Social media image resizer" lead="Resize an image to a social media size and save it as PNG or JPEG. Everything happens in your browser: the image never leaves your device." />
+  <section class="section"><div class="container-x max-w-5xl">
+    <ImageResizer groups={RESIZER_GROUPS} />
+
+    <div class="prose-pd mt-14 max-w-3xl">
+      <h2>How to use the image resizer</h2>
+      <ol>
+        <li>Choose an image from your device or drop it on the box. It is read by your browser and never uploaded.</li>
+        <li>Pick a size, or choose <strong>Custom size</strong> and enter a width and height.</li>
+        <li>Choose <strong>Cover</strong> to fill the size and crop the edges, or <strong>Contain</strong> to fit the whole image and fill the rest with a colour.</li>
+        <li>Pick JPEG for photos or PNG for text and logos, check the file size under the preview, then download.</li>
+      </ol>
+      <p>Not sure which size you need? The <a href="/tools/social-image-sizes">social media image sizes</a> page lists the sizes each network publishes, with links to the official help pages.</p>
+    </div>
+
+    <div class="mt-14 max-w-3xl">
+      <h2 class="mb-6 text-[27px] font-bold tracking-tight">Questions</h2>
+      <Faq items={faq} />
+    </div>
+
+    <div class="prose-pd mt-12 max-w-3xl">
+      <h2>Related</h2>
+      <ul>
+        <li><a href="/youtube-scheduler">YouTube scheduler</a> and the guide to <a href="/guides/schedule-youtube-videos">scheduling YouTube videos</a></li>
+        <li><a href="/bluesky-scheduler">Bluesky scheduler</a> and <a href="/dribbble-scheduler">Dribbble scheduler</a></li>
+        <li><a href="/tools/youtube-title-checker">YouTube title checker</a> and <a href="/tools/post-preview">social post preview</a></li>
+      </ul>
+      <p>Ready to schedule the post that goes with it? <a href={SITE.signup} data-pulse-goal="trial_clicked">{CTA_LABEL}</a>. No card is needed.</p>
+    </div>
+    <AppShot
+      shot="composer"
+      caption="Composing a post in PostDelegate: Insert Media attaches the resized image, and the preview beside the editor is what goes out."
+    />
+  </div></section>
+  <CtaBand title="Put your images to work." text="Keep images in the media library and schedule them with your posts on one calendar. Try PostDelegate free for 7 days, no card needed." />
+</Base>

@@ -1,0 +1,78 @@
+---
+import CompareTool from '../../components/CompareTool.astro';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+const [starter] = PLANS;
+const faq = [
+  { q: 'Which is cheaper, Postiz or Post Bridge?', a: 'It depends on how many accounts you connect. Up to 5, Postiz Standard costs $29 against $39 for Post Bridge Marketer. At 6 to 10 accounts both cost $39. From 11 to 15, Post Bridge stays at $39 while Postiz moves to Pro at $49. From 16 to 30, Postiz Pro is still $49 and Post Bridge needs Operator at $99. All monthly billing.' },
+  { q: 'Does Post Bridge have an API?', a: 'Yes. Its pricing page lists the API and an MCP agent connection on Marketer, the $39 plan, so you do not need the bigger plan to automate. Postiz includes its public API, CLI, webhooks and hosted MCP server on every Cloud plan.' },
+  { q: 'Can I self-host Post Bridge?', a: 'Not that we could find. Its pricing page sells hosted plans only. Postiz publishes its code under AGPL-3.0, so you can run it on your own server or pay for Postiz Cloud.' },
+  { q: 'Which supports more networks?', a: 'Postiz. Post Bridge lists 10: X, Instagram, LinkedIn, Facebook, TikTok, YouTube, Bluesky, Threads, Pinterest and Google Business. Postiz lists 30, including those ten plus chat, forum and blogging destinations such as Reddit, Discord, Telegram, Mastodon and WordPress.' },
+  { q: 'Can a team share Post Bridge?', a: 'Only on Operator, $99 a month for 99 accounts, which adds team member invites. Marketer is built for one person. Postiz includes unlimited team members from its Team plan, $39 a month for 10 channels.' },
+  { q: 'Do both have a free trial?', a: 'Both offer 7 days. Post Bridge shows $0 due today when you start, and free users can make 5 posts. Postiz asks for a payment method to start its trial and has no free cloud plan, though its self-hosted code is free to run.' },
+];
+const links = [
+  { href: '/alternatives/postiz', label: 'Postiz alternatives' },
+  { href: '/compare/postiz-vs-buffer', label: 'Postiz vs Buffer' },
+  { href: '/compare/postiz-vs-blotato', label: 'Postiz vs Blotato' },
+  { href: '/compare/postiz-vs-zernio', label: 'Postiz vs Zernio' },
+  { href: '/compare/postiz', label: 'PostDelegate vs Postiz' },
+  { href: '/compare/post-bridge', label: 'PostDelegate and Post Bridge' },
+  { href: '/alternatives', label: 'All scheduler alternatives' },
+  { href: '/pricing', label: 'PostDelegate pricing' },
+  { href: '/mcp', label: 'PostDelegate MCP server' },
+  { href: '/youtube-scheduler', label: 'YouTube scheduler' },
+  { href: '/bluesky-scheduler', label: 'Bluesky scheduler' },
+  { href: '/guides/schedule-social-media-posts-with-claude', label: 'Schedule social media posts with Claude' },
+];
+---
+<CompareTool
+  a="postiz" b="post-bridge" published="2026-11-02"
+  title="Postiz vs Post Bridge (2026): Price, Channels, API"
+  description="Postiz vs Post Bridge compared on account limits, monthly cost at 3, 10 and 30 accounts, networks, API, MCP and self-hosting. Every price links to its source."
+  h1="Postiz vs Post Bridge: features, price and channels"
+  shortAnswer="Pick Post Bridge if you are one person posting to the big feeds and want up to 15 accounts for $39. Pick Postiz if you need team members without a $99 plan, 16 to 30 accounts for less, chat and blog networks, or code you can self-host. At 30 accounts, Postiz costs $49 a month and Post Bridge $99."
+  costIntro="Both sell flat plans sized by connected accounts, so totals move in steps rather than per account. Post Bridge has two steps, at 15 and 99 accounts. Postiz has four, at 5, 10, 30 and 100 channels. The gap is widest between 16 and 30 accounts."
+  fitIntro={`PostDelegate is a hosted, open-source service run by Nasida Apps LLC, with flat plans from $${starter.monthly} a month and a ${TRIAL_DAYS}-day trial that needs no card. Next to Post Bridge, the honest gap is the big feeds: Instagram, Facebook, Threads, TikTok, LinkedIn and Pinterest are still waiting for platform approval and X is not available, so today it suits YouTube, Bluesky, chat communities and blogs.`}
+  faq={faq} links={links}
+>
+  <h3>The 11 to 15 account band</h3>
+  <p>Post Bridge's Marketer plan is sized for 15 accounts, which it describes as one business on every platform it supports. In that band it is the cheaper choice: $39 a month against $49 for Postiz Pro, because Postiz Team stops at 10 channels. Past 15 accounts the order flips, and it stays flipped until Postiz Pro fills up at 30.</p>
+
+  <h2>Networks</h2>
+  <p>Post Bridge covers the ten networks most creators and small businesses post to: X, Instagram, LinkedIn, Facebook, TikTok, YouTube, Bluesky, Threads, Pinterest and Google Business. It handles both scheduled and instant posting, and lets you connect several accounts on the same network within your plan's total.</p>
+  <p>Postiz lists all ten of those and twenty more. The extras lean towards communities and publishing: Reddit, Mastodon, Discord, Telegram, Slack, Lemmy, Nostr, WordPress, Medium, DEV.to and others. If your audience lives on a forum, a chat server or a blog as well as the main feeds, that difference matters more than the price.</p>
+
+  <h2>API and MCP</h2>
+  <p>Both treat automation as part of the base product rather than an upsell. Post Bridge lists its API and an MCP agent connection on Marketer, and its site has setup pages for posting from ChatGPT, Claude, Gemini and Grok. Postiz includes a hosted MCP server, a CLI, the public API and webhooks on every Cloud plan, plus OAuth so other apps can act for a Postiz user. Its docs cap the create-post endpoint at 100 requests an hour on Cloud, and one request can carry several posts.</p>
+
+  <h2>Self-hosting</h2>
+  <p>Post Bridge is hosted only. Postiz can be hosted for you or run on your own server under AGPL-3.0, which suits teams with a developer and a reason to keep data in-house. Self-hosting is free of license fees but not of work: the Docker Compose stack runs the app, PostgreSQL, Redis and Temporal, and you register your own developer app with each network and wait for its review.</p>
+
+  <h2>Teams and approvals</h2>
+  <p>Post Bridge is upfront that it is built for a single marketer rather than a team with approval steps and shared inboxes. Team invites arrive only with Operator, at $99 a month. Postiz includes unlimited team members from its Team plan at $39, and its Standard plan is for one person.</p>
+
+  <h2>Where Post Bridge wins</h2>
+  <ul>
+    <li>11 to 15 accounts for $39 a month, against $49 on Postiz.</li>
+    <li>A deliberately simple product for one person, with founder support listed on the plan.</li>
+    <li>Bulk video scheduling and carousel posts on the entry plan, with no cap on posts.</li>
+    <li>A trial that shows $0 due today, and refunds on request within 7 days of a charge.</li>
+  </ul>
+
+  <h2>Where Postiz wins</h2>
+  <ul>
+    <li>16 to 30 accounts for $49 a month, against $99 on Post Bridge.</li>
+    <li>Team members from the $39 plan instead of the $99 one.</li>
+    <li>Three times as many networks, including chats, forums, blogs and newsletters.</li>
+    <li>Open-source code under AGPL-3.0, with the option to self-host.</li>
+    <li>An AI copilot plus monthly AI image, video and clipping allowances. Post Bridge's pricing page lists no AI writing or media tools.</li>
+  </ul>
+
+  <h2>What to check before you switch</h2>
+  <ul>
+    <li>Count your accounts a year from now. One extra client can move you from 15 to 16 accounts, which is where the two tools trade places.</li>
+    <li>Decide whether anyone else will touch the calendar. That alone can settle it.</li>
+    <li>Connect the exact accounts you manage during the trial, including personal versus business profiles.</li>
+    <li>If you automate, test the API or MCP connection inside the trial rather than after it.</li>
+  </ul>
+</CompareTool>

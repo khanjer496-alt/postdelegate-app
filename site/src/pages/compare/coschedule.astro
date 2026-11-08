@@ -1,0 +1,136 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro] = PLANS;
+// CoSchedule facts come from src/data/tools/coschedule.json, re-read on the vendor's own site.
+const them = tool('coschedule');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "A flat tier plus metered extras: $5 a month for each profile beyond the plan, and $29 a month for an extra seat on Professional"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Starter $39 (1 seat, 3 profiles), Professional $59 (2 seats, 5 profiles), Suite custom from $69"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "A free plan for 15 scheduled posts on 1 profile, and a 14-day trial that requires a card up front"
+  },
+  {
+    "feature": "10 channels",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "$74 on Starter with one user, or $84 on Professional with two seats — base plus extra profiles at $5 each"
+  },
+  {
+    "feature": "30 channels",
+    "us": `${pro.name}, $${pro.monthly} a month`,
+    "them": "$174 on Starter or $184 on Professional, before any X profile"
+  },
+  {
+    "feature": "X",
+    "us": "Not available on PostDelegate at all",
+    "them": "Excluded from every base plan and billed at $16 per X profile a month — more than three times any other extra profile"
+  },
+  {
+    "feature": "Team and approvals",
+    "us": "Team members on Team, Pro and Ultimate; client approval links that need no account, and an AI review inbox",
+    "them": "Starter is a single user with no approvals; Professional adds roles and social message approvals, capped at 3 users with extras at $29"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "AI assistants listed as unlimited on all paid plans; for long-form content you can choose the model behind them: OpenAI, Anthropic or Microsoft Copilot where licensed"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "No public API — their support centre answers that question with a plain no — and no MCP server. Automation is webhooks on Suite, Zapier, or an ICS calendar feed"
+  }
+];
+const faq = [
+  {
+    "q": "Does CoSchedule have an API?",
+    "a": "No. Their own support centre answers the question “Does CoSchedule have a public API?” with no, and points to webhooks on the Suite plan, Zapier, and a read-only ICS calendar feed instead. If you want to drive your calendar from your own code, that is decisive. PostDelegate has a REST API and webhooks on every plan."
+  },
+  {
+    "q": "Why does CoSchedule cost more for X?",
+    "a": "X profiles are excluded from every base plan and billed at $16 per profile a month, against $5 for any other extra profile. A ten-profile setup with two X accounts is $64 for the eight other profiles plus $32 for the two X ones, so $96. PostDelegate does not support X at all, so this is a point where CoSchedule can do something we cannot — at a price worth noticing."
+  },
+  {
+    "q": "Do I need a card to try CoSchedule?",
+    "a": `Yes. Their pricing page describes choosing a plan at sign-up and entering a card, with no charge until the 14 days end and the option to cancel to the free plan before then. PostDelegate's ${TRIAL_DAYS}-day trial takes no card at all; you add one before it ends if you want to continue.`
+  },
+  {
+    "q": "Is PostDelegate cheaper?",
+    "a": `At ten profiles and above, yes, and the gap grows: ten cost $${team.monthly} a month here against $74 to $84 there, and thirty cost $${pro.monthly} against $174 to $184. At three profiles CoSchedule Starter is $39 against $${starter.monthly} for PostDelegate ${starter.name}. CoSchedule's Suite plan is quote-only and its page mentions bulk discounts, so a very large buyer may pay less than list.`
+  },
+  {
+    "q": "Can I choose which AI model CoSchedule uses?",
+    "a": "Yes, and it is a nice touch: their AI settings let you pick OpenAI, Anthropic or Microsoft Copilot where your organisation licenses it, for long-form content. PostDelegate goes further in the same direction by not supplying AI at all — it runs on your own OpenAI key, or on whichever assistant you connect over MCP."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs CoSchedule', item: `${SITE.url}/compare/coschedule` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="CoSchedule alternative: PostDelegate vs CoSchedule compared" description="PostDelegate vs CoSchedule: flat channel plans against a calendar with per-profile add-ons, the X surcharge, no public API and no MCP server." h1="PostDelegate vs CoSchedule." eyebrow="Compare" lead="CoSchedule is a marketing calendar with social publishing attached. PostDelegate is a social scheduler with an API attached. The three things to check are the per-profile add-ons, the X surcharge, and whether you mind giving a card to start a trial." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit CoSchedule</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="CoSchedule" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>CoSchedule prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Pricing, with the extras counted</h2>
+  <p>CoSchedule's published plans are small: Starter at $39 a month on monthly billing includes one seat and three social profiles, and Professional at $59 includes two seats and five. Beyond those, each extra profile is $5 a month and an extra user on Professional is $29. Suite is custom, described as starting from $69.</p>
+  <p>That makes the real number depend on your profile count rather than the tier. Ten profiles come to $74 on Starter, which allows a single user, or $84 on Professional with two seats. Thirty come to $174 or $184. The same counts on PostDelegate are ${team.monthly} and ${pro.monthly}, with team members included from Team upward.</p>
+  <p>Two things to add before comparing. X profiles are not included in any base plan and cost $16 each a month — more than three times the $5 for any other profile — so any estimate that assumes X is covered will understate CoSchedule. And their page opens on annual billing, where Starter and Professional read $29 and $49; the figures here are monthly.</p>
+  
+  <h2>The trial, and what it asks for</h2>
+  <p>Small difference, but it shapes the first impression. CoSchedule's 14-day trial requires a card: you choose a plan at sign-up, enter card details, and are not charged until the trial ends, with the option to cancel to the free plan before then. There is also a genuinely free plan, limited to fifteen scheduled posts on one profile.</p>
+  <p>PostDelegate's trial is 7 days and takes no card. Nothing can charge you by accident, and you add a card before the trial ends if you want to keep the plan. Shorter, but with nothing to cancel.</p>
+  
+  <h2>Automation is the real dividing line</h2>
+  <p>CoSchedule has no public API. That is not an inference from a pricing page — their support centre answers the question directly with no, and offers webhooks on Suite, Zapier, and a read-only ICS feed of the calendar as the alternatives. There is no MCP server either; the integrations named on their pricing page are webhooks, Zapier and calendar sync.</p>
+  <p>PostDelegate ships a REST API and webhooks on every plan and an MCP server on every plan, so an assistant such as Claude or ChatGPT can draft and schedule directly, with an AI review inbox holding those drafts until a person approves them. If your plan is to build on top of the scheduler, or to let an agent run the calendar, these two tools are not interchangeable.</p>
+  <p>Where CoSchedule does something thoughtful is model choice: its AI settings let you pick OpenAI, Anthropic or Microsoft Copilot where your organisation licenses it — for long-form content; social messages and images keep their own model. PostDelegate takes the same idea further by not selling AI at all — it runs on your own key, so you pay the model provider directly and we never mark it up.</p>
+
+  <h2>Where CoSchedule is the better pick</h2>
+  <ul>
+    <li>The marketing calendar is the point: campaigns, projects and social in one plan rather than a social tool alone.</li>
+    <li>You need X, which CoSchedule supports for $16 a profile a month and PostDelegate cannot do at all.</li>
+    <li>You publish to Instagram, Facebook, LinkedIn, TikTok, Threads or Pinterest today.</li>
+    <li>You want AI included and the choice of which model sits behind it.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Ten or more profiles, where per-profile add-ons at $5 each start to dominate the bill.</li>
+    <li>You want a public API — CoSchedule does not have one.</li>
+    <li>You want an assistant to schedule and publish through MCP, with a review step first.</li>
+    <li>You would rather start a trial without handing over a card.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by CoSchedule. The CoSchedule name belongs to its owner.</p>
+</Doc>

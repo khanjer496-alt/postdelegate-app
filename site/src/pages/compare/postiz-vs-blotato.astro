@@ -1,0 +1,85 @@
+---
+import CompareTool from '../../components/CompareTool.astro';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+const [starter] = PLANS;
+const faq = [
+  { q: 'Does Blotato have a free trial?', a: 'Yes, 7 days on every plan. A card is required, nothing is charged during the trial, and you get the web app plus 60 AI credits. The trial does not include the API or MCP server: creating an API key ends the trial and starts the paid plan straight away.' },
+  { q: 'Can Postiz make videos?', a: 'Within monthly limits, yes. Every Postiz Cloud plan includes AI video credits (3 a month on Standard, up to 60 on Ultimate) and clipping minutes that cut a long YouTube video into short vertical clips with captions. Blotato puts more weight on generated media: Starter includes 1,250 credits a month shared between AI images and video, plus AI voiceovers.' },
+  { q: 'Which works with Claude?', a: 'Both. Blotato has a hosted MCP server with 35 tools, available once you are on a paid plan. Postiz includes a hosted MCP server on every Cloud plan, and its trial includes the API, so you can connect an agent before paying.' },
+  { q: 'Which is cheaper for 20 accounts?', a: 'Blotato. Its $29 Starter plan covers 20 accounts. On Postiz, 20 channels need the Pro plan at $49 a month, which covers up to 30.' },
+  { q: 'Is Postiz free?', a: 'The code is: Postiz is open source under AGPL-3.0, so you can self-host it with no license fee. Postiz Cloud has no free plan and starts at $29 a month after a 7-day trial that asks for a payment method.' },
+];
+const links = [
+  { href: '/alternatives/postiz', label: 'Postiz alternatives' },
+  { href: '/compare/postiz-vs-post-bridge', label: 'Postiz vs Post Bridge' },
+  { href: '/compare/postiz-vs-zernio', label: 'Postiz vs Zernio' },
+  { href: '/compare/postiz-vs-buffer', label: 'Postiz vs Buffer' },
+  { href: '/compare/postiz', label: 'PostDelegate vs Postiz' },
+  { href: '/alternatives', label: 'All scheduler alternatives' },
+  { href: '/pricing', label: 'PostDelegate pricing' },
+  { href: '/mcp', label: 'PostDelegate MCP server' },
+  { href: '/youtube-scheduler', label: 'YouTube scheduler' },
+  { href: '/bluesky-scheduler', label: 'Bluesky scheduler' },
+  { href: '/guides/schedule-social-media-posts-with-chatgpt', label: 'Schedule social media posts with ChatGPT' },
+];
+---
+<CompareTool
+  a="postiz" b="blotato" published="2026-11-02"
+  title="Postiz vs Blotato (2026): AI Content, Price, Channels"
+  description="Postiz vs Blotato on AI writing, image and video credits, account limits, networks, API and MCP access during the trial, and self-hosting. Prices with sources."
+  h1="Postiz vs Blotato: scheduling first or AI content first?"
+  shortAnswer="Pick Blotato if AI-made posts, images and faceless videos are the point and you post to the nine big feeds: $29 covers 20 accounts. Pick Postiz if scheduling across many networks comes first, or you want team seats, self-hosting or the API during your trial. Postiz starts at $29 for 5 channels."
+  costIntro="Blotato's entry plan holds 20 accounts and Postiz's middle plans hold 10 and 30, so Blotato is cheaper from 6 to 20 accounts and Postiz from 21 to 30. Both plans also carry AI allowances that these totals do not price."
+  fitIntro={`PostDelegate is a hosted, open-source service. It takes the bring-your-own route to AI: writing and images run on your own OpenAI key, and Claude or ChatGPT can draft through the MCP server on every plan, so there are no AI credits to buy. Content Studio, which turns clips into vertical videos, is included under fair use. Plans start at $${starter.monthly} after a ${TRIAL_DAYS}-day trial with no card. Instagram, Facebook, Threads, TikTok, LinkedIn and Pinterest are still waiting on approval, and X is not available.`}
+  faq={faq} links={links}
+>
+  <h2>AI content tools</h2>
+  <p>This is the real dividing line. Blotato is built around making the content: an AI writer tuned on viral posts, ready-made templates, AI images and videos, faceless video, voiceovers and captions. Writing is unlimited on every plan. Images and video draw on monthly credits, 1,250 on Starter, 5,000 on Creator and 28,000 on Agency, where one credit is roughly one image or a few seconds of video.</p>
+  <p>Postiz is built around getting content out on schedule, with AI as a helper. Every Cloud plan includes an AI copilot and monthly allowances that grow with the plan:</p>
+  <ul>
+    <li><strong>AI images:</strong> 20 on Standard, 100 on Team, 300 on Pro, 500 on Ultimate.</li>
+    <li><strong>AI videos:</strong> 3, 10, 30 and 60.</li>
+    <li><strong>Clipping minutes</strong> for cutting long YouTube videos into captioned vertical clips: 60, 120, 300 and 600.</li>
+  </ul>
+  <p>If you publish a few AI videos a week, Blotato's allowance is far larger. If your posts start life as your own photos, clips or links, the Postiz allowances may be all you touch.</p>
+
+  <h2>Networks</h2>
+  <p>Blotato publishes to nine networks: X, LinkedIn, Facebook, Instagram, TikTok, YouTube, Threads, Bluesky and Pinterest. It reads analytics on eight of them (all but LinkedIn) and handles comments and DMs on Instagram and Facebook. Postiz lists all nine and 21 more, adding Reddit, Mastodon, Google Business Profile, Discord, Telegram, Slack, WordPress, Medium and other community and publishing destinations.</p>
+
+  <h2>API and MCP</h2>
+  <p>Both give AI agents a way in. Blotato's hosted MCP endpoint exposes 35 tools across its nine networks, and it ships official n8n and Make nodes. Every paid plan includes the API and MCP with no separate developer tier, but the trial does not: generating an API key ends the trial and starts billing, even with trial days left. Postiz includes its MCP server, CLI, public API and webhooks on every Cloud plan, and its trial includes the API, so you can wire up an agent before paying. Video clipping and some paid AI video tools unlock when billing starts.</p>
+
+  <h2>Self-hosting</h2>
+  <p>Blotato is a hosted service, and its MCP server is hosted too. Postiz can also be self-hosted under AGPL-3.0. That route has no license fee, but you run the stack yourself and get your own developer app approved by each network.</p>
+
+  <h2>Teams</h2>
+  <p>Postiz includes unlimited team members from its Team plan at $39. Blotato says it charges no seat fees, and its Agency plan is aimed at teams running several brands, but its pricing page does not describe team roles or approval steps. If several people will work in the account, test that during the trial.</p>
+
+  <h2>Bring your own AI</h2>
+  <p>Many people comparing these two already pay for Claude or ChatGPT. If that is you, ask where the writing will actually happen. An assistant connected over MCP can draft, rewrite and schedule posts in either tool, so paying again for AI writing inside the scheduler may be unnecessary. Generated media is a different question. If you want AI images and video made, voiced and posted from one place, Blotato's credits are where it earns its price.</p>
+
+  <h2>Where Blotato wins</h2>
+  <ul>
+    <li>20 accounts for $29 a month, against $49 for the Postiz plan that fits them.</li>
+    <li>Much larger AI image and video allowances, plus voiceovers, captions and viral templates.</li>
+    <li>Comment and DM handling on Instagram and Facebook.</li>
+    <li>Official n8n and Make nodes for automation builders.</li>
+  </ul>
+
+  <h2>Where Postiz wins</h2>
+  <ul>
+    <li>Thirty networks instead of nine, including communities, chats and blogs.</li>
+    <li>21 to 30 accounts for $49, against $97 on Blotato Creator.</li>
+    <li>API and MCP usable during the trial.</li>
+    <li>Unlimited team members from the $39 plan.</li>
+    <li>Open-source code with the option to self-host.</li>
+  </ul>
+
+  <h2>What to check before you switch</h2>
+  <ul>
+    <li>Estimate how many AI images and seconds of video you really make in a month, and compare that with each plan's allowance.</li>
+    <li>If you plan to connect an agent, remember Blotato bills from the moment you create an API key.</li>
+    <li>List every network you post to. Anything outside the nine big feeds rules Blotato out today.</li>
+    <li>Both trials ask for a card or payment method, so set a reminder before day seven.</li>
+  </ul>
+</CompareTool>

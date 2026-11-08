@@ -1,0 +1,164 @@
+---
+import Logo from './Logo.astro';
+import Flag from './Flag.astro';
+import { SITE, pagePath } from '../data/site';
+import { menuNetworks } from '../data/networks';
+import { LOCALES, LANGUAGES, TRANSLATED_PATHS, localeHref, localePath, splitPath, strings, type Lang } from '../i18n';
+interface Props { lang?: Lang }
+const { lang = 'en' } = Astro.props;
+const t = strings(lang);
+const h = t.header;
+const href = (path: string) => localeHref(lang, path);
+// Live networks only; networks pending approval sit behind one "more" line to /platforms.
+const channelLinks = menuNetworks(['youtube', 'bluesky', 'wordpress', 'medium', 'devto', 'slack', 'discord', 'telegram', 'twitch', 'tumblr'])
+  .filter((network) => network.available)
+  .map((network) => ({ label: network.name, href: href(`/${network.scheduler}`) }));
+const groups: { label: string; channels?: boolean; links: { label: string; href: string; description?: string; more?: boolean }[] }[] = [
+  { label: h.aiGroup, links: [
+    { label: h.agents, href: href('/agents'), description: h.agentsText },
+    { label: h.claude, href: href('/claude-cowork'), description: h.claudeText },
+    { label: h.codex, href: href('/codex'), description: h.codexText },
+    { label: h.mcp, href: href('/mcp'), description: h.mcpText },
+  ] },
+  { label: h.channelsGroup, channels: true, links: [
+    ...channelLinks,
+    { label: h.moreNetworks, href: href('/platforms'), more: true },
+  ] },
+  { label: h.resourcesGroup, links: [
+    { label: h.tools, href: '/tools', description: h.toolsText },
+    { label: h.guides, href: '/guides', description: h.guidesText },
+    { label: h.compare, href: href('/compare'), description: h.compareText },
+    { label: h.alternatives, href: href('/alternatives'), description: h.alternativesText },
+    { label: h.about, href: href('/about'), description: h.aboutText },
+    { label: h.support, href: href('/support'), description: h.supportText },
+  ] },
+];
+const path = pagePath(Astro.url);
+// The language switcher opens the same page in the other language when it is translated,
+// otherwise that language's home page. English-only pages keep their own URL in English.
+const { path: englishPath } = splitPath(path);
+const languages = LOCALES.map((code) => ({
+  code, ...LANGUAGES[code],
+  href: TRANSLATED_PATHS.has(englishPath) ? localePath(code, englishPath) : code === 'en' ? englishPath : localePath(code, '/'),
+}));
+const current = LANGUAGES[lang];
+---
+<header class="site-header">
+  <div class="header-inner">
+    <a href={href('/')} class="home-link" aria-label={t.common.homeLabel}><Logo /></a>
+    <nav class="desktop-nav" aria-label={h.mainNav}>
+      {groups.map((group, index) => (
+        <>
+          <details class:list={['nav-dropdown', { 'channels-dropdown': group.channels }]} data-nav-dropdown>
+            <summary>{group.label}<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></summary>
+            <div class="dropdown-panel">
+              {group.links.map((link) => <a href={link.href} class:list={{ 'is-more': link.more }} aria-current={path === link.href ? 'page' : undefined}><span>{link.label}</span>{link.description && <small>{link.description}</small>}</a>)}
+            </div>
+          </details>
+          {index === 0 && <a href={href('/api')} class="nav-link" aria-current={path === href('/api') ? 'page' : undefined}>{h.developers}</a>}
+        </>
+      ))}
+      <a href={href('/pricing')} class="nav-link" aria-current={path === href('/pricing') ? 'page' : undefined}>{h.pricing}</a>
+      <a href="/docs" class="nav-link" aria-current={path === '/docs' || path.startsWith('/docs/') ? 'page' : undefined}>{h.docs}</a>
+    </nav>
+    <div class="desktop-actions">
+      <div class="lang-switch" data-lang-switch>
+        <button type="button" class="lang-button" aria-expanded="false" aria-controls="lang-menu" aria-label={h.languageButton(current.name)} data-lang-button><Flag code={current.flag} /><span aria-hidden="true">{current.short}</span><svg class="lang-chevron" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></button>
+        <ul class="lang-menu" id="lang-menu" aria-label={h.language} hidden data-lang-menu>
+          {languages.map((language) => <li><a href={language.href} hreflang={language.code} lang={language.code} aria-current={language.code === lang ? 'true' : undefined}><Flag code={language.flag} /><span dir={language.dir === 'rtl' ? 'rtl' : undefined}>{language.name}</span><small aria-hidden="true">{language.short}</small></a></li>)}
+        </ul>
+      </div>
+      <a href={SITE.login} class="sign-in">{h.signIn}</a><a href={SITE.signup} class="create-account" data-pulse-goal="signup_clicked" data-pulse-goal-location="header">{t.common.ctaShort} <span aria-hidden="true">↗</span></a>
+    </div>
+    <a href={SITE.signup} class="mobile-cta" data-pulse-goal="signup_clicked" data-pulse-goal-location="header">{t.common.ctaShort}</a>
+    <details class="mobile-menu" data-mobile-menu>
+      <summary class="mobile-toggle" aria-label={h.openMenu} data-open-label={h.openMenu} data-close-label={h.closeMenu}><span class="menu-label">{h.menu}</span><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h14" /></svg></summary>
+      <div class="mobile-panel">
+        <nav aria-label={h.mobileNav}>
+          {groups.map((group, index) => <><details class="mobile-group"><summary>{group.label}<span class="mobile-plus" aria-hidden="true">+</span></summary><div>{group.links.map((link) => <a href={link.href} class:list={{ 'is-more': link.more }} aria-current={path === link.href ? 'page' : undefined}>{link.label}</a>)}</div></details>{index === 0 && <a class="mobile-direct" href={href('/api')}>{h.developers}</a>}</>)}
+          <a class="mobile-direct" href={href('/pricing')}>{h.pricing}</a>
+          <a class="mobile-direct" href="/docs" aria-current={path === '/docs' || path.startsWith('/docs/') ? 'page' : undefined}>{h.docs}</a>
+          <details class="mobile-group mobile-lang"><summary><span class="mobile-lang-label">{h.language}<span class="mobile-lang-current"><Flag code={current.flag} />{current.name}</span></span><span class="mobile-plus" aria-hidden="true">+</span></summary><div>{languages.map((language) => <a href={language.href} hreflang={language.code} lang={language.code} aria-current={language.code === lang ? 'true' : undefined}><Flag code={language.flag} /><span dir={language.dir === 'rtl' ? 'rtl' : undefined}>{language.name}</span></a>)}</div></details>
+        </nav>
+        <div class="mobile-actions"><a href={SITE.login} class="sign-in">{h.signIn}</a><a href={SITE.signup} class="create-account" data-pulse-goal="signup_clicked" data-pulse-goal-location="menu">{t.common.ctaShort} <span aria-hidden="true">↗</span></a></div>
+      </div>
+    </details>
+  </div>
+</header>
+<style>
+  .site-header{position:sticky;top:0;z-index:60;background:rgba(13,13,13,.94);border-bottom:1px solid rgba(255,255,255,.07);backdrop-filter:blur(18px)}
+  .header-inner{width:min(1160px,calc(100% - 48px));height:80px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .home-link{display:inline-flex;align-items:center;flex-shrink:0;min-height:44px}.desktop-nav{display:flex;align-items:center;gap:28px;margin-inline-start:36px}.desktop-actions{display:flex;align-items:center;gap:10px;margin-inline-start:auto;white-space:nowrap}
+  .nav-link,.nav-dropdown>summary,.sign-in{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:500;color:#d6d6d6;text-decoration:none;cursor:pointer;white-space:nowrap}.nav-link:hover,.nav-dropdown>summary:hover,.sign-in:hover,[aria-current=page]{color:#fff}.sign-in{min-height:48px;padding:0 21px;border:1px solid #777;border-radius:99px;font-size:14px}
+  summary{list-style:none}summary::-webkit-details-marker{display:none}.nav-dropdown{position:relative}.nav-dropdown>summary svg{transition:transform .2s}.nav-dropdown[open]>summary svg{transform:rotate(180deg)}.nav-dropdown:not([open])>.dropdown-panel,.mobile-menu:not([open])>.mobile-panel,.mobile-group:not([open])>div{display:none}
+  .dropdown-panel{position:absolute;top:calc(100% + 10px);inset-inline-start:-22px;display:grid;width:290px;padding:10px;background:#171717;border:1px solid #303030;border-radius:18px;box-shadow:0 18px 50px #0008;max-height:calc(100dvh - 120px);overflow:auto}.dropdown-panel a{display:flex;flex-direction:column;gap:5px;border-radius:10px;padding:12px;color:#fff;font-size:13px;font-weight:600;text-decoration:none}.dropdown-panel a:hover,.dropdown-panel a:focus-visible{background:#262626}.dropdown-panel small{font-size:11px;font-weight:400;line-height:1.5;color:var(--muted,#a6a6a6)}.channels-dropdown .dropdown-panel{width:390px;grid-template-columns:1fr 1fr}.channels-dropdown .dropdown-panel a{min-height:44px;justify-content:center}.channels-dropdown .dropdown-panel a.is-more{grid-column:1/-1;border-top:1px solid #2a2a2a;border-radius:0 0 10px 10px;color:#cfcfcf}
+  .create-account{display:inline-flex;min-height:48px;align-items:center;justify-content:center;gap:12px;border:1px solid #fff;border-radius:999px;background:#fff;color:#111;padding:0 20px;font-size:14px;font-weight:650;text-decoration:none;transition:background .15s,transform .15s}.create-account:hover{background:#dedede;border-color:#dedede;transform:translateY(-1px)}.create-account span{font-size:17px;line-height:1}
+  .mobile-menu{display:none}.mobile-cta{display:none;align-items:center;min-height:40px;margin-inline-start:auto;padding:0 15px;border-radius:999px;background:#fff;color:#111;font-size:13px;font-weight:700;white-space:nowrap;text-decoration:none}.mobile-toggle{display:flex;align-items:center;justify-content:center;gap:9px;min-width:44px;min-height:44px;padding:0 12px;border:1px solid #333;border-radius:999px;cursor:pointer}.menu-label{font-size:12px}.mobile-panel{position:fixed;top:72px;left:0;right:0;max-height:calc(100dvh - 72px);overflow:auto;overscroll-behavior:contain;background:#111;border-bottom:1px solid #333;padding:18px 24px 28px;box-shadow:0 20px 30px #0007}.mobile-group{border-bottom:1px solid #2c2c2c}.mobile-group>summary,.mobile-direct{display:flex;min-height:55px;align-items:center;justify-content:space-between;color:#fff;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer}.mobile-group>summary .mobile-plus{font-size:20px;font-weight:400}.mobile-group[open]>summary .mobile-plus{transform:rotate(45deg)}.mobile-group>div{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding-bottom:14px}.mobile-group a{display:flex;min-height:44px;align-items:center;color:#b7b7b7;font-size:13px;text-decoration:none}.mobile-group a.is-more{grid-column:1/-1}.mobile-direct{border-bottom:1px solid #2c2c2c}.mobile-actions{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:22px}.mobile-actions .create-account{flex:1;max-width:240px}
+  .lang-switch{position:relative}.lang-button{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 10px 0 11px;border:1px solid #3a3a3a;border-radius:99px;background:transparent;color:#d6d6d6;font-size:13px;font-weight:650;letter-spacing:.04em;transition:border-color .15s,color .15s}.lang-button:hover,.lang-button[aria-expanded=true]{border-color:#777;color:#fff}.lang-chevron{transition:transform .2s}.lang-button[aria-expanded=true] .lang-chevron{transform:rotate(180deg)}
+  .lang-menu{position:absolute;z-index:2;top:calc(100% + 10px);inset-inline-end:0;display:grid;gap:2px;width:212px;margin:0;padding:8px;list-style:none;background:#171717;border:1px solid #303030;border-radius:18px;box-shadow:0 18px 50px #0008}.lang-menu a{display:flex;align-items:center;gap:11px;min-height:42px;padding:0 12px;border-radius:10px;color:#e6e6e6;font-size:14px;font-weight:600;text-decoration:none}.lang-menu a:hover,.lang-menu a:focus-visible{background:#262626;color:#fff}.lang-menu small{margin-inline-start:auto;color:#8f8f8f;font-size:11px;font-weight:650;letter-spacing:.06em}.lang-menu a[aria-current]{background:#7357ff24;color:#fff}.lang-menu a[aria-current] small{color:#c8ff4d}
+  .mobile-lang-label{display:flex;align-items:center;gap:12px}.mobile-lang-current{display:inline-flex;align-items:center;gap:8px;color:#b7b7b7;font-size:13px;font-weight:500}.mobile-lang a{gap:10px}.mobile-lang a[aria-current]{color:#fff;font-weight:650}
+  :is(a,summary,button):focus-visible{outline:2px solid var(--accent,#7357ff);outline-offset:5px;border-radius:8px}
+  /* the language switcher and longer translated labels need room: compact from 1240px, menu button from 1120px */
+  @media(min-width:1241px){:global(html:not([lang=en])) .desktop-nav{gap:22px;margin-inline-start:26px}}
+  @media(max-width:1240px){.header-inner{gap:18px}.desktop-nav{gap:15px;margin-inline-start:0}.desktop-actions{gap:15px;margin-inline-start:0}.create-account{padding-inline:16px}}
+  @media(max-width:1120px){.header-inner{width:calc(100% - 40px);height:72px}.desktop-nav,.desktop-actions{display:none}.mobile-menu{display:block}}
+  @media(max-width:1120px){.header-inner{gap:10px}.mobile-cta{display:inline-flex}}
+  @media(max-width:420px){.menu-label{display:none}.mobile-toggle{padding:0 11px}.mobile-cta{padding:0 13px;font-size:12px}}
+  @media(max-width:340px){.mobile-cta{display:none}}
+  @media(prefers-reduced-motion:reduce){.create-account,.nav-dropdown>summary svg,.lang-button,.lang-chevron{transition:none}}
+</style>
+<script>
+  const dropdowns = [...document.querySelectorAll<HTMLDetailsElement>('[data-nav-dropdown]')];
+  const mobile = document.querySelector<HTMLDetailsElement>('[data-mobile-menu]');
+  const mobileToggle = mobile?.querySelector<HTMLElement>(':scope > summary');
+  const langSwitch = document.querySelector<HTMLElement>('[data-lang-switch]');
+  const langButton = langSwitch?.querySelector<HTMLButtonElement>('[data-lang-button]');
+  const langMenu = langSwitch?.querySelector<HTMLElement>('[data-lang-menu]');
+  const langLinks = [...(langMenu?.querySelectorAll<HTMLAnchorElement>('a') ?? [])];
+  const langOpen = () => langButton?.getAttribute('aria-expanded') === 'true';
+  // focus: 'current' moves focus to the current language, 'button' back to the button
+  const setLang = (open: boolean, focus?: 'current' | 'button') => {
+    if (!langButton || !langMenu) return;
+    langButton.setAttribute('aria-expanded', String(open));
+    langMenu.hidden = !open;
+    if (open) dropdowns.forEach((dropdown) => { dropdown.open = false; });
+    if (focus === 'current') (langLinks.find((link) => link.hasAttribute('aria-current')) ?? langLinks[0])?.focus();
+    if (focus === 'button') langButton.focus();
+  };
+  langButton?.addEventListener('click', () => setLang(!langOpen()));
+  langButton?.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setLang(true, 'current'); }
+  });
+  langMenu?.addEventListener('keydown', (event) => {
+    const index = langLinks.indexOf(document.activeElement as HTMLAnchorElement);
+    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: langLinks.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    langLinks[(next + langLinks.length) % langLinks.length]?.focus();
+  });
+  langSwitch?.addEventListener('focusout', (event) => {
+    if (langOpen() && !langSwitch.contains(event.relatedTarget as Node | null)) setLang(false);
+  });
+  dropdowns.forEach((dropdown) => dropdown.addEventListener('toggle', () => {
+    if (dropdown.open) {
+      dropdowns.forEach((other) => { if (other !== dropdown) other.open = false; });
+      if (langOpen()) setLang(false);
+    }
+  }));
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Node)) return;
+    dropdowns.forEach((dropdown) => { if (!dropdown.contains(event.target as Node)) dropdown.open = false; });
+    if (mobile?.open && !mobile.contains(event.target)) mobile.open = false;
+    if (langOpen() && !langSwitch?.contains(event.target)) setLang(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const openDropdown = dropdowns.find((dropdown) => dropdown.open);
+    if (openDropdown) { openDropdown.open = false; openDropdown.querySelector<HTMLElement>('summary')?.focus(); }
+    if (langOpen()) setLang(false, 'button');
+    if (mobile?.open) { mobile.open = false; mobileToggle?.focus(); }
+  });
+  mobile?.addEventListener('toggle', () => mobileToggle?.setAttribute('aria-label', (mobile.open ? mobileToggle.dataset.closeLabel : mobileToggle.dataset.openLabel) ?? ''));
+  mobile?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => { mobile.open = false; }));
+  window.matchMedia('(min-width: 1121px)').addEventListener('change', (event) => { if (event.matches && mobile) mobile.open = false; });
+</script>

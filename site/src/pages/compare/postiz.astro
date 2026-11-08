@@ -1,0 +1,40 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import AppShot from '../../components/AppShot.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+const rows = [
+  { feature: 'Monthly plans', us: PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '), them: 'Standard $29, Team $39, Pro $49, Ultimate $99' },
+  { feature: 'Yearly billing', us: `${PLANS.map((p) => `${p.name} $${p.yearly}`).join(', ')} a year, about 20% off`, them: 'About 20% off for annual billing' },
+  { feature: 'Free trial', us: `${TRIAL_DAYS} days on every plan, no credit card needed`, them: '7-day trial on every plan' },
+  { feature: 'Channels per plan', us: PLANS.map((p) => p.channels).join(' / '), them: '5 / 10 / 30 / 100' },
+  { feature: 'Team members', us: 'Team, Pro and Ultimate', them: 'Team, Pro and Ultimate' },
+  { feature: 'Networks', us: `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok and others are waiting on platform approval; X is not available`, them: '30+ networks listed on its website' },
+  { feature: 'AI approach', us: 'Bring your own: AI writing, the Agent and AI images run on your workspace’s own OpenAI API key, or your own assistant through MCP. PostDelegate never charges for AI', them: 'AI copilot on every plan, with monthly AI image, video and clipping allowances that vary by plan' },
+  { feature: 'REST API and MCP', us: 'Public REST API, MCP server and webhooks on every plan', them: 'MCP server, CLI, API and webhooks on every plan' },
+  { feature: 'Support', us: `Email support at ${SITE.email}`, them: 'Contact page and a Discord community' },
+];
+---
+<Doc title="PostDelegate vs Postiz — pricing, trial and AI compared" description="PostDelegate and Postiz side by side: plan prices, free trial, channel limits, AI approach, API and support, so you can pick the scheduler that fits your team." h1="PostDelegate vs Postiz." eyebrow="Compare" lead="Both are social media schedulers with a visual calendar, team workspaces and an API. Here is how plans, AI and support differ.">
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://postiz.com" class="button button-outline" target="_blank" rel="noreferrer">Visit Postiz</a>
+  <h2>At a glance</h2>
+  <CompareTable other="Postiz" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Postiz details are taken from postiz.com in October 2026. Check its website for current plans, limits and terms.</p>
+  <h2>Pricing and trial</h2>
+  <p>Both services have four plans with the same channel limits: 5, 10, 30 and 100 channels. PostDelegate plans cost $10 to $20 less per month at each level, from ${PLANS[0].monthly} for Starter to ${PLANS[PLANS.length - 1].monthly} for Ultimate. Every PostDelegate plan starts with a {TRIAL_DAYS}-day free trial that needs no credit card; add a card before the trial ends to keep your plan. See the <a href="/pricing">pricing page</a> for PostDelegate plan details.</p>
+  <h2>AI</h2>
+  <p>Postiz includes an AI copilot with monthly AI image, video and clipping allowances on its plans. PostDelegate takes a bring-your-own approach: an admin adds the workspace’s own OpenAI API key in Settings → AI, you pay OpenAI directly, and PostDelegate never charges for AI. You can also connect Claude, ChatGPT or a coding agent through MCP. AI video is not available in PostDelegate.</p>
+  <h2>Channels</h2>
+  <p>{AVAILABLE_NETWORKS.length} networks connect to PostDelegate today, including YouTube, Bluesky, WordPress and Slack. Instagram, Facebook, LinkedIn, TikTok and others are waiting on each network’s approval, and X is not available on PostDelegate. The <a href="/platforms">channel directory</a> shows what can be connected right now.</p>
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>How you want to pay for AI: an allowance in the plan, or your own key.</li><li>The plan price for the number of channels and people you need.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+  <p>PostDelegate is open source (AGPL-3.0). See <a href="/licenses">/licenses</a>. For Postiz against other tools, see <a href="/compare/postiz-vs-buffer">Postiz vs Buffer</a>, <a href="/compare/postiz-vs-mixpost">Postiz vs Mixpost</a>, <a href="/compare/postiz-vs-post-bridge">Postiz vs Post Bridge</a>, <a href="/compare/postiz-vs-blotato">Postiz vs Blotato</a>, <a href="/compare/postiz-vs-zernio">Postiz vs Zernio</a> and <a href="/alternatives/postiz">Postiz alternatives</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Postiz. The Postiz name belongs to its owner.</p>
+</Doc>

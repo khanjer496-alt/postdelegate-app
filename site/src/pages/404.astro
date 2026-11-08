@@ -1,0 +1,14 @@
+---
+import Doc from '../layouts/Doc.astro';
+import { SITE, CTA_LABEL, CTA_NOTE } from '../data/site';
+---
+<Doc title="Page not found — PostDelegate" description="This page isn't on the PostDelegate website. The link may be old or mistyped. Find the docs, pricing, free tools and support from here, or email us for help." h1="This page took a day off." eyebrow="Page not found" lead="The link may be old, or the address may have a typo. Here are a few good places to pick up again, or email support@postdelegate.com and we will point you to it." cta={false} noindex>
+  <a slot="actions" href="/" class="button">Back to the home page</a>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button button-outline">{CTA_LABEL}</a>
+  <div class="document-grid">
+    <a href="/docs" class="document-card"><h2>Documentation</h2><p>Guides for posts, media, channels, the REST API and MCP.</p><span>Open the docs →</span></a>
+    <a href="/platforms" class="document-card"><h2>Channels</h2><p>See which networks you can connect today and which are waiting on approval.</p><span>Explore channels →</span></a>
+    <a href={SITE.signup} data-pulse-goal="trial_clicked" class="document-card"><h2>New to PostDelegate?</h2><p>Try the calendar, composer and media library for 7 days. {CTA_NOTE}.</p><span>Start free trial →</span></a>
+    <a href={SITE.login} class="document-card"><h2>Your workspace</h2><p>Already have an account? Sign in to your calendar, drafts and media library.</p><span>Sign in →</span></a>
+  </div>
+</Doc>

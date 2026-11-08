@@ -66,17 +66,23 @@ COPY pnpm-lock.yaml /tmp/pd-pnpm-lock.yaml
 # bypass advisory (GHSA, <10.75.2). Because this repo's package.json is never
 # copied in, bumping it there alone would leave the release on 10.56.0 - so the
 # version is installed and asserted here too, or the upgrade does not ship.
+# music-metadata likewise: the pinned image carries 11.15.0, which parses
+# uploaded media with three DoS advisories (memory exhaustion in the APEv2 and
+# EBML parsers, an MP4 infinite loop; fixed in 11.16.0).
 RUN grep -qE "@aws-sdk/client-sesv2@3\.1003\.0'?:" /tmp/pd-pnpm-lock.yaml \
     && grep -qE "@sentry/nestjs@10\.78\.0'?:" /tmp/pd-pnpm-lock.yaml \
     && grep -qE "@sentry/nextjs@10\.78\.0'?:" /tmp/pd-pnpm-lock.yaml \
     && grep -qE "@sentry/profiling-node@10\.78\.0'?:" /tmp/pd-pnpm-lock.yaml \
     && grep -qE "@sentry/react@10\.78\.0'?:" /tmp/pd-pnpm-lock.yaml \
+    && grep -qE "music-metadata@11\.16\.1'?:" /tmp/pd-pnpm-lock.yaml \
     && pnpm add -w @aws-sdk/client-sesv2@3.1003.0 \
       @sentry/nestjs@10.78.0 @sentry/nextjs@10.78.0 \
       @sentry/profiling-node@10.78.0 @sentry/react@10.78.0 \
+      music-metadata@11.16.1 \
     && node -e "require.resolve('@aws-sdk/client-sesv2')" \
     && node -e "const v=require('/app/node_modules/@aws-sdk/client-sesv2/package.json').version; if (v !== '3.1003.0') { throw new Error('installed ' + v); }" \
     && node -e "for (const p of ['@sentry/nestjs','@sentry/nextjs','@sentry/profiling-node','@sentry/react']) { const v = require('/app/node_modules/' + p + '/package.json').version; if (v !== '10.78.0') { throw new Error(p + ' installed ' + v); } }" \
+    && node -e "const v=require('/app/node_modules/music-metadata/package.json').version; if (v !== '11.16.1') { throw new Error('music-metadata installed ' + v); }" \
     && rm -rf "$(pnpm store path)" /tmp/pd-pnpm-lock.yaml \
     && node -e "require.resolve('@aws-sdk/client-sesv2')"
 

@@ -1,0 +1,87 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import AppShot from '../../components/AppShot.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, tieredMonthly, formatDate } from '../../data/tools';
+const [starter, team, pro] = PLANS;
+const available = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+// Buffer prices come from src/data/tools/buffer.json (monthly billing, re-checked every 90 days).
+const buffer = tool('buffer');
+const [essentialsRate, teamRate] = [buffer.perChannel!.tiers.essentials[0][1], buffer.perChannel!.tiers.team[0][1]];
+const cost = (plan: 'essentials' | 'team', channels: number) => tieredMonthly(buffer, plan, channels);
+const rows = [
+  { feature: 'Pricing model', us: 'A flat monthly price per plan, with a set number of channels', them: 'Paid plans are priced per channel' },
+  { feature: 'Monthly plans', us: PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '), them: `Free, Essentials $${essentialsRate} per channel, Team $${teamRate} per channel (monthly billing; channels above 10 cost less)` },
+  { feature: 'Free plan or trial', us: `A ${TRIAL_DAYS}-day free trial on every plan, no credit card needed, then paid plans`, them: 'Free plan for up to 3 channels and 10 scheduled posts per channel; 14-day trial of paid plans' },
+  { feature: '10 channels with a team', us: `${team.name}, $${team.monthly} a month`, them: `Team, $${cost('team', 10)} a month at $${teamRate} per channel` },
+  { feature: 'Team and approvals', us: 'Team members on Team, Pro and Ultimate; post statuses, client approval links that need no account, and an AI review inbox', them: 'Unlimited users and approval workflows on Team; Free and Essentials are for one user' },
+  { feature: 'Networks', us: `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval; X is not available`, them: '12 listed, including Instagram, Facebook, TikTok, LinkedIn, X, YouTube, Threads, Pinterest, Bluesky and Mastodon' },
+  { feature: 'AI approach', us: 'Bring your own: AI writing, the Agent and AI images run on your workspace’s own OpenAI API key. PostDelegate never charges for AI', them: 'AI Assistant included on every plan' },
+  { feature: 'API and MCP', us: 'Public REST API, webhooks and an MCP server on every plan', them: 'API keys on every plan with monthly request limits; an MCP connection for Claude and ChatGPT' },
+  { feature: 'Analytics', us: 'Daily history, plus a view of its own for each network that shares statistics — today YouTube, read live rather than stored, and Google Business Profile; neither feeds trends, top posts or insights yet', them: '30-day history on Free; unlimited history and reports on paid plans; branded reports on Team' },
+];
+const faq = [
+  { q: 'Is PostDelegate cheaper than Buffer?', a: `For five or more channels, usually. Buffer charges per channel, so five channels on Essentials cost $${cost('essentials', 5)} a month and ten channels on Team cost $${cost('team', 10)} a month on monthly billing. PostDelegate ${starter.name} is $${starter.monthly} for 5 channels and ${team.name} is $${team.monthly} for 10 channels with team members. For one to three channels, Buffer’s free plan or Essentials costs less.` },
+  { q: 'Can PostDelegate post to Instagram, Facebook or LinkedIn like Buffer?', a: `Not yet. Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval, and X is not available on PostDelegate. Today you can connect ${available}.` },
+  { q: 'Can I use PostDelegate for free like Buffer?', a: `For ${TRIAL_DAYS} days. Every PostDelegate plan starts with a ${TRIAL_DAYS}-day free trial that needs no credit card, and after that PostDelegate is paid. Add a card before the trial ends to keep your plan.` },
+  { q: 'How does AI differ between PostDelegate and Buffer?', a: 'Buffer includes its AI Assistant on every plan. PostDelegate runs AI writing, the Agent and AI images on your workspace’s own OpenAI API key, so you pay OpenAI directly and PostDelegate never charges for AI.' },
+  { q: 'Can Claude or ChatGPT schedule posts in PostDelegate?', a: 'Yes. The PostDelegate MCP server lets Claude, ChatGPT, Cursor, Claude Code and other MCP clients draft and schedule posts, on every plan. Drafts from an assistant can wait in the AI review inbox until a person approves them.' },
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Buffer', item: `${SITE.url}/compare/buffer` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Buffer alternative: PostDelegate vs Buffer compared" description="PostDelegate vs Buffer: flat plans or per-channel pricing, free trial, AI approach, approvals, API and MCP, and the networks each connects today." h1="PostDelegate vs Buffer." eyebrow="Compare" lead="Buffer charges per channel. PostDelegate charges a flat price for a set of channels. Here is how pricing, AI, approvals and networks compare, including where Buffer is the better pick today." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://buffer.com" class="button button-outline" target="_blank" rel="noreferrer">Visit Buffer</a>
+  <h2>At a glance</h2>
+  <CompareTable other="Buffer" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Buffer prices checked on {formatDate(buffer.checked)}, monthly billing, USD, from <a href={buffer.pricingUrl} target="_blank" rel="noopener">buffer.com/pricing</a>.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>The two services price in different ways. Buffer’s paid plans cost a fixed amount for each channel you connect. On monthly billing that is ${essentialsRate} a month per channel on Essentials and ${teamRate} on Team for the first ten channels, with lower rates after that. PostDelegate plans cost a flat amount for a bundle of channels, from ${starter.monthly} a month for {starter.channels} channels on {starter.name} to ${pro.monthly} a month for {pro.channels} channels on {pro.name}.</p>
+  <p>That difference grows with the number of channels. Five channels on Buffer Essentials come to ${cost('essentials', 5)} a month, against ${starter.monthly} on PostDelegate {starter.name}. Ten channels with a team come to ${cost('team', 10)} a month on Buffer Team, against ${team.monthly} on PostDelegate {team.name}. Thirty channels on Buffer Team come to ${cost('team', 30)} a month with its lower rates past the tenth channel. PostDelegate {pro.name} covers {pro.channels} channels for ${pro.monthly}.</p>
+  <p>For a very small setup the sums go the other way. Buffer has a free plan for up to three channels with ten scheduled posts per channel, and three channels on Essentials cost ${cost('essentials', 3)} a month. PostDelegate is a paid service. Every plan starts with a {TRIAL_DAYS}-day free trial that needs no credit card, and you add a card before the trial ends to keep your plan. Buffer offers a 14-day trial of its paid plans and moves you to the free plan if you do not upgrade. PostDelegate yearly billing costs about 20% less than paying monthly; see the <a href="/pricing">pricing page</a> for the yearly prices.</p>
+
+  <h2>AI</h2>
+  <p>Buffer includes its AI Assistant on every plan, for drafting, refining and repurposing posts. PostDelegate takes a bring-your-own approach. An admin adds the workspace’s own OpenAI API key in Settings, and AI writing, the Agent and AI images then run on that key. You pay OpenAI directly for what you use, and PostDelegate never charges for AI.</p>
+  <p>You can also bring the assistant you already use. The PostDelegate <a href="/mcp">MCP server</a> lets Claude, ChatGPT, Cursor, Claude Code and other MCP clients look at your channels, draft posts and schedule them. Posts drafted this way can wait in the AI review inbox until someone on the team approves them, so an assistant never has the last word. Buffer also offers an MCP connection for Claude and ChatGPT, so the question is less whether an agent can reach your calendar and more how its drafts are reviewed. If you would rather not manage an API key at all, Buffer’s built-in assistant is the simpler route.</p>
+
+  <h2>Teams and approvals</h2>
+  <p>On Buffer, more than one user and approval workflows come with the Team plan, which is priced per channel. On PostDelegate, team members come with {team.name}, {pro.name} and Ultimate. Posts carry statuses, clients can approve a post from a link without creating an account, and drafts from AI assistants arrive in a review inbox. PostDelegate also has campaigns, an ideas board, evergreen posts that recycle on a schedule, bulk CSV import and a media library that takes uploads up to 1 GB.</p>
+
+  <h2>Channels</h2>
+  <p>This is the biggest difference today. Buffer lists twelve networks, including Instagram, Facebook, TikTok, LinkedIn, X, YouTube, Threads, Pinterest, Google Business Profile, Bluesky, Mastodon and Substack. PostDelegate connects {AVAILABLE_NETWORKS.length} networks today: {available}. Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval and cannot be connected yet. X is not available on PostDelegate.</p>
+  <p>The networks both services can reach today are YouTube, Bluesky, Mastodon and Google Business Profile. PostDelegate also publishes to blogs and developer communities such as WordPress, Medium, DEV.to and Hashnode, to community chats on Slack, Discord and Telegram, and to email through Listmonk. The <a href="/platforms">channel directory</a> shows exactly what can be connected right now.</p>
+
+  <h2>Where Buffer is the better pick today</h2>
+  <ul>
+    <li>You need to publish to Instagram, Facebook, LinkedIn, TikTok, X, Threads or Pinterest today.</li>
+    <li>You manage one to three channels and want a free plan rather than a trial.</li>
+    <li>You want AI included in the plan without adding an API key of your own.</li>
+  </ul>
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>You run five or more channels and want a flat price that does not rise with every channel.</li>
+    <li>You work with clients who approve posts from a link, without an account.</li>
+    <li>You want Claude, ChatGPT or a coding agent to draft and schedule posts, with a person approving them first.</li>
+    <li>You publish to YouTube, Bluesky, blogs, developer communities, community chats on Slack, Discord or Telegram, or a newsletter.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+  <p>See also <a href="/alternatives">all comparisons</a>, including <a href="/compare/hootsuite">Hootsuite</a>, <a href="/compare/later">Later</a>, <a href="/compare/sprout-social">Sprout Social</a> and <a href="/compare/publer">Publer</a>. For Buffer against other tools, see <a href="/compare/publer-vs-buffer">Publer vs Buffer</a> and <a href="/compare/postiz-vs-buffer">Postiz vs Buffer</a>. PostDelegate is open source (AGPL-3.0). See <a href="/licenses">/licenses</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Buffer. The Buffer name belongs to its owner.</p>
+</Doc>

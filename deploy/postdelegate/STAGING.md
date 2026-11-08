@@ -72,7 +72,7 @@ A cleaner long-term fix is to stop setting `NEXT_PUBLIC_BACKEND_URL` at image bu
 | --- | --- | --- |
 | URLs | `MAIN_URL`, `FRONTEND_URL` = `https://staging.postdelegate.com`; `NEXT_PUBLIC_BACKEND_URL` = `.../api` | Production does not set `BACKEND_URL`, so staging doesn't either. |
 | Social providers | Every client ID and secret is absent, including `TELEGRAM_TOKEN` | You can't connect channels, so nothing is published. A shared Telegram bot token would also take updates away from production. |
-| Billing | No `STRIPE_*` | Billing is off, and Postiz treats every organization as fully paid (`ULTIMATE` tier). Checkout, the billing portal, trials and plan limits can't be tested here. |
+| Billing | Stripe **test mode** only (`sk_test_`/`pk_test_`), see "Stripe test mode" below | Checkout, the billing portal, trials, plan limits and webhooks run against Stripe test mode with test cards. Without the keys, billing is off and every organization is treated as fully paid (`ULTIMATE`). |
 | Email | No `EMAIL_PROVIDER` or `RESEND_API_KEY` | No mail is sent. LOCAL signups are activated immediately. Password reset, invitations, digests and notification emails can't be tested here. |
 | Email cron jobs | `WEEKLY_SUMMARY_DISABLED`, `TRIAL_ONBOARDING_EMAILS_DISABLED`, `ANALYTICS_REPORTS_DISABLED` = `true` | A second safety layer on top of having no email provider. |
 | Cron | `RUN_CRON=true` | The missing-post, weekly-summary and trial-onboarding workflows run, as in production. With no channels and no email provider, they do nothing external. |
@@ -192,3 +192,28 @@ curl -s -o /dev/null -w '%{http_code}\n' https://staging.postdelegate.com/api/pu
 curl -s -o /dev/null -w '%{http_code}\n' --user-agent 'PostDelegate-operations-verification/1.0' https://app.postdelegate.com/auth/login   # 200
 free -m                                                               # keep more than about 1.5 GB available
 ```
+
+## Stripe test mode
+
+Staging uses the same Stripe account as production, in **test mode**, so no real card is ever charged. Live keys must never go into `staging.env`.
+
+1. The owner copies the test keys from the Stripe Dashboard (toggle **Test mode**, Developers → API keys) and installs them without them appearing anywhere:
+
+   ```sh
+   deploy/postdelegate/set-secret.sh STRIPE_SECRET_KEY /etc/postiz/staging.env       # sk_test_...
+   deploy/postdelegate/set-secret.sh STRIPE_PUBLISHABLE_KEY /etc/postiz/staging.env  # pk_test_...
+   ```
+
+2. On the server, create the test prices (same `lookup_key`s and amounts as production), the staging webhook endpoint and the portal configuration, then install the two values the script writes:
+
+   ```sh
+   sudo mkdir -m 700 -p /root/stripe-out
+   sudo docker run --rm --env-file /etc/postiz/staging.env \
+     -v /opt/postiz/builds/<rev>/deploy/postdelegate/staging/stripe-test-setup.js:/setup.js:ro \
+     -v /root/stripe-out:/out -e NODE_PATH=/app/node_modules \
+     --entrypoint node postdelegate-postiz:release-<rev> /setup.js /out
+   ```
+
+   Then append `STRIPE_SIGNING_KEY` and `STRIPE_PORTAL_CONFIGURATION` from `/root/stripe-out` to `/etc/postiz/staging.env` (root, never echoed), delete `/root/stripe-out`, and `sudo postiz-staging-compose up -d --force-recreate app`.
+
+The script refuses a non-`sk_test_` key and a non-staging `FRONTEND_URL`. Test cards: `4242 4242 4242 4242` (success), `4000 0000 0000 0341` (attaches, then fails on charge — for failed renewals). Stripe's test clocks advance a subscription through trial end and renewals.

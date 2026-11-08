@@ -1,0 +1,136 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro] = PLANS;
+// Vista Social facts come from src/data/tools/vista-social.json, re-read on the vendor's own site.
+const them = tool('vista-social');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Flat tiers bundling profiles and users; extra profiles and users are customisable on the top plans only, with no published price"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Professional $99 (15 profiles, 2 users), Advanced $199 (30, 3), Scale $449 (70, 4), Enterprise quoted"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "No free plan; a 14-day trial with no card"
+  },
+  {
+    "feature": "10 channels",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "Professional, $99 a month — 15 profiles are included, so ten cost the same as fifteen"
+  },
+  {
+    "feature": "30 channels",
+    "us": `${pro.name}, $${pro.monthly} a month`,
+    "them": "Advanced, $199 a month, which includes exactly 30"
+  },
+  {
+    "feature": "X",
+    "us": "Not available on PostDelegate at all",
+    "them": "A $29 a month add-on on top of the plan, not included in any tier"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "Metered by credits: 1,000 a month on Professional, 2,000 on Advanced, 3,500 on Scale, unlimited on Enterprise"
+  },
+  {
+    "feature": "Reviews and listening",
+    "us": "Neither; PostDelegate is a publishing tool",
+    "them": "Review management across the app stores, TripAdvisor, Trustpilot and Yelp, plus listening as a $75 a month add-on"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "An MCP server on all paid plans with a wide tool set. The REST API is Enterprise or a paid add-on whose price is not published"
+  }
+];
+const faq = [
+  {
+    "q": "Is PostDelegate cheaper than Vista Social?",
+    "a": `Substantially, at every size. Ten channels are $${team.monthly} a month here against $99 there, and thirty are $${pro.monthly} against $199. Vista Social has no tier below $99, so a handful of accounts costs the same as fifteen. What you get for the difference is review management, listening, a larger AI allowance and a more mature set of integrations.`
+  },
+  {
+    "q": "Does Vista Social include X?",
+    "a": "No. X is a $29 a month add-on on top of whichever plan you are on, which is easy to miss when comparing headline prices. PostDelegate does not support X at all, so if X matters, Vista Social can do it and we cannot."
+  },
+  {
+    "q": "Whose MCP server is better?",
+    "a": "Vista Social's is the more featured of the two: it is on all paid plans and exposes a broad tool set across scheduling, analytics, inbox, ideas, media and reporting, following each user's own role permissions. PostDelegate's is on every plan, publishes and schedules, and pairs with an AI review inbox that holds assistant-written drafts for a person to approve. If you want an assistant that reads your analytics and inbox, theirs reaches further."
+  },
+  {
+    "q": "How does AI billing differ?",
+    "a": "Vista Social meters AI by credits: a thousand a month on Professional, rising to unlimited on Enterprise. PostDelegate does not meter AI at all because it does not supply it — the AI runs on your own OpenAI key, you pay OpenAI for what you use, and PostDelegate never charges for it."
+  },
+  {
+    "q": "Can I get a public API on the cheaper Vista Social plans?",
+    "a": "Not without arranging it. Their help centre says the API is included with Enterprise or with an API add-on, and that other plans should talk to their customer success manager; the add-on price is not published. PostDelegate's REST API and webhooks are on every plan."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Vista Social', item: `${SITE.url}/compare/vista-social` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Vista Social alternative: PostDelegate vs Vista Social compared" description="PostDelegate vs Vista Social: flat channel plans against bundled tiers, AI credits or your own key, two MCP servers compared, and the X surcharge." h1="PostDelegate vs Vista Social." eyebrow="Compare" lead="Vista Social bundles a lot into each tier and ships one of the more capable MCP servers in this category. PostDelegate is cheaper and runs AI on your own key. Here is where each one wins." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Vista Social</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Vista Social" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Vista Social prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Pricing and the floor</h2>
+  <p>Vista Social has no small plan. Professional at $99 a month on monthly billing is the entry point and it bundles fifteen social profiles and two users, so three accounts and fifteen accounts cost the same. Advanced is $199 for thirty profiles and three users, Scale $449 for seventy and four. Extra profiles and users are listed as customisable on the top two plans only, with no price published, so there is no documented way to add a sixteenth profile to Professional.</p>
+  <p>PostDelegate starts at ${starter.monthly} for five channels and reaches thirty at ${pro.monthly}. Against Vista Social's thirty-profile tier at $199, that is the headline difference. Two adjustments make the comparison fair in both directions: Vista Social's prices above are the monthly-billing figures, since its toggle opens on yearly where the same plans work out at $79, $159 and $359 a month; and X is a $29 a month add-on there rather than part of any plan.</p>
+  
+  <h2>What the extra money buys</h2>
+  <p>A fair comparison has to say what $99 includes that ${team.monthly} does not. Vista Social is a management suite: engagement with DM automations, review management across the Apple and Google app stores, OpenTable, TripAdvisor, Trustpilot and Yelp, listening as a $75 add-on, employee advocacy as a $199 add-on, a link-in-bio tool, and reporting built for client delivery. PostDelegate has none of those. It publishes, it approves, and it reports on the networks that share statistics — today YouTube and Google Business Profile.</p>
+  <p>For a business whose reputation lives in reviews, or an agency delivering branded reports, that list is the product and the price difference is not really a price difference at all.</p>
+  
+  <h2>Two MCP servers, compared honestly</h2>
+  <p>Vista Social ships one of the better MCP servers in this category and it deserves saying plainly: it is included on all paid plans, it exposes a wide tool set across scheduling, analytics, inbox, ideas, media and reporting, and access follows the signed-in user's own role permissions rather than a blanket token. If your goal is an assistant that can answer questions about your social performance, theirs reaches further than ours.</p>
+  <p>PostDelegate's MCP server is on every plan, publishes and schedules, and is paired with a review inbox so that drafts an assistant creates can wait for a person. Our bet is narrower: that the valuable thing for an agent to do is put the right post in the calendar at the right time, under supervision. Both are reasonable bets, and this is the one comparison on the page where the cheaper tool is not obviously the more capable one.</p>
+  <p>The REST API is the reverse of the MCP story. Vista Social's is Enterprise-only or a paid add-on with no published price; PostDelegate's is on every plan, with webhooks.</p>
+
+  <h2>Where Vista Social is the better pick</h2>
+  <ul>
+    <li>You need X: it is a $29 add-on there and not available here at all.</li>
+    <li>Reviews are part of your job — the app stores, TripAdvisor, Trustpilot and Yelp in one place.</li>
+    <li>You want an assistant that can read analytics, the inbox and reporting over MCP, not only schedule.</li>
+    <li>You want listening, DM automations or employee advocacy alongside publishing.</li>
+    <li>You publish to Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest or Snapchat today.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Thirty channels for ${pro.monthly} a month against $199, when you do not need the suite around it.</li>
+    <li>You would rather pay OpenAI directly for AI than buy a monthly credit allowance.</li>
+    <li>You want a REST API and webhooks on the cheapest plan rather than on Enterprise.</li>
+    <li>You publish to Bluesky, Mastodon, blogs, developer communities or community chats.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Vista Social. The Vista Social name belongs to its owner.</p>
+</Doc>

@@ -1,0 +1,82 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import AppShot from '../../components/AppShot.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+const [starter, team, pro] = PLANS;
+const available = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+const perMonth = (yearly: number) => (yearly / 12).toFixed(0);
+const rows = [
+  { feature: 'Plans', us: PLANS.map((p) => `${p.name} $${p.monthly}`).join(', ') + ' a month', them: 'Starter $18.75, Growth $37.50, Scale $82.50 a month, billed yearly, as listed with a yearly promotion' },
+  { feature: 'Yearly billing', us: `${PLANS.map((p) => `${p.name} $${p.yearly}`).join(', ')} a year, about 20% off`, them: 'Prices are shown billed yearly; monthly-billing prices are not listed on the pricing page' },
+  { feature: 'Free trial', us: `${TRIAL_DAYS} days on every plan, no credit card needed`, them: '14-day free trial; no free plan listed' },
+  { feature: 'Channels', us: `${PLANS.map((p) => p.channels).join(' / ')} channels, any mix of networks`, them: 'Social sets of one profile per platform: 1 set (8 profiles), 2 sets (16) or 6 sets (48)' },
+  { feature: 'Posts', us: 'Unlimited posts per month', them: '30 per profile on Starter, 180 on Growth, unlimited on Scale' },
+  { feature: 'Users', us: 'Just you on Starter; team members on Team, Pro and Ultimate', them: '1 user on Starter, 2 on Growth, 4 on Scale; extra users on Growth and Scale for a fee' },
+  { feature: 'Networks', us: `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval`, them: 'Instagram, Facebook, TikTok, Threads, YouTube, Pinterest, LinkedIn and Snapchat' },
+  { feature: 'AI approach', us: 'Bring your own: AI writing, the Agent and AI images run on your workspace’s own OpenAI API key. PostDelegate never charges for AI', them: 'Monthly AI credits: 5 on Starter, 50 on Growth, 100 on Scale; more credits for a fee' },
+  { feature: 'API and MCP', us: 'Public REST API, webhooks and an MCP server on every plan', them: 'Not listed on its pricing page' },
+];
+const faq = [
+  { q: 'Is PostDelegate cheaper than Later?', a: `It depends on what you count. Later Starter is listed at $18.75 a month billed yearly for one user, one profile per platform and 30 posts per profile. PostDelegate ${starter.name} is $${starter.monthly} a month, or about $${perMonth(starter.yearly)} a month billed yearly, for ${starter.channels} channels with unlimited posts. ${team.name} at $${team.monthly} adds team members, where Later limits users by plan.` },
+  { q: 'Can PostDelegate schedule Instagram and TikTok like Later?', a: `Not yet. Instagram, TikTok, Facebook, LinkedIn, Threads and Pinterest are waiting on platform approval. Today you can connect ${available}. If Instagram or TikTok is your main channel, Later is the better choice for now.` },
+  { q: 'How does AI differ between PostDelegate and Later?', a: 'Later includes a monthly allowance of AI credits that varies by plan. PostDelegate runs AI writing, the Agent and AI images on your workspace’s own OpenAI API key, with no allowance and no AI charge from PostDelegate. You can also connect Claude, ChatGPT or another assistant through MCP.' },
+  { q: 'Does PostDelegate have a free trial?', a: `Yes. Every plan starts with a ${TRIAL_DAYS}-day free trial that needs no credit card. Add a card before the trial ends to keep your plan.` },
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Later', item: `${SITE.url}/compare/later` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Later alternative: PostDelegate vs Later, pricing and AI" description="PostDelegate vs Later: plan prices, free trial, profile and post limits, users, AI credits or your own key, API and MCP, and the networks each connects today." h1="PostDelegate vs Later." eyebrow="Compare" lead="Later is built around visual planning for Instagram, TikTok and other image-led networks. PostDelegate is a calendar for many kinds of channels, with flat plans. Here is how they compare, including where Later is the better pick today." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://later.com" class="button button-outline" target="_blank" rel="noreferrer">Visit Later</a>
+  <h2>At a glance</h2>
+  <CompareTable other="Later" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Later details are taken from later.com in October 2026. Its prices were shown with a yearly-billing promotion at the time. Check its website for current plans, limits and terms.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>Later lists three plans, billed yearly: Starter at $18.75 a month, Growth at $37.50 and Scale at $82.50. Each plan is built from social sets, where a set is one profile on each supported platform, so it suits one brand per set. Starter has one set, one user and a limit of 30 posts per profile. Growth has two sets, two users and 180 posts per profile. Scale has six sets, four users and no post limit.</p>
+  <p>PostDelegate plans count channels instead of sets, and any mix of networks counts towards the total. {starter.name} is ${starter.monthly} a month for {starter.channels} channels, {team.name} ${team.monthly} for {team.channels} channels with team members, and {pro.name} ${pro.monthly} for {pro.channels} channels. Yearly billing brings {starter.name} to about ${perMonth(starter.yearly)} a month and {team.name} to about ${perMonth(team.yearly)}. Every plan includes unlimited posts per month, and team plans are not priced per person.</p>
+  <p>Later offers a 14-day free trial and does not list a free plan. PostDelegate has a {TRIAL_DAYS}-day free trial on every plan that needs no credit card. Add a card before the trial ends to keep your plan. See the <a href="/pricing">pricing page</a> for the full plan details.</p>
+
+  <h2>AI</h2>
+  <p>Later includes AI for captions and content, metered in credits: 5 a month on Starter, 50 on Growth and 100 on Scale, with more available for a fee. PostDelegate takes a different approach. An admin adds the workspace’s own OpenAI API key, and AI writing, the Agent and AI images run on that key. You pay OpenAI directly for what you use, there is no monthly allowance to run out of, and PostDelegate never charges for AI.</p>
+  <p>PostDelegate also has an <a href="/mcp">MCP server</a> on every plan, so Claude, ChatGPT, Cursor, Claude Code and other MCP clients can draft and schedule posts. Assistant drafts can wait in the AI review inbox until a person approves them. A public REST API and webhooks are included too. Later does not list an API or MCP access on its pricing page.</p>
+
+  <h2>Channels</h2>
+  <p>This is where the two differ most today. Later supports Instagram, Facebook, TikTok, Threads, YouTube, Pinterest, LinkedIn and Snapchat. PostDelegate connects {AVAILABLE_NETWORKS.length} networks today: {available}. Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval and cannot be connected yet.</p>
+  <p>The only network on Later’s list that PostDelegate connects today is YouTube. PostDelegate’s current strength is elsewhere: video on YouTube, conversation on Bluesky, long-form writing on WordPress, Medium, DEV.to and Hashnode, community posts on Lemmy and Tumblr, team and community updates on Slack, Discord or Telegram, and newsletters through Listmonk. The <a href="/platforms">channel directory</a> shows what can be connected right now.</p>
+
+  <h2>Workflow</h2>
+  <p>Later also offers a link-in-bio page and an influencer marketing platform, which PostDelegate does not. PostDelegate puts its weight on the publishing workflow: a shared calendar, post statuses, client approval links that need no account, an AI review inbox, campaigns and an ideas board, evergreen posts that recycle on a schedule, bulk CSV import, a media library with uploads up to 1 GB, and analytics that keep daily history for the networks that share statistics — today YouTube, read live rather than stored, and Google Business Profile; neither feeds trends, top posts or insights yet.</p>
+
+  <h2>Where Later is the better pick today</h2>
+  <ul>
+    <li>Instagram, TikTok, Pinterest or Snapchat is your main channel.</li>
+    <li>You want a link-in-bio page or influencer marketing alongside scheduling.</li>
+    <li>You want AI included in the plan rather than on your own API key.</li>
+  </ul>
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>You publish to YouTube, Bluesky, blogs, developer communities, community chats on Slack, Discord or Telegram, or a newsletter.</li>
+    <li>You post often and do not want a per-profile post cap.</li>
+    <li>You work in a team or with clients who need to approve posts from a link.</li>
+    <li>You want Claude, ChatGPT or a coding agent to draft posts, with a person approving them first.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>How many posts a month you publish per profile.</li><li>How many people need access, and what each extra person costs.</li><li>How you want to pay for AI: credits in the plan, or your own key.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+  <p>See also <a href="/alternatives">all comparisons</a>, including <a href="/compare/buffer">Buffer</a>, <a href="/compare/hootsuite">Hootsuite</a>, <a href="/compare/sprout-social">Sprout Social</a> and <a href="/compare/publer">Publer</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Later. The Later name belongs to its owner.</p>
+</Doc>

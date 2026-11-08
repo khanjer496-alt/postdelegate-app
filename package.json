@@ -193,7 +193,7 @@
     "mime": "^3.0.0",
     "mime-types": "^2.1.35",
     "multer": "^2.5.0",
-    "music-metadata": "^11.15.0",
+    "music-metadata": "^11.16.1",
     "nestjs-command": "^3.1.4",
     "nestjs-real-ip": "^3.0.1",
     "nestjs-temporal-core": "^3.2.0",

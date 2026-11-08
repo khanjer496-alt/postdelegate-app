@@ -1,0 +1,20 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import AppShot from '../../components/AppShot.astro';
+---
+<Doc title="PostDelegate and Post Bridge — choosing a publishing workflow" description="A high-level look at PostDelegate and Post Bridge, with practical questions about channels, team workflow and automation to help you choose a scheduler." h1="Two ways to organize your social publishing." eyebrow="PostDelegate and Post Bridge" lead="The right choice depends on your channels and how you prefer to work.">
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://www.post-bridge.com/" class="button button-outline" target="_blank" rel="noreferrer">Visit Post Bridge</a>
+  <h2>PostDelegate</h2>
+  <p>PostDelegate is an early-access social media scheduler. It brings a calendar, composer and media library together while more channel connections and hosted integrations are rolled out.</p>
+  <h2>Post Bridge</h2>
+  <p>Post Bridge presents its product as a shared dashboard for a person marketing a business. Its public website describes cross-posting, scheduling and content management, with API and agent connection options. Check its own site for current availability and terms.</p>
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <h2>Make the comparison with your content</h2>
+  <ul><li>Can you connect the exact account types you manage?</li><li>Can you preview the text and media format you need?</li><li>Does the workflow fit the people who write and review your posts?</li><li>Are the automation access and support arrangements right for you?</li></ul>
+  <p>Use each service’s current website and try a representative post before choosing a workflow. PostDelegate is independently operated and is not affiliated with Post Bridge. For prices and limits side by side, see <a href="/compare/postiz-vs-post-bridge">Postiz vs Post Bridge</a>. PostDelegate is open source (AGPL-3.0). See <a href="/licenses">/licenses</a>.</p>
+</Doc>

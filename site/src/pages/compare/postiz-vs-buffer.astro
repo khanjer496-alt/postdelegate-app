@@ -1,0 +1,82 @@
+---
+import CompareTool from '../../components/CompareTool.astro';
+const faq = [
+  { q: 'Is Postiz free?', a: 'The code is. Postiz is open source under AGPL-3.0, so you can run it on your own server without paying a license fee; you pay for the server and do the upkeep. Postiz Cloud has no free plan: it starts at $29 a month after a 7-day trial, and the trial asks for a payment method.' },
+  { q: 'Does Buffer have a free plan?', a: 'Yes. Buffer Free connects up to 3 channels for one user, with 10 scheduled posts per channel at a time. Paid plans start with a 14-day trial.' },
+  { q: 'Which is cheaper for 10 accounts?', a: 'Postiz. Ten channels fit the Postiz Team plan at $39 a month with unlimited team members. On Buffer, ten channels cost $60 a month on Essentials (one user) or $120 on Team, on monthly billing.' },
+  { q: 'Can Claude or ChatGPT post through Postiz or Buffer?', a: 'Both have an MCP server. Buffer includes it on every plan, Free included, and posts from an assistant land in your Buffer queue. Postiz includes its MCP server, CLI and API on every Cloud plan.' },
+  { q: 'Do I need a server to use Postiz?', a: 'Only if you self-host. Postiz Cloud runs it for you. Self-hosting means running the Docker Compose stack (the app, PostgreSQL, Redis and Temporal) and registering your own developer app with each social network.' },
+  { q: 'What does AGPL mean for me as a user?', a: 'Very little if you just use Postiz. AGPL-3.0 lets anyone run, study and change the code. The main duty kicks in if you change it and let other people use your changed version over a network: you then have to offer them your source code. This is a plain summary, not legal advice.' },
+];
+const links = [
+  { href: '/alternatives/postiz', label: 'Postiz alternatives' },
+  { href: '/compare/postiz-vs-mixpost', label: 'Postiz vs Mixpost' },
+  { href: '/compare/postiz-vs-post-bridge', label: 'Postiz vs Post Bridge' },
+  { href: '/compare/publer-vs-buffer', label: 'Publer vs Buffer' },
+  { href: '/compare/postiz', label: 'PostDelegate vs Postiz' },
+  { href: '/compare/buffer', label: 'PostDelegate vs Buffer' },
+  { href: '/alternatives', label: 'All scheduler alternatives' },
+  { href: '/pricing', label: 'PostDelegate pricing' },
+  { href: '/mcp', label: 'PostDelegate MCP server' },
+  { href: '/youtube-scheduler', label: 'YouTube scheduler' },
+  { href: '/bluesky-scheduler', label: 'Bluesky scheduler' },
+  { href: '/guides/social-media-mcp-server', label: 'What a social media MCP server does' },
+];
+---
+<CompareTool
+  a="postiz" b="buffer" published="2026-11-02"
+  title="Postiz vs Buffer (2026): Price, Networks, AI and MCP"
+  description="Postiz vs Buffer compared on pricing at 3, 10 and 30 accounts, networks, self-hosting, API and MCP. Prices checked on each vendor's own pricing page."
+  h1="Postiz vs Buffer: which scheduler fits how you post?"
+  shortAnswer="Pick Buffer if you run one to three channels and want a free plan. Pick Postiz if you manage ten or more channels, want team members without per-channel fees, or want open-source code you can self-host. At 10 channels, Postiz Team costs $39 a month; Buffer costs $60 (Essentials) or $120 (Team)."
+  costIntro="The two price in opposite ways. Buffer charges for every channel, with a lower rate past the tenth. Postiz sells a fixed number of channels per plan. So Buffer is cheaper for a handful of channels and Postiz pulls ahead as the count grows."
+  fitIntro="PostDelegate is a hosted, open-source service run by Nasida Apps LLC. Each plan costs $10 to $20 a month less than the matching Postiz Cloud plan, and the trial needs no card. The trade-off today is reach: Instagram, Facebook, Threads, TikTok, LinkedIn and Pinterest are still waiting for platform approval, and X is not available."
+  faq={faq} links={links}
+>
+  <h2>Networks</h2>
+  <p>Both cover the networks most people start with: Instagram, Facebook, LinkedIn, TikTok, X, YouTube, Threads, Pinterest, Bluesky, Mastodon and Google Business Profile. Buffer lists 12 networks in total, and Substack is one Postiz does not list. Postiz lists 30, and most of the extra ones are community and publishing destinations: Reddit, Discord, Telegram, Slack, Twitch, Kick, Lemmy, Nostr, WordPress, Medium, Hashnode, DEV.to and Listmonk newsletters, among others.</p>
+  <p>A network on a vendor's list does not promise that every account type works. Personal profiles, company pages and creator accounts often connect differently, so test the exact accounts you manage during the trial.</p>
+
+  <h2>Self-hosting and licensing</h2>
+  <p>Buffer is a hosted service only. Postiz gives you a choice: use Postiz Cloud, or run the open-source code on your own server. Its license is AGPL-3.0. In plain words, you may run, read and change the code for free. If you change it and offer your changed version to other people over a network, you must make your source code available to them. Running it for your own team, unchanged, carries no extra duty.</p>
+  <p>Self-hosting is free of license fees, not free of work. We run this kind of stack in production for PostDelegate, so we can describe the job concretely:</p>
+  <ul>
+    <li><strong>The stack.</strong> The official Docker Compose file starts the Postiz app, PostgreSQL, Redis and Temporal, which brings its own PostgreSQL and Elasticsearch. Plan for a server with room for all of them, plus backups.</li>
+    <li><strong>A developer app per network.</strong> Each network wants its own registered app, keys and callback addresses before it lets your server post.</li>
+    <li><strong>App reviews.</strong> Big networks review apps before granting publishing access. Postiz notes that Facebook, Instagram, Threads and YouTube usually take more than a month, and sells help with this as an optional service.</li>
+    <li><strong>Updates.</strong> You decide when to upgrade, and you test the upgrade yourself.</li>
+  </ul>
+  <p>If that sounds like a weekend project you would enjoy, self-hosting Postiz is a real option. If not, the cloud plans exist for exactly that reason.</p>
+
+  <h2>AI, API and MCP</h2>
+  <p>Both are ready for AI assistants. Buffer includes its MCP server on every plan, Free included, and says posts from an assistant land in your queue as drafts or scheduled posts for you to review. Its API comes with request limits per channel that rise with the plan. Postiz includes a hosted MCP server, a CLI, the public API and webhooks on every Cloud plan.</p>
+  <p>For writing inside the app, Buffer bundles its AI Assistant on every plan. Postiz bundles an AI copilot plus monthly allowances for AI images, AI videos and video clipping that grow with the plan.</p>
+
+  <h2>Teams and approvals</h2>
+  <p>Buffer's Free and Essentials plans are for one user. Team adds unlimited members and content approval workflows, at $12 per channel a month. Postiz includes unlimited team members from its Team plan ($39 for 10 channels) upwards; its Standard plan has none.</p>
+
+  <h2>Where Buffer wins</h2>
+  <ul>
+    <li>A free plan for up to 3 channels, and the lowest paid price for small setups: 3 channels on Essentials cost $18 a month.</li>
+    <li>A longer trial: 14 days on its paid plans.</li>
+    <li>Substack publishing, and content approval workflows on its Team plan.</li>
+    <li>MCP access even on the free plan.</li>
+  </ul>
+
+  <h2>Where Postiz wins</h2>
+  <ul>
+    <li>Flat pricing that stays low as you add channels: 30 channels for $49 a month, against $135 on Buffer Essentials.</li>
+    <li>Team members included from $39, rather than a per-channel team rate.</li>
+    <li>A longer network list, especially for communities, blogs and newsletters.</li>
+    <li>Open-source code under AGPL-3.0, with the option to self-host.</li>
+    <li>AI image, video and clipping allowances included in the plan.</li>
+  </ul>
+
+  <h2>What to check before you switch</h2>
+  <ul>
+    <li>Connect the exact accounts you manage during the trial. Postiz asks for a payment method to start its trial.</li>
+    <li>Count your channels a year from now, not today. Per-channel and per-plan pricing cross over quickly.</li>
+    <li>Re-create your recurring posts and time slots in the new tool before you cancel the old one.</li>
+    <li>If you plan to self-host Postiz, budget time for network app reviews before you depend on it.</li>
+  </ul>
+</CompareTool>

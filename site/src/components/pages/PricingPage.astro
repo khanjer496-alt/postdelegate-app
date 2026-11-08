@@ -1,0 +1,104 @@
+---
+import Base from '../../layouts/Base.astro';
+import Pricing from '../Pricing.astro';
+import PageHero from '../PageHero.astro';
+import CtaBand from '../CtaBand.astro';
+import Faq from '../Faq.astro';
+import { SITE } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import LogoStack from '../LogoStack.astro';
+import { localeHref, localizeLinks, strings, type Lang } from '../../i18n';
+import { ogCardFor } from '../../data/og-cards.mjs';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = strings(lang);
+const p = t.pricingPage;
+const num = (value: number, digits = 0) => value.toLocaleString(t.numberLocale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+// true/false cells render as a check or a dash.
+const rows: [string, (plan: typeof PLANS[number]) => string | boolean][] = [
+  [p.rowMonthly, (plan) => `$${plan.monthly}`],
+  [p.rowYearly, (plan) => `$${num(plan.yearly)}`],
+  [p.rowChannels, (plan) => (plan.extraChannelMonthly ? p.channelsExtra(plan.channels, plan.extraChannelMonthly, num(plan.maxChannels || plan.channels)) : String(plan.channels))],
+  [p.rowPosts, () => p.postsValue],
+  [p.rowTeam, (plan) => plan.teamMembers],
+  [p.rowApi, () => true],
+  [p.rowStudio, () => true],
+  [p.rowAi, () => true],
+  [p.rowWebhooks, (plan) => num(plan.webhooks)],
+  [p.rowTrial, () => p.trialValue(TRIAL_DAYS)],
+];
+// The plan that sells extra channels, for the "more channels" answer.
+const extra = PLANS.find((plan) => plan.extraChannelMonthly)!;
+const questions = [
+  { q: p.trialQ, a: p.trialA(TRIAL_DAYS) },
+  { q: p.channelsQ, a: p.channelsA(AVAILABLE_NETWORKS.length) },
+  { q: p.extraQ(extra.channels), a: p.extraA({ plan: extra.name, channels: extra.channels, monthly: extra.extraChannelMonthly!, yearly: num(extra.extraChannelYearly!, 2), extra: num((extra.maxChannels || extra.channels) - extra.channels), max: num(extra.maxChannels || extra.channels) }) },
+  { q: p.changeQ, a: p.changeA },
+  { q: p.creditsQ, a: p.creditsA },
+  { q: p.aiQ, a: p.aiA },
+];
+// One Offer per plan, monthly price in US dollars, from plans.ts.
+const productLd = { '@context': 'https://schema.org', '@type': 'Product', name: 'PostDelegate', description: p.description(PLANS[0].monthly, TRIAL_DAYS), brand: { '@type': 'Brand', name: 'PostDelegate' }, image: new URL(ogCardFor(localeHref(lang, '/pricing')) ?? '/og.png', SITE.url).href, url: `${SITE.url}${localeHref(lang, '/pricing')}`,
+  offers: PLANS.map((plan) => ({ '@type': 'Offer', name: plan.name, description: t.planTaglines[plan.slug] ?? plan.tagline, price: plan.monthly, priceCurrency: 'USD', availability: 'https://schema.org/InStock', url: `${SITE.url}${localeHref(lang, '/pricing')}`,
+    priceSpecification: { '@type': 'UnitPriceSpecification', price: plan.monthly, priceCurrency: 'USD', unitCode: 'MON', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' } } })) };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: t.buyerFaq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) };
+---
+<Base title={p.title} description={p.description(PLANS[0].monthly, TRIAL_DAYS)} jsonLd={[productLd, faqLd]} lang={lang}>
+  <PageHero eyebrow={p.eyebrow} title={p.h1(PLANS[0].monthly, TRIAL_DAYS)} lead={p.lead}>
+    <a href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{t.common.ctaLabel}</a>
+    <a href="/docs/billing" class="button button-outline">{p.billingGuide}</a>
+    <p class="trial-note"><span aria-hidden="true"></span>{p.trialNote(t.common.ctaNote)}</p>
+    <p class="hero-networks"><LogoStack networks={AVAILABLE_NETWORKS} max={8} size="sm" lang={lang} /><span set:html={p.heroNetworks(AVAILABLE_NETWORKS.length)} /></p>
+  </PageHero>
+  <section class="section"><div class="container"><Pricing heading={false} lang={lang} /></div></section>
+  <section class="plan-compare"><div class="container">
+    <h2>{p.compareTitle}</h2>
+    <div class="compare-scroll">
+      <table>
+        <thead><tr><th scope="col"><span class="sr-only">{p.feature}</span></th>{PLANS.map((plan) => <th scope="col">{plan.name}</th>)}</tr></thead>
+        <tbody>{rows.map(([label, value]) => <tr><th scope="row">{label}</th>{PLANS.map((plan) => { const v = value(plan); return <td>{v === true ? <span class="cell-yes"><span aria-hidden="true">✓</span><span class="sr-only">{p.yes}</span></span> : v === false ? <span class="cell-no"><span aria-hidden="true">–</span><span class="sr-only">{p.no}</span></span> : v}</td>; })}</tr>)}</tbody>
+      </table>
+    </div>
+    <p class="compare-links" set:html={localizeLinks(lang, p.compareLinks)} />
+  </div></section>
+  <section class="pricing-questions"><div class="container">
+    <h2>{p.questionsTitle}</h2>
+    <div class="question-grid">
+      {questions.map((item) => <div><h3>{item.q}</h3><p set:html={localizeLinks(lang, item.a)} /></div>)}
+    </div>
+  </div></section>
+  <section class="pricing-faq"><div class="container">
+    <h2>{p.moreTitle}</h2>
+    <div class="pricing-faq-list"><Faq items={t.buyerFaq.map((f) => ({ q: f.q, a: localizeLinks(lang, f.a) }))} /></div>
+  </div></section>
+  <CtaBand lang={lang} />
+</Base>
+<style>
+  .trial-note { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; color: #d6d6d6; font-size: 13px; font-weight: 600; }
+  .trial-note span { width: 7px; height: 7px; border-radius: 50%; background: #c8ff4d; }
+  .hero-networks { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 14px; margin-top: 18px; color: #b9b9b9; font-size: 14px; --stack-ring: #0d0d0d; }
+  .hero-networks :global(b) { color: #fff; }
+  .cell-yes { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #c8ff4d1f; color: #c8ff4d; font-weight: 800; }
+  .cell-no { color: #777; font-weight: 700; }
+  .pricing-questions { padding: 0 0 80px; background: var(--bg, #0d0d0d); }
+  h2 { text-align: center; font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -.04em; margin-bottom: 36px; }
+  .question-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 50px; max-width: 880px; margin: auto; }
+  h3 { font-size: 18px; font-weight: 750; margin-bottom: 10px; }
+  .question-grid p { color: var(--muted, #b9b9b9); font-size: 15px; line-height: 1.85; }
+  .question-grid :global(a) { color: var(--text, #fff); text-decoration: underline; text-underline-offset: 4px; }
+  .question-grid :global(strong) { color: var(--text, #fff); }
+  .pricing-faq { padding: 0 0 90px; background: var(--bg, #0d0d0d); }
+  .pricing-faq-list { max-width: 880px; margin: auto; }
+  .plan-compare { padding: 0 0 100px; background: var(--bg, #0d0d0d); }
+  .compare-links { max-width: 880px; margin: 22px auto 0; color: var(--muted, #b9b9b9); font-size: 15px; line-height: 1.8; text-align: center; }
+  .compare-links :global(a) { color: var(--text, #fff); text-decoration: underline; text-underline-offset: 4px; }
+  .compare-scroll { position: relative; max-width: 880px; margin: auto; overflow-x: auto; border: 1px solid #303030; border-radius: 22px; background: #171717; }
+  table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px; }
+  thead th { color: var(--text, #fff); font-size: 15px; font-weight: 750; }
+  th, td { padding: 15px 18px; border-bottom: 1px solid #303030; text-align: start; }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+  tbody th { color: var(--muted, #b9b9b9); font-weight: 600; }
+  td { color: var(--text, #fff); }
+  @media (max-width: 600px) { .question-grid { grid-template-columns: 1fr; gap: 26px; } }
+</style>

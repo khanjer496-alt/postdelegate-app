@@ -1,0 +1,137 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro, ultimate] = PLANS;
+// Loomly facts come from src/data/tools/loomly.json, re-read on the vendor's own site.
+const them = tool('loomly');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Flat tiers by number of social accounts, with a user cap and unlimited calendars; no per-account add-on is published"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Starter $65 (12 accounts, 3 users) and Beyond $332 (60 accounts, unlimited users); Enterprise is quoted above 61"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "No free plan; a 7-day trial with no card"
+  },
+  {
+    "feature": "10 channels",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "Starter, $65 a month — 12 accounts are included"
+  },
+  {
+    "feature": "30 channels",
+    "us": `${pro.name}, $${pro.monthly} a month`,
+    "them": "$332 a month: Starter stops at 12 accounts and no add-on is published, so thirty means Beyond"
+  },
+  {
+    "feature": "Team and approvals",
+    "us": "Team members on Team, Pro and Ultimate; client approval links that need no account, and an AI review inbox",
+    "them": "3 users on Starter, unlimited on Beyond. Approval workflows and roles are included from Starter, with unlimited calendars on both"
+  },
+  {
+    "feature": "Networks",
+    "us": `${AVAILABLE_NETWORKS.length} connect today, including YouTube, Bluesky, Mastodon, blogs and community chats; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on approval; X is not available`,
+    "them": "Instagram, LinkedIn, Facebook, TikTok, YouTube, Threads, Google Business Profile, Pinterest and Snapchat. Neither its pricing nor its integrations page lists X or Bluesky"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "An AI assistant on both plans, with monthly usage described as limited on Starter and extended on Beyond; social listening is metered at 2 or 5 a month"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "No public API or MCP server is mentioned on the pricing or integrations pages; the workflow integrations are Zapier, Slack and Microsoft Teams"
+  }
+];
+const faq = [
+  {
+    "q": "Why is there such a jump between Loomly's two plans?",
+    "a": `Because Starter caps at 12 social accounts and Loomly publishes no per-account add-on, so the thirteenth account means moving to Beyond at $332 a month on monthly billing — a step from $65 for a single extra account. If your account count sits near twelve, that cliff is the most important number on the page. PostDelegate's equivalent step is $${team.monthly} for 10 channels to $${pro.monthly} for 30.`
+  },
+  {
+    "q": "Can Loomly post to X or Bluesky?",
+    "a": "Neither its pricing page nor its integrations page lists X or Bluesky today; it does list Snapchat, which PostDelegate does not. PostDelegate publishes to Bluesky now, and X is not available on PostDelegate either. Check both vendors' own pages before deciding, since network lists move."
+  },
+  {
+    "q": "Is PostDelegate cheaper than Loomly?",
+    "a": `At every size the two publish prices for. Ten channels are $${team.monthly} a month here against $65 on Loomly Starter, and thirty are $${pro.monthly} against $332 on Beyond. Loomly includes unlimited calendars on both plans and unlimited users on Beyond, which is worth weighing if you run many separate clients with large teams.`
+  },
+  {
+    "q": "Do both have approval workflows?",
+    "a": "Yes, and Loomly includes them from its cheapest plan, which is to its credit. PostDelegate has post statuses, an approvals inbox, and client approval links that work without the client creating an account, plus a separate review step for drafts an AI assistant created."
+  },
+  {
+    "q": "How long is Loomly's trial?",
+    "a": "7 days with no card, the same as PostDelegate. Their pricing page states only that no credit card is required; the 7 days comes from their trial landing page, whose URL still reads 15-day-free-trial."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Loomly', item: `${SITE.url}/compare/loomly` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Loomly alternative: PostDelegate vs Loomly compared" description="PostDelegate vs Loomly: flat channel plans against a $65-to-$332 jump, approvals, the networks each publishes to, AI on your own key, and API and MCP access." h1="PostDelegate vs Loomly." eyebrow="Compare" lead="Loomly is a calendar with approval workflows built in. PostDelegate is a calendar with an API and an MCP server built in. The sharpest differences are the price step between Loomly's two plans and which networks each can publish to." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Loomly</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Loomly" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Loomly prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Pricing and the step between plans</h2>
+  <p>Loomly publishes two self-serve plans on monthly billing: Starter at $65 for 12 social accounts and 3 users, and Beyond at $332 for 60 accounts and unlimited users. Above 61 accounts it is quoted. What makes that structure unusual is the absence of a per-account add-on — there is no way to buy a thirteenth account on Starter, so crossing twelve means a five-fold increase in the bill.</p>
+  <p>PostDelegate's ladder is flatter: ${starter.monthly} for 5 channels, ${team.monthly} for 10, ${pro.monthly} for 30, ${ultimate.monthly} for 100. Ten channels cost ${team.monthly} against $65; thirty cost ${pro.monthly} against $332. If you sit at eight or nine accounts and expect to grow, the shape of that step is worth more attention than the entry price.</p>
+  <p>Their page opens on yearly billing, where the two plans read $49 and $249 a month; the figures above are monthly billing. Yearly plans there are charged upfront and cannot be ended early.</p>
+  
+  <h2>Networks</h2>
+  <p>This is where the two genuinely diverge rather than merely cost different amounts. Loomly lists Instagram, LinkedIn, Facebook, TikTok, YouTube, Threads, Google Business Profile, Pinterest and Snapchat. It does not list X, and it does not list Bluesky.</p>
+  <p>PostDelegate publishes to {AVAILABLE_NETWORKS.length} networks today, and the overlap is smaller than the totals suggest: YouTube and Google Business Profile are on both lists, while Bluesky, Mastodon, Telegram, Discord, Slack, Tumblr, Twitch, Kick, Dribbble, DEV.to, Medium, WordPress, Hashnode, Lemmy, Nostr and Listmonk are on ours and not theirs. In the other direction, Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are on theirs and not yet on ours — those are waiting on platform approval here — and X is on neither.</p>
+  <p>So the honest summary is that these two tools serve different publishing surfaces. If your programme is Instagram and TikTok, Loomly can do it today and PostDelegate cannot. If it is developer communities, blogs, chat platforms and the open social web, the reverse is true.</p>
+  
+  <h2>Approvals, AI and automation</h2>
+  <p>Loomly includes approval workflows and roles from its cheapest plan, with unlimited calendars on both, which is a genuinely good deal for an agency running many clients with a small account count each. PostDelegate puts team members on Team and above, and adds client approval links that need no account on the client's side, plus a separate review inbox for drafts an AI assistant wrote.</p>
+  <p>On AI, Loomly includes an assistant on both plans with usage described as limited or extended rather than counted, and meters social listening at two or five runs a month. PostDelegate runs AI on your own OpenAI key — you pay OpenAI, not us — which also means the assistant you already pay for can drive the product directly: the MCP server is on every plan and can schedule and publish. Loomly's pricing and integrations pages mention no API and no MCP server, listing Zapier, Slack and Microsoft Teams instead.</p>
+
+  <h2>Where Loomly is the better pick</h2>
+  <ul>
+    <li>You publish to Instagram, Facebook, LinkedIn, TikTok, Threads or Pinterest today, or to Snapchat, which PostDelegate does not support at all.</li>
+    <li>You run many client calendars with a handful of accounts each: unlimited calendars from the cheapest plan suits that shape.</li>
+    <li>You want approval workflows on the entry plan and unlimited users on the plan above it.</li>
+    <li>You would rather the AI allowance were part of the plan than run on your own key.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Your account count is near or above twelve, where Loomly's next step is $332 a month.</li>
+    <li>You publish to Bluesky, Mastodon, blogs, developer communities or community chats.</li>
+    <li>You want an assistant like Claude or ChatGPT to schedule through MCP, with a review step before anything goes out.</li>
+    <li>You want a public API and webhooks on every plan rather than Zapier as the automation route.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Loomly. The Loomly name belongs to its owner.</p>
+</Doc>

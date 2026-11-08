@@ -1,0 +1,105 @@
+---
+import CompareTool from '../../components/CompareTool.astro';
+const faq = [
+  { q: 'Which is easier to self-host?', a: 'Mixpost has fewer moving parts. It runs on a standard PHP stack: PHP 8.3 or newer, MySQL, Redis and Nginx or Apache. The Postiz Docker Compose file starts more services: the app, PostgreSQL, Redis and Temporal, which brings its own PostgreSQL and Elasticsearch. Either way you register your own developer app with each network.' },
+  { q: 'Is Mixpost free?', a: 'Mixpost Lite is free and MIT-licensed, but it covers only Facebook Pages, X and Mastodon. Pro is a one-time $299 license with a year of updates, Enterprise is $1,199, and Mixpost Cloud starts at $29 a month.' },
+  { q: 'Is Postiz open source?', a: 'Yes. The Postiz code is published under AGPL-3.0, so you can self-host it without a license fee. Postiz Cloud is the paid hosted version, from $29 a month.' },
+  { q: 'Do both support MCP?', a: 'Yes, on the right plan. Postiz includes a hosted MCP server on every Cloud plan. Mixpost lists an MCP server in Pro and Enterprise and in Cloud from the Momentum plan up. Mixpost Lite does not list one.' },
+  { q: 'Can I get either one hosted?', a: 'Yes. Postiz Cloud starts at $29 a month for 5 channels, and Mixpost Cloud starts at $29 a month on its Spark plan. PostDelegate is another hosted, open-source option, from $19 a month after a 7-day free trial with no card.' },
+];
+const links = [
+  { href: '/alternatives/postiz', label: 'Postiz alternatives' },
+  { href: '/compare/postiz-vs-buffer', label: 'Postiz vs Buffer' },
+  { href: '/compare/postiz-vs-zernio', label: 'Postiz vs Zernio' },
+  { href: '/compare/postiz', label: 'PostDelegate vs Postiz' },
+  { href: '/alternatives', label: 'All scheduler alternatives' },
+  { href: '/pricing', label: 'PostDelegate pricing' },
+  { href: '/mcp', label: 'PostDelegate MCP server' },
+  { href: '/wordpress-scheduler', label: 'WordPress scheduler' },
+  { href: '/bluesky-scheduler', label: 'Bluesky scheduler' },
+  { href: '/guides/schedule-social-media-posts-with-claude', label: 'Schedule social media posts with Claude' },
+];
+---
+<CompareTool
+  a="postiz" b="mixpost" published="2026-11-02"
+  title="Postiz vs Mixpost (2026): License, Hosting, Price, Networks"
+  description="Postiz (AGPL-3.0) and Mixpost (free MIT Lite, one-time Pro license) compared on license, server stack, 12-month cost, networks, API and MCP, with sources."
+  h1="Postiz vs Mixpost: two self-hosted schedulers compared"
+  shortAnswer="Pick Mixpost if you want a familiar PHP stack, a one-time license instead of a subscription ($299 for Pro), or a free MIT edition for Facebook Pages, X and Mastodon. Pick Postiz if you want open-source code with no license fee and a longer network list. Both sell a hosted cloud version from $29 a month."
+  costIntro="These figures are for the hosted cloud plans, since that is the like-for-like monthly price. Self-hosting costs are in the 12-month table below."
+  rows={[{ label: 'Self-host stack', key: 'selfHostStack' }]}
+  fitIntro="If you would rather not run a server at all, PostDelegate is a hosted, open-source service, from $19 a month after a 7-day free trial with no card. It connects fewer networks than either tool lists today, because Instagram, Facebook, Threads, TikTok and LinkedIn are still waiting for platform approval and X is not available."
+  faq={faq} links={links}
+>
+  <h2>License</h2>
+  <p>The two projects take different routes to openness. Postiz publishes its whole application under AGPL-3.0: run it, read it and change it for free, and if you offer a changed version to other people over a network, share your source with them. Mixpost splits its editions. Lite is MIT-licensed, one of the most permissive licenses there is, but limited to three networks. Pro and Enterprise are source-available: you get the code and can change it for your own business, but you may not resell or redistribute it, and running a SaaS needs the Enterprise license.</p>
+
+  <h2>Stack and server needs</h2>
+  <p>Mixpost is a Laravel application on PHP 8.3 or newer with MySQL and Redis behind Nginx or Apache, installed with Docker or Composer. Anyone who has hosted a PHP app will recognise the shape. Postiz is a Node.js application. Its Docker Compose file starts the app, PostgreSQL and Redis, plus Temporal for background jobs, which brings its own PostgreSQL and Elasticsearch. That is more services to size, back up and upgrade.</p>
+  <p>Both need the same thing from every social network: your own registered developer app, its keys and its approved permissions. For Meta and YouTube that review can take weeks.</p>
+
+  <h2>Total cost over 12 months</h2>
+  <p>License and plan prices only. Add your own server bill to the self-hosted rows; it depends on your host and how many services you run.</p>
+  <div class="tco-scroll">
+    <table class="tco">
+      <caption class="sr-only">Twelve-month cost of Postiz and Mixpost options</caption>
+      <thead><tr><th scope="col">Option</th><th scope="col">12 months, monthly billing</th><th scope="col">Yearly plan</th><th scope="col">Source</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Postiz, self-hosted</th><td>$0 + server</td><td>$0 + server</td><td><a href="https://github.com/gitroomhq/postiz-app" target="_blank" rel="noopener">GitHub</a></td></tr>
+        <tr><th scope="row">Mixpost Lite, self-hosted</th><td>$0 + server</td><td>$0 + server</td><td><a href="https://mixpost.app/pricing" target="_blank" rel="noopener">mixpost.app</a></td></tr>
+        <tr><th scope="row">Mixpost Pro, self-hosted</th><td colspan="2">$299 one-time, includes 1 year of updates, + server</td><td><a href="https://mixpost.app/pricing" target="_blank" rel="noopener">mixpost.app</a></td></tr>
+        <tr><th scope="row">Postiz Cloud Standard (5 channels)</th><td>$348</td><td>$278</td><td><a href="https://docs.postiz.com/cloud/plans" target="_blank" rel="noopener">docs.postiz.com</a></td></tr>
+        <tr><th scope="row">Postiz Cloud Team (10 channels)</th><td>$468</td><td>$374</td><td><a href="https://docs.postiz.com/cloud/plans" target="_blank" rel="noopener">docs.postiz.com</a></td></tr>
+        <tr><th scope="row">Mixpost Cloud Spark (1 brand)</th><td>$348</td><td>$249</td><td><a href="https://mixpost.app/cloud" target="_blank" rel="noopener">mixpost.app</a></td></tr>
+        <tr><th scope="row">Mixpost Cloud Momentum (24 channels)</th><td>$588</td><td>$419</td><td><a href="https://mixpost.app/cloud" target="_blank" rel="noopener">mixpost.app</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Mixpost prices exclude VAT. After the first year, a Mixpost Pro install keeps working on the version you bought; renewing is only needed for further updates.</p>
+
+  <h3>Running either yourself: the ops checklist</h3>
+  <ul>
+    <li>Nightly database backups, stored off the server, and a restore you have actually tested.</li>
+    <li>HTTPS, a domain and the callback addresses each network's developer app expects.</li>
+    <li>A developer app and review for every network you post to.</li>
+    <li>Background workers that stay up: Temporal for Postiz, queue workers for Mixpost.</li>
+    <li>An upgrade routine, so security fixes do not wait months.</li>
+  </ul>
+
+  <h2>Networks</h2>
+  <p>Postiz lists 30 networks, from the big feeds to community and publishing destinations such as Discord, Telegram, Slack, Reddit, Lemmy, Nostr, WordPress, Medium and DEV.to. Self-hosted Mixpost Pro and Enterprise list 12: Facebook, Instagram, X, LinkedIn, YouTube, TikTok, Pinterest, Threads, Bluesky, Mastodon, Pixelfed and Google Business Profile. Mixpost Cloud lists 11, the same set without X. Pixelfed is one Postiz does not list. Mixpost Lite covers Facebook Pages, X and Mastodon.</p>
+
+  <h2>API and MCP</h2>
+  <p>Postiz includes its public API, a CLI, webhooks and a hosted MCP server on every Cloud plan. Mixpost includes an API, webhooks and an MCP server in Pro and Enterprise, and in Cloud from Momentum ($49 a month) upwards. Both say AI assistants such as Claude can use them to draft and schedule posts.</p>
+
+  <h2>Teams and workspaces</h2>
+  <p>Mixpost Pro allows unlimited users and workspaces on one install, which suits agencies that self-host. Mixpost Cloud scales members by plan: one on Spark and Momentum, five on Business and unlimited on Agency. Postiz Cloud includes unlimited team members from its Team plan up.</p>
+
+  <h2>Where each wins</h2>
+  <h3>Mixpost</h3>
+  <ul>
+    <li>A conventional PHP stack with fewer services to run.</li>
+    <li>A one-time license rather than a subscription, with a perpetual fallback to the version you bought.</li>
+    <li>An MIT-licensed free edition for Facebook Pages, X and Mastodon.</li>
+    <li>Unlimited users and workspaces on a single Pro install.</li>
+  </ul>
+  <h3>Postiz</h3>
+  <ul>
+    <li>No license fee for the self-hosted code.</li>
+    <li>A longer network list, including chats, forums, blogs and newsletters.</li>
+    <li>MCP, the API and webhooks on every Cloud plan, including the cheapest.</li>
+    <li>Cloud plans priced by channel count, up to 100 channels for $99 a month.</li>
+  </ul>
+
+  <h2>If you'd rather not self-host</h2>
+  <p>Both projects sell hosting, both from $29 a month on monthly billing, and both offer a 7-day trial that asks for a card to start. Mixpost Cloud does not include X. Compare the networks you need first, since the lists differ more than the prices do.</p>
+</CompareTool>
+<style>
+  .tco-scroll { margin: 22px 0; overflow-x: auto; border: 1px solid #303030; border-radius: 18px; background: #171717; }
+  .tco { width: 100%; min-width: 36rem; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+  .tco thead th { background: #222; color: #fff; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .tco th, .tco td { padding: 12px 16px; border-bottom: 1px solid #2a2a2a; text-align: left; vertical-align: top; }
+  .tco tbody tr:last-child > * { border-bottom: 0; }
+  .tco tbody th { color: #fff; font-weight: 700; }
+  .tco td { color: #c4c4c4; }
+</style>

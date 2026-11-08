@@ -1,0 +1,36 @@
+---
+import Doc from './Doc.astro';
+import { GUIDES } from '../data/guides';
+import { SITE, CTA_LABEL, pagePath } from '../data/site';
+import { ogCardFor } from '../data/og-cards.mjs';
+import AppShot from '../components/AppShot.astro';
+// Markdown guides pass { frontmatter }; .astro guides pass the same prop by hand.
+// `shot` is opt-in: the same picture on all eighteen guides is wallpaper, so a
+// guide asks for one only where it shows what that guide is describing.
+interface Props { frontmatter: { title: string; description: string; metaTitle?: string; date?: string; shot?: 'calendar' | 'composer'; shotCaption?: string } }
+const { frontmatter } = Astro.props;
+const { title, description, metaTitle, date = '2026-11-01', shot, shotCaption } = frontmatter;
+const path = pagePath(Astro.url);
+const url = new URL(path, SITE.url).href;
+const more = GUIDES.filter((guide) => `/guides/${guide.slug}` !== path);
+const card = ogCardFor(path);
+const jsonLd = [
+  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'PostDelegate', item: SITE.url },
+    { '@type': 'ListItem', position: 2, name: 'Guides', item: new URL('/guides', SITE.url).href },
+    { '@type': 'ListItem', position: 3, name: title, item: url }] },
+  // Article wants an image; the guide's own share card is the one picture the
+  // page is guaranteed to have, and it carries the headline.
+  { '@context': 'https://schema.org', '@type': 'Article', headline: title, description, url, mainEntityOfPage: url, inLanguage: 'en', datePublished: date, dateModified: date,
+    ...(card ? { image: { '@type': 'ImageObject', url: new URL(card, SITE.url).href, width: 1200, height: 630 } } : {}),
+    author: { '@type': 'Organization', name: 'PostDelegate', url: SITE.url }, publisher: { '@type': 'Organization', name: 'PostDelegate', url: SITE.url } },
+];
+---
+<Doc title={metaTitle ?? `${title} | PostDelegate`} description={description} h1={title} eyebrow="Guide" lead={description} jsonLd={jsonLd}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="/guides" class="button button-outline">All guides</a>
+  <div class="guide-body"><slot /></div>
+  {shot && shotCaption && <AppShot shot={shot} caption={shotCaption} />}
+  <h2>More guides</h2>
+  <ul>{more.map((guide) => <li><a href={`/guides/${guide.slug}`}>{guide.title}</a></li>)}</ul>
+</Doc>

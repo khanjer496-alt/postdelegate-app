@@ -1,0 +1,80 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import AppShot from '../../components/AppShot.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+const [starter, team, pro, ultimate] = PLANS;
+const available = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+const rows = [
+  { feature: 'Pricing model', us: 'A flat monthly price per plan, not per person', them: 'Priced per seat' },
+  { feature: 'Monthly plans', us: PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '), them: 'Essentials $79 ($99 billed monthly), Standard $199, Professional $299, Advanced $399 per seat a month; Enterprise on request' },
+  { feature: 'Free trial', us: `${TRIAL_DAYS} days on every plan, no credit card needed`, them: '30 days, no credit card needed' },
+  { feature: 'Channels per plan', us: PLANS.map((p) => p.channels).join(' / '), them: 'Up to 5 profiles on Essentials and Standard; unlimited on Professional and Advanced' },
+  { feature: 'Team and approvals', us: 'Team members on Team, Pro and Ultimate; post statuses, client approval links that need no account, and an AI review inbox', them: 'Each person needs a paid seat' },
+  { feature: 'Networks', us: `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval; X is not available`, them: 'Facebook, X, Instagram, LinkedIn, Threads, Pinterest, TikTok, Reddit, WhatsApp, Yelp and Bluesky' },
+  { feature: 'AI approach', us: 'Bring your own: AI writing, the Agent and AI images run on your workspace’s own OpenAI API key. PostDelegate never charges for AI', them: 'Trellis AI agent with 100 credits per seat a month on every plan; AI Assist on Professional and Advanced; more credits as a paid add-on' },
+  { feature: 'API and MCP', us: 'Public REST API, webhooks and an MCP server on every plan', them: 'Sprout API on Advanced and Enterprise' },
+  { feature: 'Inbox and reviews', us: 'Not included. PostDelegate focuses on planning, approving and publishing', them: 'Smart Inbox and review management' },
+];
+const faq = [
+  { q: 'Is PostDelegate cheaper than Sprout Social?', a: `Yes. Sprout Social starts at $79 per seat a month on Essentials with annual billing, and its other plans run from $199 to $399 per seat a month. PostDelegate plans run from $${starter.monthly} to $${ultimate.monthly} a month in total and are not priced per person.` },
+  { q: 'Can PostDelegate publish to Instagram, Facebook and LinkedIn like Sprout Social?', a: `Not yet. Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval, and X is not available on PostDelegate. Today you can connect ${available}.` },
+  { q: 'Is the PostDelegate API available on every plan?', a: 'Yes. The public REST API, webhooks and the MCP server come with every PostDelegate plan, including Starter. Sprout Social lists its API on Advanced and Enterprise.' },
+  { q: 'Which has the longer free trial?', a: `Sprout Social’s trial runs for 30 days and PostDelegate’s for ${TRIAL_DAYS} days. Neither needs a credit card to start.` },
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Sprout Social', item: `${SITE.url}/compare/sprout-social` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Sprout Social alternative: PostDelegate vs Sprout Social" description="PostDelegate vs Sprout Social: flat plans or per-seat pricing, free trial, profile limits, AI approach, API and MCP, and the networks each connects today." h1="PostDelegate vs Sprout Social." eyebrow="Compare" lead="Sprout Social is a broad social media platform priced per seat. PostDelegate is a scheduler with flat plans. Here is how pricing, AI, API access and networks compare, including where Sprout Social is the better pick today." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://sproutsocial.com" class="button button-outline" target="_blank" rel="noreferrer">Visit Sprout Social</a>
+  <h2>At a glance</h2>
+  <CompareTable other="Sprout Social" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Sprout Social details are taken from sproutsocial.com in October 2026. Check its website for current plans, limits and terms.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>Sprout Social sells seats. Essentials is $79 per seat a month with annual billing, or $99 billed monthly, and covers up to five profiles. Standard is $199 per seat a month for five profiles, Professional $299 and Advanced $399, both with unlimited profiles, and Enterprise is priced on request. Every person who needs access takes a seat.</p>
+  <p>PostDelegate plans have one price, however many people join: ${starter.monthly} a month for {starter.name}, ${team.monthly} for {team.name}, ${pro.monthly} for {pro.name} and ${ultimate.monthly} for {ultimate.name}. A team of three on Sprout Social Standard comes to $597 a month. On PostDelegate {team.name}, the same team shares {team.channels} channels for ${team.monthly} a month, and {pro.name} covers {pro.channels} channels for ${pro.monthly}. Yearly billing is about 20% less; see the <a href="/pricing">pricing page</a>.</p>
+  <p>Sprout Social offers the longer trial: 30 days, with no credit card needed. PostDelegate offers {TRIAL_DAYS} days on every plan, also with no credit card. Add a card before the trial ends to keep your plan.</p>
+
+  <h2>AI</h2>
+  <p>Sprout Social includes an AI agent called Trellis on every plan, with 100 credits per seat a month, and adds AI Assist for posts and replies on its higher plans. More credits are sold as an add-on per seat. PostDelegate does not meter AI. An admin adds the workspace’s own OpenAI API key, and AI writing, the Agent and AI images run on that key. You pay OpenAI directly for what you use, and PostDelegate never charges for AI.</p>
+  <p>PostDelegate also opens the calendar to the assistant you already use. Its <a href="/mcp">MCP server</a> lets Claude, ChatGPT, Cursor, Claude Code and other MCP clients look at your channels, draft posts and schedule them, and drafts can wait in the AI review inbox until a person approves them. The MCP server, a public <a href="/api">REST API</a> and webhooks come with every plan, including {starter.name}. Sprout Social lists its API on Advanced and Enterprise.</p>
+
+  <h2>Scope</h2>
+  <p>Sprout Social covers much more than publishing. It has a Smart Inbox for messages and comments, and review management. PostDelegate does not have a social inbox, listening or review management. It concentrates on getting posts planned, approved and published: a shared calendar, post statuses, client approval links that need no account, campaigns and an ideas board, evergreen posts, bulk CSV import, a media library with uploads up to 1 GB, and analytics that keep daily history for the networks that share statistics — today YouTube, read live rather than stored, and Google Business Profile; neither feeds trends, top posts or insights yet.</p>
+
+  <h2>Channels</h2>
+  <p>Sprout Social names integrations with Facebook, X, Instagram, LinkedIn, Threads, Pinterest, TikTok, Reddit, WhatsApp, Yelp and Bluesky. PostDelegate connects {AVAILABLE_NETWORKS.length} networks today: {available}. Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval and cannot be connected yet. X is not available on PostDelegate. Of Sprout Social’s list, Bluesky is the network PostDelegate connects today. The <a href="/platforms">channel directory</a> has the current list.</p>
+
+  <h2>Where Sprout Social is the better pick today</h2>
+  <ul>
+    <li>You need Instagram, Facebook, LinkedIn, TikTok, X, Threads, Pinterest or WhatsApp now.</li>
+    <li>Your team answers messages, comments and reviews every day and needs a shared inbox.</li>
+    <li>You want a longer trial, or one platform for a large social team’s publishing, engagement and reporting.</li>
+  </ul>
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>You need scheduling, approvals and analytics, not a full social suite, at a lower price.</li>
+    <li>You want API and MCP access on the entry plan.</li>
+    <li>You want AI on your own key, with no credits to track.</li>
+    <li>You publish to YouTube, Bluesky, blogs, developer communities, community chats on Slack, Discord or Telegram, or a newsletter.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for the number of people who need access.</li><li>Whether you need an inbox and review management, or publishing and approvals.</li><li>Which plan includes the API, if you automate your work.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+  <p>See also <a href="/alternatives">all comparisons</a>, including <a href="/compare/buffer">Buffer</a>, <a href="/compare/hootsuite">Hootsuite</a>, <a href="/compare/later">Later</a> and <a href="/compare/publer">Publer</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Sprout Social. The Sprout Social name belongs to its owner.</p>
+</Doc>

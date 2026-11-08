@@ -1,0 +1,77 @@
+---
+import CompareTool from '../../components/CompareTool.astro';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+const [starter] = PLANS;
+const faq = [
+  { q: 'Is Zernio a scheduler?', a: 'Mostly it is an API. Zernio does have a dashboard where you can write and schedule a post, but its pricing and docs are aimed at developers, and it describes itself as built for people who can make API calls, with n8n, Make and Zapier for everyone else. Postiz is the other way round: a scheduling app first, with an API alongside.' },
+  { q: 'Can my customers connect their own accounts?', a: 'With Zernio, yes: you give each customer a profile, connect their accounts into it, and can use your own app on each network so the consent screen shows your brand. Postiz is built for your own team: client invite links let clients connect accounts into your Postiz workspace, and OAuth lets other Postiz users authorise your app, but each of them needs a Postiz account.' },
+  { q: 'Which has an MCP server?', a: 'Both, hosted. Zernio’s server at mcp.zernio.com accepts a sign-in or an API key and exposes 20 core tools plus one tool per API endpoint. Postiz includes its MCP server, CLI and API on every Cloud plan.' },
+  { q: 'Is there a free tier?', a: 'Zernio’s first 2 connected accounts are free with no card, including the full API. Postiz Cloud has no free plan; it starts at $29 a month after a 7-day trial, though the open-source code is free to self-host.' },
+  { q: 'Does Zernio charge extra for X?', a: 'Yes, on top of the account price. Zernio passes X’s own API charges through at cost with no markup, and analytics and inbox syncing for X accounts are opt-in so you control that spend. The totals on this page leave X costs out.' },
+];
+const links = [
+  { href: '/alternatives/postiz', label: 'Postiz alternatives' },
+  { href: '/compare/postiz-vs-post-bridge', label: 'Postiz vs Post Bridge' },
+  { href: '/compare/postiz-vs-blotato', label: 'Postiz vs Blotato' },
+  { href: '/compare/postiz-vs-mixpost', label: 'Postiz vs Mixpost' },
+  { href: '/compare/postiz', label: 'PostDelegate vs Postiz' },
+  { href: '/alternatives', label: 'All scheduler alternatives' },
+  { href: '/pricing', label: 'PostDelegate pricing' },
+  { href: '/api', label: 'PostDelegate REST API' },
+  { href: '/mcp', label: 'PostDelegate MCP server' },
+  { href: '/discord-scheduler', label: 'Discord scheduler' },
+  { href: '/telegram-scheduler', label: 'Telegram scheduler' },
+  { href: '/guides/social-media-mcp-server', label: 'What a social media MCP server does' },
+];
+---
+<CompareTool
+  a="postiz" b="zernio" published="2026-11-02"
+  title="Postiz vs Zernio (2026): App vs API for AI Agents"
+  description="Postiz is a scheduling app and Zernio is a social media API. Compare pricing by channel or by account, MCP, webhooks, SDKs and who each one is really built for."
+  h1="Postiz vs Zernio: scheduler app or social media API?"
+  shortAnswer="Pick Zernio if you are building posting, inboxes or ads into your own product and want each customer's accounts under your app, billed per account with two free. Pick Postiz if you want a ready-made calendar for your team, with an API and MCP for your own accounts. At 30 accounts, Postiz costs $49 a month and Zernio $108."
+  costIntro="Zernio bills every connected account on a sliding scale; Postiz sells channel bundles. Zernio is cheaper up to eight accounts and Postiz from nine. Zernio also passes X's API charges through on top, which these totals leave out."
+  fitIntro={`PostDelegate sits on the app side of this split: a hosted, open-source scheduler, with a REST API, webhooks and an MCP server on every plan for the accounts you connect yourself. It is not a multi-tenant API for your customers' accounts. Plans start at $${starter.monthly} after a ${TRIAL_DAYS}-day trial with no card, and Instagram, Facebook, Threads, TikTok, LinkedIn and Pinterest are still waiting on approval, and X is not available.`}
+  faq={faq} links={links}
+>
+  <h2>App or API: the real difference</h2>
+  <p>Most comparisons line these two up feature by feature, which hides the point. Postiz is a product people log into: a calendar, a composer, team members and client groups, with an API for when you want to script it. Zernio is plumbing for developers: one REST API that posts, reads analytics, answers DMs and comments, runs ads and even sends SMS or WhatsApp messages, with a dashboard on the side. Four questions usually settle it:</p>
+  <ul>
+    <li><strong>Will your own customers connect their accounts inside your product?</strong> That is Zernio's home ground.</li>
+    <li><strong>Will people on your team plan and review posts in a calendar?</strong> That is what Postiz is for.</li>
+    <li><strong>Do you just want Claude or ChatGPT to post to your own accounts?</strong> Either works; both run a hosted MCP server.</li>
+    <li><strong>Do you need DMs, ads or messaging from the same integration?</strong> Zernio covers them; Postiz is about publishing.</li>
+  </ul>
+
+  <h2>MCP, webhooks and SDKs</h2>
+  <p>Zernio's MCP server lives at mcp.zernio.com. You sign in from Claude, ChatGPT, Cursor or another client, or an unattended agent sends an API key. It offers 20 core tools for common jobs plus one generated tool for each API endpoint. Zernio publishes official SDKs for Node.js, Python, Go, Ruby, Java, PHP, .NET and Rust, and lets each user register up to 50 webhook endpoints for events such as a post publishing, a DM arriving or an account disconnecting.</p>
+  <p>Postiz includes a hosted MCP server, a CLI, the public API and webhooks on every Cloud plan. Webhook allowances grow with the plan, from 2 on Standard to 10,000 on Ultimate. Its docs cap the create-post endpoint at 100 requests an hour on Cloud, and one request can schedule several posts.</p>
+
+  <h2>Building a product on top</h2>
+  <p>Zernio's docs walk through exactly this. Each of your customers gets a profile tagged with your own customer ID, their accounts connect into it, and webhooks come back carrying that ID so you can route them. Profiles are free; you pay for connected accounts. You can also connect through your own developer app on each network, so the consent screen shows your brand and the rate limits are your app's.</p>
+  <p>Postiz has two features that look similar but serve a different job. Client invite links let a client connect their accounts into your Postiz workspace, which suits agencies. OAuth lets other Postiz users authorise your app to act on their Postiz account, which suits integrations. Neither turns Postiz into a white-label backend for thousands of end users.</p>
+
+  <h2>Where Zernio wins</h2>
+  <ul>
+    <li>Two accounts free with the full API, and $6 for three.</li>
+    <li>A multi-tenant model built for SaaS products, with your own apps on each network.</li>
+    <li>Inbox, comments, ads, WhatsApp and SMS from the same API.</li>
+    <li>Official SDKs in eight languages.</li>
+  </ul>
+
+  <h2>Where Postiz wins</h2>
+  <ul>
+    <li>A finished app with a calendar, a composer and unlimited team members from $39.</li>
+    <li>Lower totals from nine accounts up: $39 a month for 10 channels, $49 for 30.</li>
+    <li>Open-source code under AGPL-3.0, with the option to self-host.</li>
+    <li>An AI copilot plus monthly AI image, video and clipping allowances.</li>
+  </ul>
+
+  <h2>What to check before you choose</h2>
+  <ul>
+    <li>Who connects the accounts: you and your team, or your customers inside your product.</li>
+    <li>Whether anyone non-technical needs to schedule posts day to day.</li>
+    <li>Your X volume, since Zernio bills X's API usage at cost on top.</li>
+    <li>Which networks you need. Zernio covers social, messaging, blogs and ads; Postiz adds community and publishing destinations such as Mastodon, Lemmy, Medium and DEV.to.</li>
+  </ul>
+</CompareTool>

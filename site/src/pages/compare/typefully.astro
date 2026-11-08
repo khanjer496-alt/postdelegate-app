@@ -1,0 +1,137 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro] = PLANS;
+// Typefully facts come from src/data/tools/typefully.json, re-read on the vendor's own site.
+const them = tool('typefully');
+const rows = [
+  {
+    "feature": "What it is",
+    "us": "A scheduler for many networks: calendar, composer, approvals, media library and an API",
+    "them": "A writing and scheduling workspace for X, LinkedIn, Threads, Bluesky, Mastodon and Substack, with X analytics"
+  },
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Per social set — a collection of accounts for one person or brand. Free and Creator cover one set; Business is priced per set"
+  },
+  {
+    "feature": "Plans",
+    "us": `${PLANS.map((p) => `${p.name} $${p.monthly}`).join(', ')}, all on monthly billing`,
+    "them": "Free $0 (10 posts a month); Creator $99 a year, annual billing only; Business $18 a social set a month, billed yearly"
+  },
+  {
+    "feature": "Monthly billing",
+    "us": "Yes, on every plan, and yearly costs about 20% less",
+    "them": "Not offered: Creator is annual-only and Business is billed yearly. There is no monthly option on the pricing page"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "A free plan with one social set, one user and 10 posts a month, including API and MCP access"
+  },
+  {
+    "feature": "Networks",
+    "us": `${AVAILABLE_NETWORKS.length} connect today, including YouTube, Bluesky, Mastodon, blogs and community chats; Instagram, Facebook, LinkedIn, TikTok and others are waiting on approval; X is not available`,
+    "them": "X, Bluesky, LinkedIn, Threads, Mastodon and Substack — six, chosen for writers"
+  },
+  {
+    "feature": "Team and approvals",
+    "us": "Team members on Team, Pro and Ultimate; client approval links that need no account, and an AI review inbox",
+    "them": "Teams, roles and permissions on Business, with unlimited users; Free and Creator are one user each"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "Editorial AI — a writing assistant, rewrite and improve, image descriptions — included from Creator, with higher usage on Business"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "A public API and an MCP server on every plan including Free, with higher rate limits on Business"
+  }
+];
+const faq = [
+  {
+    "q": "Can I compare the prices month by month?",
+    "a": "Not directly, because Typefully does not sell monthly billing. Creator is marked annual billing only at $99 a year, and Business is $18 a social set a month billed yearly. PostDelegate's prices above are monthly, with yearly costing about 20% less. Any table that puts a Typefully figure in a monthly-billing column is making it up."
+  },
+  {
+    "q": "How many accounts does a social set hold?",
+    "a": "Typefully does not publish a number. A social set is described as the accounts for one person or brand, with its own drafts, calendar and analytics, and the help centre says limits vary by plan without stating them. That is why there is no price-per-account comparison on this page: it cannot be worked out from their own pages."
+  },
+  {
+    "q": "Does Typefully support MCP?",
+    "a": "Yes, and generously — the MCP server and the API are on every plan, including the free one, with setup guides for Claude, ChatGPT, Notion, Claude Code and Cursor. On that specific point Typefully and PostDelegate are closely matched, and both are ahead of most of this category."
+  },
+  {
+    "q": "Which should I use for threads on X?",
+    "a": "Typefully, almost certainly. It is built for exactly that: writing long threads, scheduling them, and reading X analytics afterwards. PostDelegate cannot post to X at all, so for X work it is not a candidate."
+  },
+  {
+    "q": "Which should I use for everything else?",
+    "a": "PostDelegate, if your publishing reaches past the six networks Typefully covers — YouTube, Google Business Profile, Telegram, Discord, Slack, Tumblr, Twitch, Kick, Dribbble, DEV.to, Medium, WordPress, Hashnode, Lemmy, Nostr or a Listmonk newsletter. The two overlap only on Bluesky, Mastodon and the networks we are still waiting on."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Typefully', item: `${SITE.url}/compare/typefully` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Typefully alternative: PostDelegate vs Typefully compared" description="PostDelegate vs Typefully: a writing tool for X and LinkedIn against a multi-network scheduler, social sets versus channels, and annual-only billing." h1="PostDelegate vs Typefully." eyebrow="Compare" lead="Typefully is a writing tool that publishes. PostDelegate is a scheduler that happens to have a good editor. If your work is threads on X and posts on LinkedIn, these are not really the same product." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Typefully</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Typefully" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Typefully prices checked on {formatDate(them.checked)}, annual billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>These tools are not competing for the same job</h2>
+  <p>Most comparisons on this site are between two schedulers with overlapping network lists, where the question is price and workflow. This one is different, and it is more useful to say so than to force a table into shape.</p>
+  <p>Typefully is a writing environment. Its six networks — X, Bluesky, LinkedIn, Threads, Mastodon and Substack — are the ones writers use, and the product is organised around drafting, threading and scheduling text, with X analytics to see how it landed. PostDelegate is a scheduler across {AVAILABLE_NETWORKS.length} networks today, including video, blogs, developer communities and chat platforms, with approvals and a media library.</p>
+  <p>The overlap is Bluesky, Mastodon and, eventually, LinkedIn and Threads once those approvals come through. If your publishing is threads on X, Typefully does that and PostDelegate cannot do it at all. If your publishing is a YouTube video, a DEV.to post, a Discord announcement and a newsletter, Typefully does not reach those.</p>
+  
+  <h2>Pricing, and the thing to watch</h2>
+  <p>Typefully does not sell monthly billing. Creator is $99 a year and marked annual billing only; Business is $18 a social set a month, billed yearly; and there is no monthly toggle on the page. That matters for a comparison, because the honest answer to "what does it cost a month" is that you cannot buy it a month at a time.</p>
+  <p>It also does not price by social account. The billable unit is the social set — the accounts belonging to one person or brand — and the number of accounts a set holds is not published, only that limits vary by plan. So the cost tables that appear on our other comparison pages are absent here on purpose: the arithmetic cannot be done from Typefully's own pages, and we do not publish competitor numbers we cannot source.</p>
+  <p>What is clear is the free plan. One social set, one user, ten posts a month, and — unusually — the API and MCP server included. For a single writer testing the idea, that costs nothing at all.</p>
+  
+  <h2>Where the two genuinely agree</h2>
+  <p>On agents, these are the two most open tools in this comparison set. Typefully puts its API and MCP server on every plan including Free, with setup guides for Claude, ChatGPT, Notion, Claude Code and Cursor. PostDelegate puts its REST API, webhooks and MCP server on every plan, and adds a review inbox so drafts an assistant wrote wait for a person before publishing.</p>
+  <p>The difference is scope rather than access: an assistant driving Typefully is writing and scheduling text for six networks; one driving PostDelegate is scheduling to {AVAILABLE_NETWORKS.length}, including video and long-form, with an approval step in front of it. Both are reasonable places for an AI assistant to work, and neither is holding the capability back for a higher tier.</p>
+
+  <h2>Where Typefully is the better pick</h2>
+  <ul>
+    <li>You write threads on X — PostDelegate cannot post to X at all.</li>
+    <li>You want a writing environment first, with X analytics to see how a thread performed.</li>
+    <li>You publish to Substack, which PostDelegate does not support.</li>
+    <li>A single writer who wants a real free plan, with API and MCP included, rather than a trial.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Your publishing reaches past six networks: video, blogs, developer communities, chat platforms or a newsletter.</li>
+    <li>You want to pay monthly rather than a year up front.</li>
+    <li>You need approvals, client review links or team members.</li>
+    <li>You want the price to be legible per channel rather than per social set.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Typefully. The Typefully name belongs to its owner.</p>
+</Doc>

@@ -1,0 +1,55 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import Faq from '../Faq.astro';
+import { SITE } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool } from '../../data/tools';
+import { localeHref, localizeLinks, strings, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = strings(lang);
+const p = t.alternativesPage;
+const href = (path: string) => localeHref(lang, path);
+const [starter, team, pro, ultimate] = PLANS;
+const available = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+// Monthly-billing rates for Buffer Essentials and Team, from src/data/tools/buffer.json.
+const bufferTiers = tool('buffer').perChannel!.tiers;
+const bufferRates = [bufferTiers.essentials[0][1], bufferTiers.team[0][1]];
+const comparisons = [
+  { href: '/compare/buffer', name: 'Buffer', text: p.buffer(bufferRates[0], bufferRates[1]) },
+  { href: '/compare/hootsuite', name: 'Hootsuite', text: p.hootsuite },
+  { href: '/compare/later', name: 'Later', text: p.later },
+  { href: '/compare/sprout-social', name: 'Sprout Social', text: p.sprout },
+  { href: '/compare/publer', name: 'Publer', text: p.publer },
+  { href: '/compare/post-bridge', name: 'Post Bridge', text: p.postBridge },
+];
+const plans = { starter: starter.monthly, starterChannels: starter.channels, team: team.monthly, teamChannels: team.channels, pro: pro.monthly, proChannels: pro.channels, ultimate: ultimate.monthly, ultimateChannels: ultimate.channels };
+const faq = [
+  { q: p.faqBufferQ, a: p.faqBufferA(plans) },
+  { q: p.faqAiQ, a: p.faqAiA },
+  { q: p.faqMetaQ, a: p.faqMetaA(available) },
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: p.crumbCompare, item: `${SITE.url}${href('/compare')}` },
+  { '@type': 'ListItem', position: 2, name: p.crumbAlternatives, item: `${SITE.url}${href('/alternatives')}` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title={p.title} description={p.description} h1={p.h1} eyebrow={p.eyebrow} lead={p.lead} jsonLd={[crumbs, faqLd]} lang={lang}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{t.common.ctaLabel}</a>
+  <a slot="actions" href={href('/pricing')} class="button button-outline">{p.seePricing}</a>
+  <h2>{p.comparisonsTitle}</h2>
+  <div class="document-grid">
+    {comparisons.map((c) => <a href={c.href} class="document-card"><h3>{p.versus(c.name)}</h3><p>{c.text}</p><span>{p.seeComparison}</span></a>)}
+  </div>
+  <h2>{p.oneToolTitle}</h2>
+  <div class="document-grid">
+    <a href="/alternatives/postiz" class="document-card"><h3>{p.postizAlternatives}</h3><p>{p.postizAlternativesText}</p><span>{p.seeAlternatives}</span></a>
+    <a href="/compare/postiz-vs-buffer" class="document-card"><h3>{p.postizVsBuffer}</h3><p>{p.postizVsBufferText}</p><span>{p.seeComparison}</span></a>
+  </div>
+  <Fragment set:html={localizeLinks(lang, p.body({ ...plans, liveCount: AVAILABLE_NETWORKS.length, live: available, days: TRIAL_DAYS }))} />
+
+  <h2>{p.questionsTitle}</h2>
+  <Faq items={faq} />
+  <p>{p.independent(SITE.operator)}</p>
+</Doc>

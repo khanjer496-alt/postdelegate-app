@@ -1,0 +1,42 @@
+---
+// "Where PostDelegate fits": kept apart from the head-to-head table so the comparison stays A vs B.
+// Prices come from plans.ts and networks from networks.ts, so this box never drifts from the product.
+import { tool, planFor, COST_POINTS } from '../../data/tools';
+import { AVAILABLE_NETWORKS, WAITING_NETWORKS } from '../../data/networks';
+import { TRIAL_DAYS } from '../../data/plans';
+import { SITE, CTA_LABEL } from '../../data/site';
+import FactCell from './FactCell.astro';
+import AppShot from '../AppShot.astro';
+interface Props { intro: string }
+const { intro } = Astro.props;
+const pd = tool('postdelegate');
+const live = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+const pending = WAITING_NETWORKS.map((n) => n.name).join(', ');
+---
+<section class="pd-fit" aria-labelledby="pd-fit-title">
+  <h2 id="pd-fit-title">Where PostDelegate fits</h2>
+  <p>{intro}</p>
+  <dl>
+    <div><dt>What it is</dt><dd><FactCell fact={pd.kind} vendor="PostDelegate" /></dd></div>
+    <div><dt>Price</dt><dd>{TRIAL_DAYS}-day free trial, no card, then from ${planFor(1).monthly}/month. {COST_POINTS.map((n) => { const plan = planFor(Number(n)); return `${n} accounts: $${plan.monthly} (${plan.name}, ${plan.channels} channels)`; }).join(' · ')}. <a href="/pricing">Pricing</a></dd></div>
+    <div><dt>Live today</dt><dd>{AVAILABLE_NETWORKS.length} networks: {live}. <a href="/platforms">Platform status</a></dd></div>
+    <div><dt>Waiting on approval</dt><dd>{pending}. These cannot be connected yet. X is not available.</dd></div>
+    <div><dt>API and MCP</dt><dd><FactCell fact={pd.mcp} vendor="PostDelegate" /></dd></div>
+    <div><dt>AI</dt><dd><FactCell fact={pd.ai} vendor="PostDelegate" /></dd></div>
+  </dl>
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p class="pd-fit-actions"><a href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a><a href="/mcp" class="button button-outline">How MCP works</a></p>
+</section>
+<style>
+  .pd-fit { margin: 44px 0; padding: 28px; border: 1px solid #4a3d8f; border-radius: 22px; background: linear-gradient(180deg, #1b1630, #151515 70%); }
+  .pd-fit h2 { margin-top: 0 !important; }
+  .pd-fit dl { display: grid; gap: 0; margin: 18px 0 0; }
+  .pd-fit dl > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-top: 1px solid #2f2a45; font-size: 14.5px; line-height: 1.7; }
+  .pd-fit dt { color: #fff; font-weight: 700; }
+  .pd-fit dd { margin: 0; color: #c9c9c9; }
+  .pd-fit-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0 0 !important; }
+  @media (max-width: 600px) { .pd-fit { padding: 22px 18px; } .pd-fit dl > div { grid-template-columns: 1fr; gap: 4px; } }
+</style>

@@ -1,0 +1,137 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro, ultimate] = PLANS;
+// Sendible facts come from src/data/tools/sendible.json, re-read on the vendor's own site.
+const them = tool('sendible');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Per workspace bundle: every plan includes unlimited users, and each workspace brings 6 social profiles"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Core $35 (1 workspace, 6 profiles), Plus $99 (3, 18), Premium $199 (7, 42), Elite $299 (15, 90), Enterprise $750 (50, 300)"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "No free plan; a 14-day trial with no card and no contract"
+  },
+  {
+    "feature": "10 channels",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "$70 a month: profiles come six to a workspace, so ten needs two"
+  },
+  {
+    "feature": "30 channels",
+    "us": `${pro.name}, $${pro.monthly} a month`,
+    "them": "$159 a month on Plus with five workspaces — cheaper than Core at the same size, which comes to $175"
+  },
+  {
+    "feature": "Users",
+    "us": "Team members on Team, Pro and Ultimate, at no extra cost",
+    "them": "Unlimited users on every plan, including the cheapest"
+  },
+  {
+    "feature": "Team and approvals",
+    "us": "Post statuses, an approvals inbox, client approval links that need no account, and an AI review inbox",
+    "them": "Assignment and approvals from Plus; advanced permissions on Elite; SSO on Enterprise"
+  },
+  {
+    "feature": "Networks",
+    "us": `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval; X is not available`,
+    "them": "Instagram, Facebook, TikTok, X, LinkedIn, Google Business Profile, YouTube, WordPress, Threads and Bluesky"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "API access arranged through sales, and the white-label article says only SSO is supported through it today. No MCP server is mentioned anywhere on their site"
+  }
+];
+const faq = [
+  {
+    "q": "Is PostDelegate cheaper than Sendible?",
+    "a": `For a small team, clearly: ten channels are $${team.monthly} a month here against $70 there, and thirty are $${pro.monthly} against $159. For a large team the calculation changes, because Sendible puts no limit on users at any plan level. Twenty people sharing twelve profiles is $70 a month on Sendible; on PostDelegate that is ${team.name} at $${team.monthly}, so PostDelegate is still cheaper — but the gap closes as profile counts fall and headcount rises.`
+  },
+  {
+    "q": "Why is Sendible's bigger plan sometimes cheaper than its smaller one?",
+    "a": "Because profiles come in bundles of six per workspace and the price of an extra workspace differs by plan — $35 on Core, $30 on Plus. At five workspaces, which is thirty profiles, Core comes to $175 and Plus to $159. It is worth driving the stepper on their pricing page for your own number rather than reading the headline tier prices."
+  },
+  {
+    "q": "Does Sendible have an MCP server for AI assistants?",
+    "a": "Not that its own site mentions. It is absent from the pricing and integrations pages, and a search of their help centre for MCP returns nothing. PostDelegate includes an MCP server on every plan, so Claude, ChatGPT, Cursor or Claude Code can draft and schedule, with an optional review step before anything publishes."
+  },
+  {
+    "q": "Can I white-label either one?",
+    "a": "Sendible offers a white-label add-on on its Elite and Enterprise plans that rebrands the hosted product under your own domain. PostDelegate does not offer white labelling today. For an agency that needs to present the tool as its own, that is a real reason to choose Sendible."
+  },
+  {
+    "q": "Which networks does Sendible have that PostDelegate does not?",
+    "a": "Instagram, Facebook, TikTok, LinkedIn, Threads and X. The first five are waiting on platform approval here and X is not available on PostDelegate. Both publish to YouTube, Google Business Profile, WordPress and Bluesky."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Sendible', item: `${SITE.url}/compare/sendible` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Sendible alternative: PostDelegate vs Sendible compared" description="PostDelegate vs Sendible: flat channel plans against workspace bundles with unlimited users, approvals, white label, MCP, and the networks each connects today." h1="PostDelegate vs Sendible." eyebrow="Compare" lead="Sendible sells workspaces with six profiles each and puts no limit on users. PostDelegate sells a band of channels at a flat price. Which is cheaper depends almost entirely on how many people you have." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Sendible</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Sendible" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Sendible prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Pricing: it turns on headcount</h2>
+  <p>Sendible's unit is the workspace. Each one carries six social profiles, every plan includes unlimited users, and a stepper on their pricing page adds more workspaces. Core is $35 a month for one workspace, Plus $99 for three, Premium $199 for seven, Elite $299 for fifteen and Enterprise $750 for fifty, all on monthly billing.</p>
+  <p>PostDelegate's unit is the channel: ${starter.monthly} for 5, ${team.monthly} for 10, ${pro.monthly} for 30, ${ultimate.monthly} for 100, with team members included from Team upward. Ten channels cost ${team.monthly} here against $70 on Sendible, which needs two workspaces to hold them. Thirty cost ${pro.monthly} against $159.</p>
+  <p>The one place the comparison turns is very large teams. Sendible genuinely does not charge per seat at any level, so a twenty-person agency on one workspace pays $35 a month for users. PostDelegate includes team members on Team and above without counting them either, so at these sizes PostDelegate remains the cheaper of the two — but unlimited users on the entry plan is a real feature, and one most tools in this category do not offer.</p>
+  <p>One quirk is worth knowing before you quote a number. Because extra workspaces cost $35 on Core but $30 on Plus, the ladder is not monotonic: at five workspaces, Core totals $175 and Plus $159 for the same thirty profiles. Driving their stepper is more reliable than reading the tier headline.</p>
+  
+  <h2>Agencies, white label and approvals</h2>
+  <p>Sendible is built for agencies and the shape shows. Workspaces separate clients cleanly, assignment and approvals arrive on Plus, advanced permissions on Elite, SSO on Enterprise, and a white-label add-on on Elite and Enterprise rebrands the hosted product under the agency's own domain. If presenting the tool as your own to clients matters, PostDelegate has no answer to that today.</p>
+  <p>What PostDelegate does differently in approvals is the client side. A client approval link works without the client creating an account at all: they open a link, read the post as it will appear, and approve or ask for a change. There is also a separate review inbox for drafts an AI assistant created, so an agent can prepare a week of posts and a person still signs them off.</p>
+  
+  <h2>Automation and agents</h2>
+  <p>Sendible's API is not self-serve. Access is arranged with a sales agent or customer success manager, and their white-label help article says only SSO integration is supported through it today. No MCP server appears anywhere on their site — not on the pricing page, not on the integrations page, and a help-centre search returns nothing.</p>
+  <p>PostDelegate ships a public REST API and webhooks on every plan, and an MCP server on every plan that can draft, schedule and publish. For a team that wants its own tooling, or wants Claude or ChatGPT to run the calendar with a person approving, that difference is the whole decision.</p>
+
+  <h2>Where Sendible is the better pick</h2>
+  <ul>
+    <li>A large team on a small number of profiles: unlimited users on every plan, including the $35 one.</li>
+    <li>You need to white-label the tool under your own domain for clients.</li>
+    <li>You publish to Instagram, Facebook, TikTok, LinkedIn, Threads or X today.</li>
+    <li>You want client workspaces as the organising idea, with per-workspace separation and permissions.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Many channels rather than many people: thirty channels is ${pro.monthly} a month here against $159 there.</li>
+    <li>You want an API and webhooks without asking a salesperson, on every plan.</li>
+    <li>You want an AI assistant to schedule and publish through MCP, with a review step first.</li>
+    <li>Your clients should approve posts from a link without creating an account.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Sendible. The Sendible name belongs to its owner.</p>
+</Doc>

@@ -1,0 +1,137 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro, ultimate] = PLANS;
+// Metricool facts come from src/data/tools/metricool.json, re-read on the vendor's own site.
+const them = tool('metricool');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Per brand: plans cover up to 5, 10, 15, 25 or 50 brands, each holding one profile per network. X is a paid add-on per account"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Starter $25 (5 brands) or $45 (10); Advanced $67 (15), $107 (25) or $210 (50); Custom by quote"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "A free plan: 1 brand, 20 posts a month, 30 days of analytics, without LinkedIn or X"
+  },
+  {
+    "feature": "Analytics",
+    "us": "Daily history, plus a view of its own for each network that shares statistics — today YouTube, read live rather than stored, and Google Business Profile; neither feeds trends, top posts or insights yet",
+    "them": "The core of the product: analytics across every connected network, competitor tracking, and Facebook, Google and TikTok ads reporting"
+  },
+  {
+    "feature": "Ads reporting",
+    "us": "None",
+    "them": "Facebook, Google and TikTok ads alongside organic"
+  },
+  {
+    "feature": "Team and approvals",
+    "us": "Team members on Team, Pro and Ultimate; client approval links that need no account, and an AI review inbox",
+    "them": "Team and client management, roles and a post approval system on Advanced"
+  },
+  {
+    "feature": "Networks",
+    "us": `${AVAILABLE_NETWORKS.length} connect today, including blogs, developer communities and chat platforms; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on approval; X is not available`,
+    "them": "Facebook, Instagram, Threads, X as an add-on, Bluesky, Pinterest, TikTok, YouTube, Twitch, LinkedIn on paid plans, and Google Business Profile"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "An AI assistant metered by credits per brand a month: 5 on Free, 20 on Starter, 35 on Advanced"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "The Metricool API on Advanced and Custom only; an MCP server on every plan including Free"
+  }
+];
+const faq = [
+  {
+    "q": "Which has better analytics?",
+    "a": "Metricool, without qualification. Analytics is what the product is for: history across every connected network, competitor tracking, and ads reporting for Facebook, Google and TikTok alongside organic posts. PostDelegate reports only on networks that share statistics with us, which today means YouTube and Google Business Profile. If measurement is the job, this is not a close comparison."
+  },
+  {
+    "q": "Is PostDelegate cheaper than Metricool?",
+    "a": `It depends entirely on how your accounts divide into brands. A Metricool brand holds one profile per network, so ten accounts across two businesses may be two brands at $25, while ten single-network brands reach the $45 tier. PostDelegate charges for channels regardless of how they group: $${team.monthly} for ten, $${pro.monthly} for thirty. At thirty, Metricool ranges from $25 to $210 depending on that split.`
+  },
+  {
+    "q": "Does Metricool support X?",
+    "a": "As a paid add-on per account, not included in the plan. PostDelegate does not support X at all. If X is part of your reporting, Metricool can do it."
+  },
+  {
+    "q": "Do both have an MCP server?",
+    "a": "Yes, and both put it on every plan, which is still rare. Metricool's is included even on the free plan. The difference is what sits behind it: theirs reaches analytics and reporting data, ours schedules and publishes with a review inbox for assistant-written drafts."
+  },
+  {
+    "q": "When is PostDelegate the better choice?",
+    "a": "When publishing breadth matters more than measurement depth: blogs, developer communities, chat platforms and newsletters that Metricool does not reach, a flat price that does not depend on how accounts group into brands, and an API on every plan rather than on Advanced and above."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Metricool', item: `${SITE.url}/compare/metricool` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Metricool alternative: PostDelegate vs Metricool compared" description="PostDelegate vs Metricool: analytics depth against publishing breadth, per-brand pricing, AI credits or your own key, two MCP servers, and the X add-on." h1="PostDelegate vs Metricool." eyebrow="Compare" lead="Metricool leads with analytics and ads reporting; PostDelegate leads with publishing and an API. On the thing Metricool is best at, it is genuinely better than us, and this page says so." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Metricool</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Metricool" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Metricool prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Different centres of gravity</h2>
+  <p>Metricool is an analytics product that also publishes. Its plans are built around brands, its reporting covers every connected network, it tracks competitors, and it brings Facebook, Google and TikTok ads into the same view as organic posts. For an agency whose deliverable is a monthly report, that is the product.</p>
+  <p>PostDelegate is a publishing product that also reports. The calendar, composer, approvals and API are the centre, and analytics exist only where a network shares statistics with us — today YouTube and Google Business Profile. We would rather say that plainly than imply parity: if you are choosing on analytics, choose Metricool.</p>
+  
+  <h2>Pricing, and the brand question</h2>
+  <p>Metricool's unit is the brand, and a brand holds one profile per network. Plans cover up to 5, 10, 15, 25 or 50 brands: Starter at $25 or $45, Advanced at $67, $107 or $210, all on monthly billing before VAT. There is also a real free plan — one brand, twenty posts a month, thirty days of analytics, without LinkedIn or X.</p>
+  <p>That makes any per-account comparison depend on your structure rather than your count. Ten accounts belonging to two businesses are two brands, which fits Starter at $25. Ten accounts on ten different single-network brands reach the $45 tier. Thirty accounts can be anything from $25 to $210 depending on the same split, and X adds a per-account charge on top.</p>
+  <p>PostDelegate charges for channels and does not care how they group: ${starter.monthly} for five, ${team.monthly} for ten, ${pro.monthly} for thirty, ${ultimate.monthly} for a hundred. Simpler to predict, and cheaper at the top of that range; not necessarily cheaper at the bottom, where Metricool's free plan and $25 tier are hard to beat.</p>
+  
+  <h2>Agents and APIs</h2>
+  <p>Both ship an MCP server on every plan, and Metricool includes its on the free plan, which is a generous place to put it. The two serve different ends: Metricool's connects an assistant to the data it is best at — analytics and reporting — while PostDelegate's schedules and publishes, with an AI review inbox so drafts an assistant wrote wait for a person.</p>
+  <p>The APIs run the other way round from the analytics story. Metricool's API is on Advanced and Custom only, so the cheaper plans have the MCP server but not the API. PostDelegate puts the REST API and webhooks on every plan alongside the MCP server. If you intend to build on top of the tool rather than only talk to it through an assistant, that is the line to check.</p>
+
+  <h2>Where Metricool is the better pick</h2>
+  <ul>
+    <li>Analytics is the deliverable: history across every network, competitor tracking and ads reporting in one place.</li>
+    <li>You report on Facebook, Google or TikTok ads alongside organic posts.</li>
+    <li>Your accounts group neatly into brands, where the per-brand price works out lower.</li>
+    <li>You want a free plan rather than a trial, with an MCP server included in it.</li>
+    <li>You publish to Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest or Twitch today.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Publishing breadth: blogs, developer communities, chat platforms and newsletters Metricool does not reach.</li>
+    <li>A flat price that does not change with how your accounts divide into brands.</li>
+    <li>An API and webhooks on every plan, not only on Advanced and above.</li>
+    <li>Client approval links that need no account, and a review step for AI-written drafts.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Metricool. The Metricool name belongs to its owner.</p>
+</Doc>

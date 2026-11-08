@@ -1,0 +1,12 @@
+---
+// The fine print every comparison page carries: price date, vendor pricing pages, disclosure
+// and, when Postiz is named, the line that PostDelegate is open source.
+import { formatDate, type Tool } from '../../data/tools';
+interface Props { tools: Tool[]; checked: string; namesPostiz: boolean }
+const { tools, checked, namesPostiz } = Astro.props;
+---
+<p class="compare-meta">Prices checked on <time datetime={checked}>{formatDate(checked)}</time>, monthly billing, USD. Pricing pages: {tools.map((t, i) => <>{i > 0 && ', '}<a href={t.pricingUrl} target="_blank" rel="noopener">{t.name}</a></>)}.</p>
+<p class="compare-meta">PostDelegate makes a social media scheduler, so we have a stake. We link every source so you can check.{namesPostiz && <> PostDelegate is open source (AGPL-3.0). See <a href="/licenses">/licenses</a>.</>}</p>
+<style>
+  .compare-meta { margin: 10px 0 !important; color: #9a9a9a; font-size: 13px; line-height: 1.7; }
+</style>

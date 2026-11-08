@@ -1,0 +1,138 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro, ultimate] = PLANS;
+// Agorapulse facts come from src/data/tools/agorapulse.json, re-read on the vendor's own site.
+const them = tool('agorapulse');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels, and team members included on Team and above",
+    "them": "Per user per month, with 10 social profiles on every published plan and extra profiles at $15 a month each"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Standard $99, Professional $149, Advanced $199, each per user per month; Custom is quoted"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "30 days free with no card; the pricing FAQ says you can stay on a free plan afterwards, without stating its limits"
+  },
+  {
+    "feature": "10 channels, one person",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "Standard, $99 a month — 10 profiles are included with the seat"
+  },
+  {
+    "feature": "30 channels, one person",
+    "us": `${pro.name}, $${pro.monthly} a month`,
+    "them": "$399 a month: $99 for the seat plus 20 extra profiles at $15"
+  },
+  {
+    "feature": "A second teammate",
+    "us": "Included on Team, Pro and Ultimate at no extra cost",
+    "them": "Another $99 a month, because the plan is priced per user"
+  },
+  {
+    "feature": "Networks",
+    "us": `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval; X is not available`,
+    "them": "Facebook, Instagram, LinkedIn, TikTok, X, YouTube, Threads, Pinterest, Bluesky, Reddit and Google Business"
+  },
+  {
+    "feature": "Inbox and listening",
+    "us": "No unified social inbox; PostDelegate is a publishing tool",
+    "them": "A unified inbox is the centre of the product, with listening, advocacy and benchmarking as paid add-ons"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan; the assistant can publish and schedule",
+    "them": "A reports API on the Custom plan only. An MCP connector on all four current plans that reads the inbox, listening and analytics and creates drafts, but does not publish or schedule posts"
+  }
+];
+const faq = [
+  {
+    "q": "Why is Agorapulse so much more expensive for thirty channels?",
+    "a": `Because the two price different things. Agorapulse sells seats: $99 a month buys one user with ten profiles, and profiles beyond that are $15 each, so thirty profiles for one person is $399 a month. PostDelegate sells bands of channels, so thirty channels is ${pro.name} at $${pro.monthly} a month however many people use it. The gap narrows if you need one or two profiles and several seats, and widens the other way.`
+  },
+  {
+    "q": "Does Agorapulse have an MCP server?",
+    "a": "Yes, and it is on all four current plans, which is unusual. The difference is what it can do: Agorapulse's connector reads the inbox, listening data and analytics and can create drafts and calendar notes, but its own help centre says it does not publish or schedule posts. The PostDelegate MCP server schedules and publishes, with an optional review step before anything goes out."
+  },
+  {
+    "q": "Does PostDelegate have a social inbox?",
+    "a": "No. Agorapulse is built around a unified inbox for comments and messages, with listening and advocacy alongside it, and that is genuinely its strength. PostDelegate is a publishing tool: calendar, composer, approvals, analytics for the networks that share them, and an API. If replying is the job, Agorapulse is the better fit."
+  },
+  {
+    "q": "Which has the longer free trial?",
+    "a": "Agorapulse, at 30 days with no card against 7 days with no card on PostDelegate. Its pricing FAQ also says you can keep using a free plan after the trial, though the page does not say what that plan includes."
+  },
+  {
+    "q": "Can I use my own AI key with Agorapulse?",
+    "a": "Its pricing page does not offer that. Agorapulse includes an AI writing assistant, alt-text generation and report digests on all four current plans, with no credit allowance stated. PostDelegate runs AI on your own OpenAI key, so you pay OpenAI directly and PostDelegate never charges for AI."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Agorapulse', item: `${SITE.url}/compare/agorapulse` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Agorapulse alternative: PostDelegate vs Agorapulse compared" description="PostDelegate vs Agorapulse: per-user pricing against flat channel plans, inbox and listening, approvals, and MCP that publishes or only reads." h1="PostDelegate vs Agorapulse." eyebrow="Compare" lead="Agorapulse charges per user and bundles ten profiles with each seat. PostDelegate charges a flat price for a band of channels, whatever the size of the team. That one difference drives most of the comparison." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Agorapulse</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Agorapulse" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Agorapulse prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>Agorapulse prices per user per month and includes ten social profiles with each published plan: Standard at $99, Professional at $149 and Advanced at $199 on monthly billing, with Custom quoted. Profiles beyond the included ten are $15 a month each. PostDelegate prices a band of channels regardless of headcount: ${starter.monthly} for 5, ${team.monthly} for 10, ${pro.monthly} for 30 and ${ultimate.monthly} for 100, with team members included from Team upward.</p>
+  <p>At ten profiles for one person, Agorapulse Standard is $99 against ${team.monthly} on PostDelegate {team.name}. At thirty profiles for one person it is $399 — the seat plus twenty profiles at $15 — against ${pro.monthly} on PostDelegate {pro.name}. Add a second person to Agorapulse and the total rises by another $99, because the seat is the unit; adding a second person to PostDelegate Team costs nothing.</p>
+  <p>One caution when reading their page: the billing toggle opens on annual, which shows $79, $119 and $149 per user per month. The figures above are the monthly-billing prices.</p>
+  <p>Agorapulse's trial is the more generous of the two at 30 days with no card, against 7 days with no card here.</p>
+  
+  <h2>What Agorapulse does that PostDelegate does not</h2>
+  <p>Agorapulse is a social media management suite, not only a scheduler, and the unified inbox is its centre of gravity. Comments and direct messages across connected profiles arrive in one queue that a team can work through, assign and moderate, with saved replies and a record of who answered what. Around it sit listening, employee advocacy, competitive benchmarking and ROI reporting, several of which are separate add-ons quoted on request.</p>
+  <p>PostDelegate has none of that. It publishes: a calendar, a composer with per-network previews and limits, approvals, media, and analytics for the networks that share statistics — today YouTube and Google Business Profile. If answering your audience is as much of the job as publishing to them, that is a real gap and Agorapulse is the better tool.</p>
+  
+  <h2>Agents: both have MCP, and they do different things</h2>
+  <p>Agorapulse is one of the few tools in this category to ship an MCP connector on all four of its current plans, so a comparison that says "most schedulers have no MCP" no longer holds. What matters is the verb. Its own help centre describes a connector that reads the inbox, listening, analytics and organisation data, and that can create drafts and calendar notes — and states that it does not publish or schedule posts. It also needs your own paid Claude, ChatGPT or Copilot Studio subscription.</p>
+  <p>The PostDelegate MCP server is on every plan too, and it schedules and publishes. Drafts an assistant creates can be held in an AI review inbox until a person approves them, which is the setting most teams want when an agent has posting rights. If you want an assistant that reads your social data and writes reports, Agorapulse's connector is well suited. If you want one that actually puts the post in the calendar, that is the difference.</p>
+
+  <h2>Where Agorapulse is the better pick</h2>
+  <ul>
+    <li>Replying matters as much as publishing: the unified inbox, saved replies and assignment are the product, and PostDelegate has no inbox at all.</li>
+    <li>You want listening, advocacy or competitive benchmarking alongside scheduling.</li>
+    <li>You need Facebook, Instagram, LinkedIn, X, TikTok or Pinterest today.</li>
+    <li>A small number of profiles with several people on them, where per-seat pricing works in your favour.</li>
+    <li>You want a 30-day trial rather than 7 days.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>Many channels and few people: thirty channels is ${pro.monthly} a month here against $399 there.</li>
+    <li>You want the assistant to schedule and publish, not only read and draft.</li>
+    <li>You want team members and client approval links without paying per seat.</li>
+    <li>You publish to YouTube, Bluesky, Mastodon, blogs, developer communities or community chats.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Agorapulse. The Agorapulse name belongs to its owner.</p>
+</Doc>

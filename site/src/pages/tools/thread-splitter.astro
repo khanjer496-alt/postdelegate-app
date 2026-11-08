@@ -1,0 +1,234 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHero from '../../components/PageHero.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import Faq from '../../components/Faq.astro';
+import { NETWORKS } from '../../data/networks';
+import { SITE, CTA_LABEL } from '../../data/site';
+import AppShot from '../../components/AppShot.astro';
+// Limits and counting rules come from NETWORKS, the same data the caption checker uses.
+// Nostr has no fixed note length, so the splitter starts from a shorter length the user can change.
+const START: Record<string, number> = { nostr: 500 };
+// The longest post the splitter offers; Nostr's directory limit (100,000) is far beyond a readable note.
+const MAX_POST = 10000;
+const COUNTED: Record<string, string> = {
+  codepoints: 'Counts Unicode characters.',
+  graphemes: 'Counts graphemes, so an emoji or a flag is 1.',
+  codepoints_emoji_bytes: 'Counts characters, with each emoji counted by its UTF-8 byte length.',
+  weighted: 'Weighted count: most Latin letters 1, many others and emoji 2, every link 23.',
+};
+const options = ['bluesky', 'x', 'threads', 'mastodon', 'nostr'].map((key) => NETWORKS.find((n) => n.key === key)!).map((n) => ({
+  key: n.key, name: n.name, limit: Math.min(n.limit, MAX_POST), open: n.limit > MAX_POST, start: START[n.key] ?? Math.min(n.limit, MAX_POST),
+  rule: { unit: n.unit, urlCost: n.urlCost, noMentionDomain: n.noMentionDomain },
+  hint: [COUNTED[n.unit], n.urlCost ? `Every link counts as ${n.urlCost}.` : '', n.limit > MAX_POST ? `${n.name} has no fixed limit, so pick the length your readers’ apps show in full, up to ${MAX_POST.toLocaleString('en-US')}.` : '', n.note ?? ''].filter(Boolean).join(' '),
+}));
+const url = `${SITE.url}/tools/thread-splitter`;
+const app = { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Thread splitter', applicationCategory: 'UtilitiesApplication', operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }, url };
+const faq = [
+  { q: 'How does the thread splitter decide where to break?', a: 'It fills each post with whole sentences. A sentence that is too long on its own is broken between words, and a single word longer than a post, such as a very long link, is broken between characters. When a new paragraph will not fit in the post that is already half full, the next post starts with that paragraph.' },
+  { q: 'Does the 1/n numbering count toward the limit?', a: 'Yes. The splitter keeps room for the numbering in every post, so each numbered post still fits the limit you chose. A text that fits in one post is not numbered.' },
+  { q: 'Why does the same text make more posts on X than on Mastodon?', a: 'Each network counts differently. X allows 280 and weights many characters and emoji as 2, Bluesky allows 300 graphemes, and Threads and Mastodon allow 500. The counts follow the planning rules in the <a href="/guides/social-media-character-limits">character limits guide</a>.' },
+  { q: 'Is my text sent anywhere?', a: 'No. The splitter runs in your browser. Nothing you paste is uploaded or saved.' },
+  { q: 'Can PostDelegate publish a thread for me?', a: `PostDelegate can schedule posts to Bluesky, Mastodon and Nostr today. Threads is waiting on approval, and X is not available on PostDelegate. See the <a href="/guides/schedule-bluesky-posts">Bluesky scheduling guide</a> for how posts are planned. Every plan starts with a 7-day free trial, and no card is needed.` },
+];
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) };
+const field = 'w-full rounded-xl border border-line-hover bg-surface-1 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-brand-300';
+---
+<Base title="Thread splitter: split long text into posts | PostDelegate" description="Free thread splitter for Bluesky, X, Threads, Mastodon and Nostr. Paste long text and split it into numbered posts at sentence breaks, right in your browser." jsonLd={[app, faqLd]}>
+  <PageHero eyebrow="Free tool" title="Thread splitter" lead="Paste a long text and split it into posts that fit Bluesky, X, Threads, Mastodon or Nostr. It runs in your browser; nothing is sent or saved." />
+  <section class="section"><div id="splitter" class="container-x max-w-4xl" data-options={JSON.stringify(options)}>
+    <label for="src" class="mb-2 block text-sm font-bold">Your text</label>
+    <textarea id="src" rows="9" class="w-full rounded-2xl border border-line-hover bg-surface-1 p-4 text-base text-ink placeholder:text-ink-3 focus:border-brand-300" placeholder="Paste a long post, an article intro or your notes here…"></textarea>
+    <div class="mt-5 grid gap-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <div><label for="net" class="mb-2 block text-sm font-bold">Network</label><select id="net" class={field}>{options.map((o) => <option value={o.key}>{o.name} ({o.open ? 'no fixed limit' : o.limit.toLocaleString('en-US')})</option>)}</select></div>
+      <div><label for="max" class="mb-2 block text-sm font-bold">Longest post</label><input id="max" type="number" inputmode="numeric" min="20" step="1" value={options[0].start} max={options[0].limit} aria-describedby="hint max-note" class={field} /></div>
+      <label class="flex min-h-[50px] items-center gap-3 text-sm font-bold"><input id="num" type="checkbox" checked class="size-5 accent-[#7357ff]" /> Add 1/n numbering</label>
+    </div>
+    <p id="hint" class="mt-2 text-sm text-ink-3">{options[0].hint}</p>
+    <p id="max-note" class="mt-1 min-h-5 text-sm text-amber-300" aria-live="polite"></p>
+    <div class="mt-6 flex flex-wrap gap-3"><button id="example" type="button" class="btn btn-ghost">Try an example</button><button id="copyall" type="button" class="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" disabled>Copy all posts</button></div>
+    <p id="summary" class="mt-6 text-sm font-bold text-ink-2" aria-live="polite">Paste text to split it into posts.</p>
+    <p id="msg" class="mt-1 min-h-5 text-sm text-ink-3" aria-live="polite"></p>
+    <ol id="posts" class="mt-4 grid gap-3" aria-label="Posts"></ol>
+
+    <div class="prose-pd mt-14">
+      <h2>How to use the thread splitter</h2>
+      <ol>
+        <li>Paste your text. Keep blank lines between paragraphs; the splitter prefers to start a new post at a paragraph.</li>
+        <li>Pick the network. The longest post starts at that network’s limit, and you can set it lower to leave room for a link or a hashtag.</li>
+        <li>Leave <strong>Add 1/n numbering</strong> on to end each post with its place in the thread, such as 2/5.</li>
+        <li>Copy each post, or copy them all, and paste them into your thread.</li>
+      </ol>
+      <p>Counts are planning estimates that follow the same rules as the <a href="/tools/caption-checker">caption checker</a>. Each network validates the final post, so check the thread in the composer before it goes out.</p>
+    </div>
+
+    <h2 class="mt-14 mb-6 text-[27px] font-bold tracking-tight">Questions</h2>
+    <Faq items={faq} />
+
+    <div class="prose-pd mt-12">
+      <h2>Related</h2>
+      <ul>
+        <li><a href="/bluesky-scheduler">Bluesky scheduler</a> and the guide to <a href="/guides/schedule-bluesky-posts">scheduling Bluesky posts</a></li>
+        <li><a href="/nostr-scheduler">Nostr scheduler</a></li>
+        <li><a href="/tools/post-preview">Social post preview</a> and <a href="/tools/caption-checker">caption checker</a></li>
+        <li><a href="/guides/social-media-character-limits">Social media character limits in 2026</a></li>
+      </ul>
+      <p>Ready to plan the thread? <a href={SITE.signup} data-pulse-goal="trial_clicked">{CTA_LABEL}</a>. No card is needed.</p>
+    </div>
+    <AppShot
+      shot="composer"
+      caption="Composing in PostDelegate: the per-network count as you type, and Add post in a thread for the next part."
+    />
+  </div></section>
+  <CtaBand title="Give your threads a place in the plan." text="Plan, schedule and publish from one calendar. Try PostDelegate free for 7 days, no card needed." />
+</Base>
+<script>
+  import { captionLength, type Rule } from '../../scripts/caption-count';
+  type Option = { key: string; name: string; limit: number; open: boolean; start: number; rule: Rule; hint: string };
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const options: Option[] = JSON.parse($('splitter').dataset.options!);
+  const src = $<HTMLTextAreaElement>('src'), net = $<HTMLSelectElement>('net'), max = $<HTMLInputElement>('max'), num = $<HTMLInputElement>('num');
+  const list = $('posts'), summary = $('summary'), msg = $('msg'), hint = $('hint'), maxNote = $('max-note'), copyAll = $<HTMLButtonElement>('copyall');
+  const EXAMPLE = 'Scheduling posts is easier when the plan lives in one place. Here is how we plan a week of social media in about an hour.\n\nFirst, we write down the three things we want people to know this week. Everything we post supports one of them. If an idea does not fit, it goes on the ideas board for later.\n\nNext, we draft every post in one sitting. Writing in a batch keeps the voice consistent, and it is much faster than starting from a blank page every morning.\n\nThen we put each post on the calendar at a time our audience is around. Long posts become short threads, and each post gets a quick check against the network’s limit.\n\nFinally, we leave room for the unexpected. A plan that is 80% full lets you react to news without moving everything else.';
+
+  let seg: Intl.Segmenter | null = null;
+  let gseg: Intl.Segmenter | null = null;
+  const sentences = (line: string): string[] => {
+    if (typeof Intl.Segmenter !== 'function') return (line.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)/g) ?? [line]).map((s) => s.trim()).filter(Boolean);
+    seg ??= new Intl.Segmenter(undefined, { granularity: 'sentence' });
+    return Array.from(seg.segment(line), (s) => s.segment.trim()).filter(Boolean);
+  };
+  const graphemes = (text: string): string[] => {
+    if (typeof Intl.Segmenter !== 'function') return Array.from(text);
+    gseg ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return Array.from(gseg.segment(text), (s) => s.segment);
+  };
+
+  // Sentences with the separator that came before them: a space, a line break or a paragraph break.
+  const pieces = (text: string) => {
+    const out: { text: string; sep: string }[] = [];
+    let gap = '\n';
+    for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+      if (!line.trim()) { gap = '\n\n'; continue; }
+      sentences(line).forEach((s, i) => out.push({ text: s, sep: out.length === 0 ? '' : i ? ' ' : gap }));
+      gap = '\n';
+    }
+    return out;
+  };
+
+  // Pieces are joined by whitespace, which never merges graphemes, links or mentions, so a post's
+  // count is the sum of its pieces and separators. Each piece is counted once.
+  const split = (text: string, rule: Rule, budget: number): string[] => {
+    const len = (t: string) => captionLength(t, rule);
+    const sepLen: Record<string, number> = { '': 0, ' ': len(' '), '\n': len('\n'), '\n\n': len('\n\n') };
+    const posts: string[] = [];
+    let cur = '', curLen = 0;
+    const flush = () => { if (cur.trim()) posts.push(cur.trim()); cur = ''; curLen = 0; };
+    const put = (piece: string, n: number, sep: string) => {
+      const joined = curLen + (cur ? sepLen[sep] : 0) + n;
+      if (cur && joined <= budget) { cur += sep + piece; curLen = joined; return true; }
+      if (!cur && n <= budget) { cur = piece; curLen = n; return true; }
+      return false;
+    };
+    // The longest run of graphemes from the start of a word that fits, found by binary search.
+    const cut = (g: string[]) => {
+      let lo = 1, hi = g.length;
+      while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (len(g.slice(0, mid).join('')) <= budget) lo = mid; else hi = mid - 1; }
+      return lo;
+    };
+    const add = (piece: string, n: number, sep: string) => {
+      if (put(piece, n, sep)) return;
+      flush();
+      if (put(piece, n, '')) return;
+      // The sentence is too long for one post: break it between words, then between characters.
+      for (const word of piece.split(/\s+/).filter(Boolean)) {
+        const wn = len(word);
+        if (put(word, wn, ' ')) continue;
+        flush();
+        if (put(word, wn, '')) continue;
+        let g = graphemes(word);
+        while (g.length) {
+          const k = cut(g); const part = g.slice(0, k).join('');
+          if (k < g.length) posts.push(part); else { cur = part; curLen = len(part); }
+          g = g.slice(k);
+        }
+      }
+    };
+    const all = pieces(text);
+    const lens = all.map((p) => len(p.text));
+    // Length of the paragraph that starts at piece i.
+    const paraLen = (i: number) => { let n = lens[i]; for (let j = i + 1; j < all.length && all[j].sep !== '\n\n'; j++) n += sepLen[all[j].sep] + lens[j]; return n; };
+    all.forEach((p, i) => {
+      // Start a new post at a paragraph when the post is already half full and the paragraph will not fit.
+      if (p.sep === '\n\n' && cur && curLen >= budget / 2 && curLen + sepLen['\n\n'] + paraLen(i) > budget) flush();
+      add(p.text, lens[i], p.sep);
+    });
+    flush();
+    return posts;
+  };
+
+  const current = () => options.find((o) => o.key === net.value) ?? options[0];
+  // Out-of-range lengths are clamped, with a note saying which length is used.
+  const longest = (o: Option) => {
+    const v = Math.floor(Number(max.value));
+    let use = o.limit, note = '';
+    if (max.value.trim() && Number.isFinite(v)) {
+      use = Math.min(Math.max(v, 20), o.limit);
+      if (v < 20) note = 'The shortest post is 20, so posts use 20.';
+      else if (v > o.limit) note = `The longest post for ${o.name} is ${o.limit.toLocaleString('en-US')}, so posts use ${o.limit.toLocaleString('en-US')}.`;
+    }
+    if (maxNote.textContent !== note) maxNote.textContent = note;
+    return use;
+  };
+
+  const build = (): string[] => {
+    const o = current(); const text = src.value; const limit = longest(o);
+    if (!text.trim()) return [];
+    const plain = split(text, o.rule, limit);
+    if (!num.checked || plain.length < 2) return plain;
+    // Reserve room for " n/n", growing the reserve if the count gains a digit.
+    for (let digits = String(plain.length).length; ; digits++) {
+      const reserve = captionLength(` ${'9'.repeat(digits)}/${'9'.repeat(digits)}`, o.rule);
+      const posts = split(text, o.rule, Math.max(1, limit - reserve));
+      if (String(posts.length).length <= digits || digits > 5) return posts.map((p, i) => `${p} ${i + 1}/${posts.length}`);
+    }
+  };
+
+  let posts: string[] = [];
+  const copy = async (text: string, done: string, el?: HTMLElement) => {
+    try { await navigator.clipboard.writeText(text); msg.textContent = done; }
+    catch {
+      if (el) { const range = document.createRange(); range.selectNodeContents(el); const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(range); }
+      msg.textContent = 'Press Ctrl+C or Cmd+C to copy.';
+    }
+  };
+
+  const render = () => {
+    const o = current(); const limit = longest(o);
+    posts = build();
+    list.replaceChildren();
+    copyAll.disabled = posts.length === 0;
+    msg.textContent = '';
+    if (!posts.length) { summary.textContent = 'Paste text to split it into posts.'; return; }
+    summary.textContent = `${posts.length} ${posts.length === 1 ? 'post' : 'posts'} for ${o.name}, each up to ${limit.toLocaleString('en-US')}.`;
+    posts.forEach((text, i) => {
+      const n = captionLength(text, o.rule);
+      const li = document.createElement('li'); li.className = 'card p-4 sm:p-5';
+      const head = document.createElement('div'); head.className = 'flex items-center gap-3 text-sm';
+      const label = document.createElement('span'); label.className = 'font-bold text-ink'; label.textContent = `Post ${i + 1} of ${posts.length}`;
+      const count = document.createElement('span'); count.className = 'ml-auto tabular-nums ' + (n > limit ? 'font-bold text-red-300' : 'text-ink-3'); count.textContent = `${n.toLocaleString('en-US')} / ${limit.toLocaleString('en-US')}`;
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'rounded-full border border-line-hover px-4 py-1.5 text-sm font-semibold text-ink hover:border-ink'; btn.textContent = 'Copy'; btn.setAttribute('aria-label', `Copy post ${i + 1}`);
+      const body = document.createElement('p'); body.className = 'mt-3 whitespace-pre-wrap break-words text-ink-2'; body.textContent = text;
+      btn.addEventListener('click', () => copy(text, `Post ${i + 1} copied.`, body));
+      head.append(label, count, btn); li.append(head, body); list.append(li);
+    });
+  };
+
+  let timer = 0;
+  const schedule = () => { clearTimeout(timer); timer = window.setTimeout(render, 120); };
+  net.addEventListener('change', () => { const o = current(); max.max = String(o.limit); max.value = String(o.start); hint.textContent = o.hint; render(); });
+  [src, max].forEach((el) => el.addEventListener('input', schedule));
+  num.addEventListener('change', render);
+  $('example').addEventListener('click', () => { src.value = EXAMPLE; render(); });
+  copyAll.addEventListener('click', () => copy(posts.join('\n\n'), `All ${posts.length} posts copied.`));
+</script>

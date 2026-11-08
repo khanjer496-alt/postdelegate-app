@@ -1,0 +1,183 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHero from '../../components/PageHero.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import Faq from '../../components/Faq.astro';
+import { NETWORKS } from '../../data/networks';
+import { SITE, CTA_LABEL } from '../../data/site';
+import AppShot from '../../components/AppShot.astro';
+// The description rule comes from NETWORKS (5,000 UTF-8 bytes). Title and tag limits follow the
+// YouTube Data API reference: title 100 characters, tags 500 characters including commas.
+const youtube = NETWORKS.find((n) => n.key === 'youtube')!;
+const rules = { title: { unit: 'codepoints', limit: 100 }, description: { unit: youtube.unit, limit: youtube.limit }, tags: { unit: 'codepoints', limit: 500 }, mobile: 70, keyword: 60 };
+const url = `${SITE.url}/tools/youtube-title-checker`;
+const app = { '@context': 'https://schema.org', '@type': 'WebApplication', name: 'YouTube title and description checker', applicationCategory: 'UtilitiesApplication', operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }, url };
+const api = 'https://developers.google.com/youtube/v3/docs/videos';
+const faq = [
+  { q: 'How long can a YouTube title be?', a: `Up to 100 characters. YouTube’s <a href="${api}">Data API reference</a> also says a title cannot contain the &lt; or &gt; characters. On a phone, viewers often see only the start of a long title, so this tool previews the first ${rules.mobile} characters.` },
+  { q: 'Why is the description counted in bytes?', a: 'YouTube measures the description as 5,000 bytes of UTF-8. A letter from the Latin alphabet is 1 byte, but many other scripts use 2 or 3 bytes per character and an emoji uses 4, so a description in Arabic, Hindi or Japanese reaches the limit with fewer characters.' },
+  { q: 'How are YouTube tags counted?', a: 'Tags share a 500-character limit. The commas between tags count, and a tag that contains a space counts as if it were wrapped in quotation marks, so “video tips” counts as 12 characters rather than 10.' },
+  { q: 'Where should the keyword go in a title?', a: `Near the start. Putting the main words people search for in the first ${rules.keyword} characters keeps them visible when the title is cut short. Enter a keyword above and the checker tells you where it appears.` },
+  { q: 'Can I schedule YouTube videos with PostDelegate?', a: 'Yes. YouTube is one of the networks you can connect today. Upload a video, write the title and description, and schedule it on the calendar. The <a href="/guides/schedule-youtube-videos">YouTube scheduling guide</a> walks through it. Every plan starts with a 7-day free trial, and no card is needed.' },
+];
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>') } })) };
+const field = 'w-full rounded-xl border border-line-hover bg-surface-1 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-brand-300';
+const meter = (id: string, limit: number, unit: string) => ({ id, limit, unit });
+const meters = [meter('title', rules.title.limit, 'characters'), meter('description', rules.description.limit, 'bytes'), meter('tags', rules.tags.limit, 'characters')];
+---
+<Base title="YouTube title and description length checker | PostDelegate" description="Check a YouTube title, description and tags against their limits as you type, preview how a title is cut short on a phone, and spot all-caps and keyword issues." jsonLd={[app, faqLd]}>
+  <PageHero eyebrow="Free tool" title="YouTube title and description checker" lead="Count your title, description and tags against YouTube’s limits, and see how the title looks when it is cut short. Your text stays in this browser." />
+  <section class="section"><div id="yt" class="container-x max-w-5xl" data-rules={JSON.stringify(rules)}>
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div class="grid gap-6">
+        <div><label for="keyword" class="mb-2 block text-sm font-bold">Main keyword <span class="font-normal text-ink-3">(optional)</span></label><input id="keyword" type="text" autocomplete="off" placeholder="schedule youtube videos" class={field} /></div>
+        {meters.map((m) => (
+          <div>
+            <div class="mb-2 flex items-baseline gap-3"><label for={m.id} class="text-sm font-bold capitalize">{m.id}</label><span id={`${m.id}-count`} class="ml-auto text-sm tabular-nums text-ink-3">0 / {m.limit.toLocaleString('en-US')} {m.unit}</span></div>
+            {m.id === 'description'
+              ? <textarea id={m.id} rows="7" aria-describedby={`${m.id}-note`} class="w-full rounded-2xl border border-line-hover bg-surface-1 p-4 text-base text-ink placeholder:text-ink-3 focus:border-brand-300" placeholder="What the video is about, chapters, links…"></textarea>
+              : <input id={m.id} type="text" autocomplete="off" aria-describedby={`${m.id}-note`} placeholder={m.id === 'title' ? 'How to schedule YouTube videos in 5 minutes' : 'youtube tips, video scheduling, creator tools'} class={field} />}
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3"><div id={`${m.id}-bar`} class="h-full w-0 rounded-full bg-brand transition-[width] duration-200"></div></div>
+            <p id={`${m.id}-note`} class="mt-2 text-xs text-ink-3">{m.id === 'title' ? 'Up to 100 characters, without < or >.' : m.id === 'description' ? 'Up to 5,000 bytes of UTF-8, without < or >. Non-Latin text and emoji use more than 1 byte per character.' : 'Separate tags with commas. Commas count, and a tag with a space counts 2 more for its quotation marks.'}</p>
+          </div>
+        ))}
+        <button id="example" type="button" class="btn btn-ghost w-fit">Try an example</button>
+      </div>
+      <aside aria-labelledby="preview-h" class="lg:sticky lg:top-28 lg:self-start">
+        <h2 id="preview-h" class="text-sm font-bold">Phone preview <span class="font-normal text-ink-3">(about {rules.mobile} characters)</span></h2>
+        <div class="card mt-3 !p-0 overflow-hidden">
+          <div class="flex aspect-video items-center justify-center bg-surface-3 text-xs font-semibold uppercase tracking-widest text-ink-3" aria-hidden="true">16:9 thumbnail</div>
+          <div class="flex gap-3 p-4">
+            <span class="size-9 shrink-0 rounded-full bg-surface-3" aria-hidden="true"></span>
+            <div class="min-w-0"><p id="preview" class="break-words font-semibold leading-snug text-ink">Your title appears here</p><p class="mt-1 text-xs text-ink-3">Your channel · 0 views</p></div>
+          </div>
+        </div>
+        <h2 class="mt-8 text-sm font-bold">Checks</h2>
+        <ul id="checks" class="mt-3 grid gap-2 text-sm" aria-live="polite"><li class="text-ink-3">Start typing a title to see checks.</li></ul>
+      </aside>
+    </div>
+
+    <div class="prose-pd mt-14 max-w-3xl">
+      <h2>How to use the YouTube title checker</h2>
+      <ol>
+        <li>Enter the main keyword people would search for. This is optional, but it lets the tool check that the keyword appears early in the title.</li>
+        <li>Type or paste the title, description and tags. The counts and bars update as you type and turn amber near the limit and red over it.</li>
+        <li>Look at the phone preview to see where a long title is cut short, and read the checks for capital letters, the keyword and characters YouTube does not accept.</li>
+      </ol>
+      <p>Limits follow YouTube’s <a href={api}>Data API reference</a>. The ~{rules.mobile}-character phone preview is an approximation, since the real cut depends on the screen and the letters used. YouTube validates the final upload.</p>
+    </div>
+
+    <div class="mt-14 max-w-3xl">
+      <h2 class="mb-6 text-[27px] font-bold tracking-tight">Questions</h2>
+      <Faq items={faq} />
+    </div>
+
+    <div class="prose-pd mt-12 max-w-3xl">
+      <h2>Related</h2>
+      <ul>
+        <li><a href="/youtube-scheduler">YouTube scheduler</a> and the guide to <a href="/guides/schedule-youtube-videos">scheduling YouTube videos</a></li>
+        <li><a href="/tools/image-resizer">Image resizer</a> for 1280×720 thumbnails</li>
+        <li><a href="/tools/social-image-sizes">Social media image sizes</a>, including YouTube thumbnails and banners</li>
+        <li><a href="/tools/caption-checker">Caption checker</a> for every network</li>
+      </ul>
+      <p>Ready to plan your uploads? <a href={SITE.signup} data-pulse-goal="trial_clicked">{CTA_LABEL}</a>. No card is needed.</p>
+    </div>
+    <AppShot
+      shot="composer"
+      caption="Writing the post in PostDelegate, with the per-network limit counted as you type."
+    />
+  </div></section>
+  <CtaBand title="Plan your next upload." text="Write the title and description, then schedule the video on one calendar. Try PostDelegate free for 7 days, no card needed." />
+</Base>
+<script>
+  import { captionLength } from '../../scripts/caption-count';
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const R = JSON.parse($('yt').dataset.rules!) as { title: { unit: string; limit: number }; description: { unit: string; limit: number }; tags: { unit: string; limit: number }; mobile: number; keyword: number };
+  const keyword = $<HTMLInputElement>('keyword'), title = $<HTMLInputElement>('title'), desc = $<HTMLTextAreaElement>('description'), tags = $<HTMLInputElement>('tags');
+  const preview = $('preview'), checks = $('checks');
+  const fmt = (n: number) => n.toLocaleString('en-US');
+  // Only touch the DOM when something changed, so the live checks list is not re-announced.
+  const set = (el: HTMLElement, text: string, cls?: string) => { if (el.textContent !== text) el.textContent = text; if (cls !== undefined && el.className !== cls) el.className = cls; };
+
+  // Tags: commas count, and a tag with a space counts as if wrapped in quotation marks.
+  const tagLength = (raw: string) => {
+    const list = raw.split(',').map((t) => t.trim()).filter(Boolean);
+    return list.reduce((sum, t) => sum + captionLength(t, R.tags) + (/\s/.test(t) ? 2 : 0), 0) + Math.max(0, list.length - 1);
+  };
+
+  const meter = (id: string, n: number, limit: number, unit: string, extra = '') => {
+    const ratio = n / limit;
+    set($(`${id}-count`), `${fmt(n)} / ${fmt(limit)} ${unit}${extra}`, 'ml-auto text-sm tabular-nums ' + (n > limit ? 'font-bold text-red-300' : 'text-ink-3'));
+    const bar = $(`${id}-bar`);
+    bar.style.width = Math.min(100, ratio * 100) + '%';
+    bar.className = 'h-full rounded-full transition-[width] duration-200 ' + (n > limit ? 'bg-red-400' : ratio > 0.9 ? 'bg-amber-400' : 'bg-brand');
+  };
+
+  type Check = { level: 'ok' | 'warn' | 'info'; text: string };
+  let lastChecks = '';
+  const counts = () => {
+    const t = title.value, d = desc.value, k = keyword.value.trim();
+    const tLen = captionLength(t, R.title), dLen = captionLength(d, R.description), gLen = tagLength(tags.value);
+    const dChars = Array.from(d).length;
+    meter('title', tLen, R.title.limit, 'characters');
+    meter('description', dLen, R.description.limit, 'bytes', dChars !== dLen ? ` · ${fmt(dChars)} characters` : '');
+    meter('tags', gLen, R.tags.limit, 'characters');
+
+    const chars = Array.from(t.trim());
+    set(preview, chars.length ? (chars.length > R.mobile ? chars.slice(0, R.mobile).join('').trimEnd() + '…' : chars.join('')) : 'Your title appears here');
+
+    return { t, d, k, tLen, dLen, gLen };
+  };
+
+  const update = () => {
+    const { t, d, k, tLen, dLen, gLen } = counts();
+    const list: Check[] = [];
+    if (t.trim()) {
+      if (tLen > R.title.limit) list.push({ level: 'warn', text: `The title is ${fmt(tLen - R.title.limit)} characters over the limit.` });
+      else if (tLen > R.mobile) list.push({ level: 'info', text: `On a phone, viewers may see only the first ${R.mobile} or so characters. Put the important words first.` });
+      else list.push({ level: 'ok', text: 'The title should show in full on most phones.' });
+      const letters = t.match(/\p{L}/gu) ?? [], upper = t.match(/\p{Lu}/gu) ?? [];
+      const words = t.match(/[\p{L}\p{N}]+/gu) ?? [];
+      const shouty = words.filter((w) => (w.match(/\p{L}/gu) ?? []).length >= 3 && w === w.toUpperCase() && w !== w.toLowerCase());
+      const share = letters.length ? Math.round((upper.length / letters.length) * 100) : 0;
+      if (shouty.length >= 2 && shouty.length / words.length >= 0.3) list.push({ level: 'warn', text: `${shouty.length} of ${words.length} words are in all caps (${share}% capital letters). A title in mostly capitals is harder to read and can look like clickbait.` });
+      else if (letters.length >= 10) list.push({ level: 'ok', text: `${share}% of letters are capitals.` });
+    }
+    if (k && t.trim()) {
+      const at = t.toLocaleLowerCase().indexOf(k.toLocaleLowerCase());
+      const pos = at < 0 ? -1 : Array.from(t.slice(0, at)).length;
+      if (pos < 0) list.push({ level: 'warn', text: `The keyword “${k}” is not in the title.` });
+      else if (pos + Array.from(k).length > R.keyword) list.push({ level: 'warn', text: `The keyword starts at character ${fmt(pos + 1)}. Move it into the first ${R.keyword} characters so it stays visible.` });
+      else list.push({ level: 'ok', text: `The keyword is in the first ${R.keyword} characters, at character ${fmt(pos + 1)}.` });
+      if (d.trim() && !d.toLocaleLowerCase().includes(k.toLocaleLowerCase())) list.push({ level: 'info', text: 'The keyword does not appear in the description. Mentioning it naturally helps viewers know they found the right video.' });
+    }
+    if (/[<>]/.test(t)) list.push({ level: 'warn', text: 'YouTube does not accept < or > in a title.' });
+    if (/[<>]/.test(d)) list.push({ level: 'warn', text: 'YouTube does not accept < or > in a description.' });
+    if (dLen > R.description.limit) list.push({ level: 'warn', text: `The description is ${fmt(dLen - R.description.limit)} bytes over the limit.` });
+    if (gLen > R.tags.limit) list.push({ level: 'warn', text: `The tags are ${fmt(gLen - R.tags.limit)} characters over the limit.` });
+
+    const key = JSON.stringify(list);
+    if (key === lastChecks) return;
+    lastChecks = key;
+    checks.replaceChildren();
+    if (!list.length) { const li = document.createElement('li'); li.className = 'text-ink-3'; li.textContent = 'Start typing a title to see checks.'; checks.append(li); return; }
+    for (const c of list) {
+      const li = document.createElement('li'); li.className = 'flex gap-2 rounded-xl border border-line bg-surface p-3';
+      const mark = document.createElement('span'); mark.setAttribute('aria-hidden', 'true');
+      mark.className = 'mt-1.5 size-2 shrink-0 rounded-full ' + (c.level === 'warn' ? 'bg-amber-400' : c.level === 'ok' ? 'bg-lime' : 'bg-brand-300');
+      const label = document.createElement('span'); label.className = 'sr-only'; label.textContent = c.level === 'warn' ? 'Warning: ' : c.level === 'ok' ? 'Good: ' : 'Note: ';
+      const text = document.createElement('span'); text.className = c.level === 'warn' ? 'text-ink' : 'text-ink-2'; text.textContent = c.text;
+      li.append(mark, label, text); checks.append(li);
+    }
+  };
+  // Counts update as you type; the checks list, which screen readers announce, settles after a pause.
+  let timer = 0;
+  [keyword, title, desc, tags].forEach((el) => el.addEventListener('input', () => { counts(); clearTimeout(timer); timer = window.setTimeout(update, 300); }));
+  $('example').addEventListener('click', () => {
+    keyword.value = 'schedule youtube videos';
+    title.value = 'How to Schedule YouTube Videos in 5 Minutes (Step by Step Guide for Beginners)';
+    desc.value = 'Learn how to schedule YouTube videos so they go live at the right time, even when you are busy.\n\n0:00 Why schedule\n1:10 Upload and details\n3:05 Pick the date and time\n4:20 Check the calendar';
+    tags.value = 'schedule youtube videos, youtube tips, video scheduling, creator tools';
+    update();
+  });
+</script>

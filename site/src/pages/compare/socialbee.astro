@@ -1,0 +1,136 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro] = PLANS;
+// SocialBee facts come from src/data/tools/socialbee.json, re-read on the vendor's own site.
+const them = tool('socialbee');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Flat tiers by number of connected profiles, with add-on packs of 5 profiles at $15 a month"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Bootstrap $29 (5 profiles), Accelerate $49 (10), Pro $99 (25), then agency tiers to $449"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "No free plan; a 14-day trial with full Pro access and no card, plus a 30-day money-back guarantee"
+  },
+  {
+    "feature": "10 channels",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "Accelerate, $49 a month, or Bootstrap plus one add-on pack at $44 with lower limits"
+  },
+  {
+    "feature": "Team and approvals",
+    "us": "Team members on Team, Pro and Ultimate; client approval links that need no account, and an AI review inbox",
+    "them": "1 user on the two cheapest plans; 3 users and 5 workspaces on Pro. Post approval from Accelerate up, extra users $10 a month"
+  },
+  {
+    "feature": "Networks",
+    "us": `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval; X is not available`,
+    "them": "Facebook, Instagram, Threads, LinkedIn, X, Pinterest, TikTok, YouTube, Google Business Profile and Bluesky, with more through mobile Universal Posting"
+  },
+  {
+    "feature": "Content recycling",
+    "us": "Evergreen posts re-share on a repeat interval, with variants per share",
+    "them": "Content categories with a posting schedule per category, and expiry rules for recycled posts"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "Unlimited AI content generation included on every plan, plus an AI Copilot that drafts a posting strategy"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "No public API or MCP server on the pricing page; automation goes through Zapier, Pabbly or Make"
+  }
+];
+const faq = [
+  {
+    "q": "Is PostDelegate cheaper than SocialBee?",
+    "a": `At most sizes, yes. Ten channels cost $${team.monthly} a month on PostDelegate ${team.name} against $49 on SocialBee Accelerate, and thirty cost $${pro.monthly} on PostDelegate ${pro.name} against $114 on SocialBee Pro with a profile add-on. SocialBee's own cheapest tier, Bootstrap, is $29 for 5 profiles against $${team.monthly} for 10 channels on PostDelegate ${team.name}.`
+  },
+  {
+    "q": "Does PostDelegate do content categories like SocialBee?",
+    "a": "Not in the same shape. SocialBee organises posts into categories, each with its own posting schedule, and recycles them. PostDelegate uses evergreen posts: a post repeats on an interval you set, optionally with a different variant each time, and stops at a share count or a date you choose."
+  },
+  {
+    "q": "Can an AI assistant post for me on either one?",
+    "a": "On PostDelegate, yes: the MCP server works on every plan, so Claude, ChatGPT, Cursor or Claude Code can draft and schedule, and an AI review inbox can hold those drafts until a person approves them. SocialBee's pricing page lists no MCP server or public API; its automation options are Zapier, Pabbly and Make."
+  },
+  {
+    "q": "Which has more networks?",
+    "a": `SocialBee today, for the big consumer networks. It publishes to Facebook, Instagram, LinkedIn, X, Pinterest and TikTok, which PostDelegate cannot yet: those are waiting on platform approval and X is not available at all. PostDelegate publishes to ${AVAILABLE_NETWORKS.length} networks today, including YouTube, Bluesky, Mastodon, blogs and community chats.`
+  },
+  {
+    "q": "Do I pay extra for AI on PostDelegate?",
+    "a": "Not to PostDelegate. AI writing, the agent and AI images run on your own OpenAI key, so you pay OpenAI for what you use and nothing to us. SocialBee includes unlimited AI generation in the plan price instead, which is simpler if you would rather not hold an API key."
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs SocialBee', item: `${SITE.url}/compare/socialbee` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="SocialBee alternative: PostDelegate vs SocialBee compared" description="PostDelegate vs SocialBee: flat channel plans, content categories and recycling, AI on your own key or included, approvals, MCP and the networks each connects." h1="PostDelegate vs SocialBee." eyebrow="Compare" lead="SocialBee is built around reusable content categories. PostDelegate is built around a calendar and an API that an AI assistant can drive. Here is how the two compare on price, AI, approvals and networks." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit SocialBee</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="SocialBee" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>SocialBee prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>Both services charge a flat price for a band of accounts rather than a price per account, so the comparison is tier against tier rather than arithmetic. SocialBee starts at $29 a month on monthly billing for 5 profiles, and rises to $49 for 10 and $99 for 25. PostDelegate starts at ${starter.monthly} for 5 channels, ${team.monthly} for 10 and ${pro.monthly} for 30. The gap widens as you add accounts: at thirty, SocialBee needs its $99 Pro plan plus a $15 add-on pack to reach exactly thirty profiles, while PostDelegate {pro.name} covers thirty for ${pro.monthly}.</p>
+  <p>Two details are easy to miss on SocialBee's pricing page. The plan cards open on the yearly toggle, which shows $24.20, $40.80 and $82.50 — switch to monthly and the figures above are what the comparison table states. And the cheapest plans are single-user: Bootstrap and Accelerate allow one user and one workspace, with extra users at $10 a month each, so a two-person team on Accelerate is really $59.</p>
+  <p>The trials differ in kind. SocialBee gives 14 days with full Pro access and no card, backed by a 30-day money-back guarantee, and posting stops when the trial ends. PostDelegate gives 7 days on any plan, also with no card, and you add a card before it ends to keep going.</p>
+  
+  <h2>Recycling and evergreen posts</h2>
+  <p>This is the clearest difference in how the two think about content. SocialBee's model is the content category: you sort posts into categories such as tips, blog links or testimonials, give each category a posting schedule, and SocialBee cycles through them, with rules for when a recycled post expires. If your programme is a steady mix of evergreen themes, that model does a lot of work for you.</p>
+  <p>PostDelegate's equivalent is the evergreen post. A post repeats on an interval you choose, you can give it a different variant on each share so the same link does not read identically every time, and it stops after a number of shares or on a date. It is a per-post setting rather than a library-wide schedule, which suits a smaller set of posts you actually want repeated rather than a whole content calendar built from categories.</p>
+  
+  <h2>AI, and who pays for it</h2>
+  <p>SocialBee includes unlimited AI content generation on every plan and adds an AI Copilot that will draft a whole posting strategy. Nothing is metered on their pricing page and you need no key of your own.</p>
+  <p>PostDelegate takes the other road: AI writing, the agent and AI images run on your workspace's own OpenAI key. You pay OpenAI directly for what you use, PostDelegate never charges for AI, and nothing is marked up. The same decision has a second effect — because the assistant is yours, you can point Claude or ChatGPT at the PostDelegate MCP server and have it draft and schedule posts in your calendar, with an AI review inbox holding those drafts until a person approves them. SocialBee's pricing page lists no MCP server and no public API, so the comparable route there is Zapier.</p>
+
+  <h2>Where SocialBee is the better pick</h2>
+  <ul>
+    <li>You want Facebook, Instagram, LinkedIn, X, Pinterest or TikTok today — PostDelegate is still waiting on approval for most of those, and X is not available.</li>
+    <li>You run a category-based evergreen programme and want the tool to cycle through themes on a schedule.</li>
+    <li>You would rather AI were included in the price than run on an API key you hold.</li>
+    <li>You want a 30-day money-back guarantee behind the purchase.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>You want a flat price that does not change when you add the tenth or thirtieth channel.</li>
+    <li>You want an AI assistant to draft and schedule through MCP, with a person approving before anything publishes.</li>
+    <li>You publish to YouTube, Bluesky, Mastodon, blogs, developer communities or community chats on Slack, Discord and Telegram.</li>
+    <li>You work with clients who approve posts from a link without creating an account.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by SocialBee. The SocialBee name belongs to its owner.</p>
+</Doc>

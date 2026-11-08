@@ -1,0 +1,136 @@
+---
+// One network's free tool: a character counter or an image resizer, then the network's limits,
+// image sizes and how PostDelegate publishes to it. Facts come from networks.ts, image-sizes.ts
+// and network-tools.ts. English only, like the other tools.
+import Base from '../../layouts/Base.astro';
+import PageHero from '../PageHero.astro';
+import CtaBand from '../CtaBand.astro';
+import Faq from '../Faq.astro';
+import NetworkBadge from '../NetworkBadge.astro';
+import ImageResizer from '../ImageResizer.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { TRIAL_DAYS } from '../../data/plans';
+import { networkStatus, type Network } from '../../data/networks';
+import { CHECKED, IMAGE_SIZES, resizerGroupsFor } from '../../data/image-sizes';
+import { article, COUNTERS, UNIT_NOTES, MASTODON_NOTE, COUNTER_NETWORKS, RESIZER_NETWORKS, counterHref, resizerHref, toolName } from '../../data/network-tools';
+import { AGENTS, NETWORK_ASKS, agentGuideHref } from '../../data/agent-guides';
+import { SCHEDULERS } from '../../data/schedulers';
+interface Props { kind: 'counter' | 'resizer'; network: Network }
+const { kind, network } = Astro.props;
+const n = toolName(network);
+const counter = COUNTERS[network.key];
+const limit = network.limit.toLocaleString('en-US');
+const sizes = IMAGE_SIZES.find((section) => section.key === network.key);
+const groups = resizerGroupsFor(network.key);
+const status = networkStatus(network);
+const pending = SCHEDULERS.find((item) => item.key === network.key)?.pending;
+const href = kind === 'counter' ? counterHref(network) : resizerHref(network);
+const a = article(n), A = a === 'an' ? 'An' : 'A';
+const unitNote = network.urlCost ? MASTODON_NOTE : UNIT_NOTES[network.unit] ?? UNIT_NOTES.codepoints;
+// Bluesky and X publish no post image size; their presets are common shapes.
+const commonShapes = ['bluesky', 'x'].includes(network.key);
+
+const title = kind === 'counter' ? `${n} character counter (free) | PostDelegate` : `${n} image resizer: free and private | PostDelegate`;
+const description = kind === 'counter'
+  ? `Count ${a} ${n} ${counter.what} against its ${limit}-character limit as you type, the way ${n} counts. Free, in your browser.`
+  : `Resize an image to ${n} sizes and download it as JPEG or PNG. Free, in your browser: the image never leaves your device.`;
+const h1 = kind === 'counter' ? `${n} character counter` : `${n} image resizer`;
+const lead = kind === 'counter'
+  ? `Check ${a} ${n} ${counter.what} against the ${limit}-character limit as you type. Your text stays in this browser.`
+  : `Resize an image to the right ${n} size and save it as JPEG or PNG. Everything happens in your browser: the image never leaves your device.`;
+
+const faq = kind === 'counter'
+  ? [
+      { q: `What is the ${n} character limit?`, a: `${A} ${n} ${counter.what} can have up to ${limit} characters. ${counter.detail ?? ''}`.trim() },
+      { q: `Do emoji and links count on ${n}?`, a: unitNote },
+      { q: 'Is my text saved anywhere?', a: 'No. The count runs in your browser. Nothing you type is sent or stored.' },
+      { q: 'Is this the exact count the platform uses?', a: `It follows the counting rule above and is a close planning estimate. ${n} checks the final post itself.` },
+    ]
+  : [
+      { q: 'Is my image uploaded anywhere?', a: 'No. The image is read and resized by your browser on your own device. It is never uploaded, and nothing is saved after you close the page.' },
+      { q: `Where do these ${n} sizes come from?`, a: network.key === 'dribbble' ? 'They are the two sizes PostDelegate’s Dribbble connection posts at: images of at least 400×300 are cropped from the centre to 800×600 or 400×300.' : commonShapes ? `${n} does not publish a recommended size for images in posts, so the post preset uses a common shape.${groups.flatMap((group) => group.items).length > 1 ? ` Every other size here is one ${n} states on its own help pages.` : ''}` : `From ${n}’s own help pages, listed below with links, checked ${CHECKED}.` },
+      { q: 'What is the difference between cover and contain?', a: '<strong>Cover</strong> fills the whole size and crops what does not fit. <strong>Contain</strong> fits the whole image inside the size and fills the leftover space with a colour you choose.' },
+    ];
+const app = { '@context': 'https://schema.org', '@type': 'WebApplication', name: h1, applicationCategory: kind === 'counter' ? 'UtilitiesApplication' : 'MultimediaApplication', operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }, url: `${SITE.url}${href}` };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) };
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Free tools', item: `${SITE.url}/tools` },
+  { '@type': 'ListItem', position: 2, name: h1, item: `${SITE.url}${href}` }] };
+const siblings = (kind === 'counter' ? COUNTER_NETWORKS : RESIZER_NETWORKS).filter((other) => other.key !== network.key);
+const otherKind = kind === 'counter' ? RESIZER_NETWORKS.find((other) => other.key === network.key) && resizerHref(network) : COUNTERS[network.key] && counterHref(network);
+---
+<Base title={title} description={description} jsonLd={[app, faqLd, crumbs]}>
+  <PageHero eyebrow="Free tool" title={h1} lead={lead} />
+  <section class="section"><div class="container-x max-w-5xl">
+    {kind === 'counter'
+      ? <div class="max-w-3xl" data-rule={JSON.stringify({ unit: network.unit, urlCost: network.urlCost, noMentionDomain: network.noMentionDomain, limit: network.limit })} id="counter">
+          <label for="cap" class="mb-2 flex items-center gap-3 text-sm font-bold"><NetworkBadge n={network} size="sm" /> Your {n} {counter.what}</label>
+          <textarea id="cap" rows="8" class="w-full rounded-2xl border border-line-hover bg-surface-1 p-4 text-base text-ink placeholder:text-ink-3 focus:border-brand-300" placeholder="Write or paste your text here…"></textarea>
+          <div class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <p class="text-2xl font-extrabold tabular-nums text-ink" aria-live="polite"><span id="count">0</span> <span class="text-base font-semibold text-ink-3">/ {limit}</span></p>
+            <p id="state" class="text-sm text-ink-3">{limit} left</p>
+            <p id="stats" class="ml-auto text-sm text-ink-3">0 words · 0 lines</p>
+          </div>
+          <div class="mt-3 h-2 overflow-hidden rounded-full bg-surface-3"><div id="bar" class="h-full w-0 rounded-full bg-brand transition-[width] duration-200"></div></div>
+        </div>
+      : <ImageResizer groups={groups} />}
+
+    <div class="prose-pd mt-14 max-w-3xl">
+      {counter && <>
+        <h2>{n} character limit</h2>
+        <p>{A} {n} {counter.what} can have up to {limit} characters. {counter.detail}</p>
+        <h2>How this counter counts</h2>
+        <p>{unitNote}</p>
+      </>}
+      {sizes && <>
+        <h2>{n} image sizes</h2>
+        <table>
+          <thead><tr><th>Image</th><th>Size</th><th>Notes</th></tr></thead>
+          <tbody>{sizes.rows.map(([item, size, notes]) => <tr><td><strong>{item}</strong></td><td>{size}</td><td>{notes || '—'}</td></tr>)}</tbody>
+        </table>
+        {sizes.note && <p>{sizes.note}</p>}
+        <p class="text-sm">Source{sizes.sources.length > 1 ? 's' : ''}, checked {CHECKED}: {sizes.sources.map(([label, link], i) => <>{i > 0 && ', '}<a href={link} rel="noopener">{label}</a></>)}</p>
+      </>}
+      {otherKind && <p>Also for {n}: the free <a href={otherKind}>{kind === 'counter' ? `${n} image resizer` : `${n} character counter`}</a>.</p>}
+
+      <h2>{status === 'unavailable' ? `${n} and PostDelegate` : `Schedule ${n} posts`}</h2>
+      {status === 'live'
+        ? <p>PostDelegate publishes to {n} today. Plan posts on one calendar and schedule them with the <a href={`/${network.scheduler}`}>{n} scheduler</a>{NETWORK_ASKS[network.key] && <>, or have your assistant draft them: {AGENTS.map((agent, i) => <>{i > 0 && ' · '}<a href={agentGuideHref(agent, network)}>{agent.name}</a></>)}</>}. <a href={SITE.signup} data-pulse-goal="trial_clicked">{CTA_LABEL}</a>, no card needed.</p>
+        : status === 'waiting'
+          ? <p>{n} publishing on PostDelegate opens once {pending ?? `${n} approves PostDelegate`}. Until then you can plan posts for the networks that are live today; see <a href="/platforms">platform status</a>.</p>
+          : <p>PostDelegate does not publish to {n}. See the <a href="/platforms">networks it publishes to</a>.</p>}
+    </div>
+
+    <div class="mt-14 max-w-3xl">
+      <h2 class="mb-6 text-[27px] font-bold tracking-tight">Questions</h2>
+      <Faq items={faq} />
+    </div>
+
+    <div class="prose-pd mt-12 max-w-3xl">
+      <h2>More free {kind === 'counter' ? 'character counters' : 'image resizers'}</h2>
+      <p>{siblings.map((other, i) => <>{i > 0 && ' · '}<a href={kind === 'counter' ? counterHref(other) : resizerHref(other)}>{toolName(other)}</a></>)}</p>
+      <p>Or check every network at once with the <a href={kind === 'counter' ? '/tools/caption-checker' : '/tools/image-resizer'}>{kind === 'counter' ? 'caption checker' : 'image resizer'}</a>, and see <a href="/tools">all free tools</a>.</p>
+    </div>
+  </div></section>
+  <CtaBand title="Give your content a place in the plan." text={`Plan, schedule and publish from one calendar. Try PostDelegate free for ${TRIAL_DAYS} days, no card needed.`} />
+</Base>
+<script>
+  import { captionLength } from '../../scripts/caption-count';
+  const box = document.getElementById('counter');
+  if (box) {
+    const rule = JSON.parse(box.dataset.rule!);
+    const ta = document.getElementById('cap') as HTMLTextAreaElement;
+    const count = document.getElementById('count')!, state = document.getElementById('state')!, stats = document.getElementById('stats')!, bar = document.getElementById('bar')!;
+    const fmt = (v: number) => v.toLocaleString('en-US');
+    const plural = (v: number, word: string) => `${fmt(v)} ${word}${v === 1 ? '' : 's'}`;
+    ta.addEventListener('input', () => {
+      const t = ta.value, used = captionLength(t, rule), over = used > rule.limit;
+      count.textContent = fmt(used);
+      state.textContent = over ? `${fmt(used - rule.limit)} over the limit` : `${fmt(rule.limit - used)} left`;
+      state.className = 'text-sm ' + (over ? 'font-bold text-red-300' : 'text-ink-3');
+      stats.textContent = `${plural((t.trim().match(/\S+/g) || []).length, 'word')} · ${plural(t ? t.split('\n').length : 0, 'line')}`;
+      bar.style.width = Math.min(100, (used / rule.limit) * 100) + '%';
+      bar.className = 'h-full rounded-full transition-[width] duration-200 ' + (over ? 'bg-red-400' : used / rule.limit > 0.9 ? 'bg-amber-400' : 'bg-brand');
+    });
+  }
+</script>

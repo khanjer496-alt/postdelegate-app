@@ -1,0 +1,19 @@
+---
+import { SITE } from '../data/site';
+import { TRIAL_DAYS } from '../data/plans';
+import { strings, type Lang } from '../i18n';
+// trialNote: false when the text already says the trial needs no card.
+interface Props { eyebrow?: string; title?: string; text?: string; trialNote?: boolean; lang?: Lang }
+const { lang = 'en', trialNote = true, ...props } = Astro.props;
+const t = strings(lang);
+const { eyebrow = t.ctaBand.eyebrow(TRIAL_DAYS), title = t.ctaBand.title, text = t.ctaBand.text } = props;
+---
+<section class="cta-section">
+  <div class="cta-panel">
+    <span class="cta-orbit orbit-one" aria-hidden="true"></span><span class="cta-orbit orbit-two" aria-hidden="true"></span>
+    <div class="cta-content">{eyebrow && <p class="cta-eyebrow">{eyebrow}</p>}<h2>{title}</h2><p class="cta-description">{text}</p><a href={SITE.signup} data-pulse-goal="trial_clicked" class="cta-button">{t.common.ctaLabel} <span aria-hidden="true">↗</span></a>{trialNote && <p class="cta-trial-note"><span aria-hidden="true"></span>{t.common.ctaNote}</p>}<p class="cta-note">{t.ctaBand.note}</p></div>
+  </div>
+</section>
+<style>
+  .cta-section{padding:70px 24px 90px;background:var(--bg,#0d0d0d)}.cta-panel{position:relative;isolation:isolate;overflow:hidden;width:min(1160px,100%);margin:auto;border:1px solid #323232;border-radius:28px;background:radial-gradient(ellipse at 50% 130%,#3b245c 0%,#171419 52%,#151515 80%);padding:78px 30px 64px;text-align:center;color:#fff}.cta-content{position:relative;z-index:1}.cta-eyebrow{margin:0 0 22px;color:#bfb2d0;font-size:10px;letter-spacing:1.7px;font-weight:600;text-transform:uppercase}.cta-panel h2{max-width:760px;margin:0 auto;font-size:clamp(32px,4.8vw,60px);line-height:1.1;font-weight:700;letter-spacing:-.045em;text-wrap:balance}.cta-description{max-width:510px;margin:22px auto 0;font-size:14px;line-height:1.9;color:#a6a6a6;text-wrap:pretty}.cta-button{display:inline-flex;align-items:center;justify-content:center;gap:23px;min-height:54px;padding:0 28px;margin-top:29px;border-radius:999px;background:#c8ff4d;color:#0d0d0d;text-decoration:none;font-size:15px;font-weight:750;box-shadow:0 0 0 6px #c8ff4d1a,0 20px 45px -14px #c8ff4d66;transition:background .2s,transform .2s}.cta-button span{font-size:18px}.cta-button:hover{background:#d8ff80;transform:translateY(-2px)}.cta-button:focus-visible{outline:2px solid #bdaaff;outline-offset:5px}.cta-trial-note{display:flex;align-items:center;justify-content:center;gap:8px;margin:16px auto 0;color:#e4dcef;font-size:13px;font-weight:600}.cta-trial-note span{width:7px;height:7px;border-radius:50%;background:#c8ff4d}.cta-note{margin:10px auto 0;max-width:520px;color:#8e8595;font-size:10px;line-height:1.7}.cta-orbit{position:absolute;z-index:0;left:50%;top:50%;width:1300px;height:420px;border:1px solid #ffffff12;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%) rotate(-26deg)}.orbit-two{transform:translate(-50%,-50%) rotate(26deg)}.orbit-one::after{content:'';position:absolute;left:50%;top:-5px;width:9px;height:9px;border-radius:50%;background:#c8ff4d;box-shadow:0 0 18px 3px #c8ff4d80}@keyframes cta-one{to{transform:translate(-50%,-50%) rotate(334deg)}}@keyframes cta-two{to{transform:translate(-50%,-50%) rotate(-334deg)}}@media(prefers-reduced-motion:no-preference){.orbit-one{animation:cta-one 70s linear infinite}.orbit-two{animation:cta-two 95s linear infinite}}@media(max-width:600px){.cta-section{padding:35px 20px 55px}.cta-panel{border-radius:22px;padding:51px 23px 40px}.cta-panel h2{font-size:34px;letter-spacing:-1.6px}.cta-eyebrow{font-size:9px;letter-spacing:1.2px}.cta-description{font-size:12px;line-height:1.8}.cta-note{font-size:9px;max-width:260px}.cta-button{font-size:14px;gap:14px;padding:0 22px}.cta-trial-note{font-size:12px}}@media(prefers-reduced-motion:reduce){.cta-button{transition:none}}
+</style>

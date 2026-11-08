@@ -1,0 +1,175 @@
+---
+// The home page, kept lean: hero, how it works, networks, four features, bring your own AI,
+// pricing, compare, five questions and one closing call to action. The hero switch shows the
+// page for AI agents (default) or for classic scheduling: CSS only, like the billing toggle. The words live in
+// src/i18n (home); facts come from src/data so the page never drifts from the product.
+import Base from '../../layouts/Base.astro';
+import Faq from '../Faq.astro';
+import CtaBand from '../CtaBand.astro';
+import NetworkBadge from '../NetworkBadge.astro';
+import Icon from '../Icon.astro';
+import OrbitAccent from '../OrbitAccent.astro';
+import NetworkGrid from '../NetworkGrid.astro';
+import Testimonials from '../Testimonials.astro';
+import Pricing from '../Pricing.astro';
+import { NETWORKS, AVAILABLE_NETWORKS, WAITING_KEYS, type Network } from '../../data/networks';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { SITE } from '../../data/site';
+import { localeHref, localizeLinks, strings, type Lang } from '../../i18n';
+import '../../styles/home.css';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = strings(lang);
+const h = t.home;
+const href = (path: string) => localeHref(lang, path);
+const liveCount = AVAILABLE_NETWORKS.length;
+const lowestPrice = Math.min(...PLANS.map((p) => p.monthly));
+const faq = h.faq({ count: liveCount, live: AVAILABLE_NETWORKS.map((n) => n.name).join(', '), days: TRIAL_DAYS, price: lowestPrice });
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) };
+const appLd = { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'PostDelegate', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: SITE.url, description: h.appDescription(TRIAL_DAYS), featureList: h.appFeatures, inLanguage: lang, image: new URL('/og.png', SITE.url).href, screenshot: { '@type': 'ImageObject', url: new URL('/images/postdelegate-workspace.webp', SITE.url).href, width: 1600, height: 1000, caption: h.demoAlt }, offers: { '@type': 'AggregateOffer', priceCurrency: 'USD', lowPrice: lowestPrice, highPrice: Math.max(...PLANS.map((p) => p.monthly)), offerCount: PLANS.length } };
+// Hero orbit: live networks on the bright inner rings, networks waiting on approval greyed
+// out on the dashed outer ring.
+const innerKeys = ['youtube', 'bluesky', 'wordpress', 'devto'];
+const orbitInner = AVAILABLE_NETWORKS.filter((n) => innerKeys.includes(n.key));
+const orbitMiddle = AVAILABLE_NETWORKS.filter((n) => !innerKeys.includes(n.key));
+const orbitOuter = WAITING_KEYS.map((k) => NETWORKS.find((n) => n.key === k)).filter((n): n is Network => Boolean(n));
+// The comet sits in the gap halfway round the middle ring, whatever its size.
+const cometAngle = (Math.floor(orbitMiddle.length / 2) - 0.5) * 360 / orbitMiddle.length;
+const orbitLabel = h.orbitLabel(liveCount, AVAILABLE_NETWORKS.map((n) => n.name).join(', '));
+// Features: the calendar card carries the real workspace screenshot; the other three get a stroke icon.
+const featureMeta = [
+  { href: '/docs/posts' },
+  { href: '/docs/approvals', icon: 'M4 12.5 9 17.5 20 6.5' },
+  { href: '/docs/studio', icon: 'M7 3h10v18H7zM10 9l4 3-4 3z' },
+  { href: '/docs/bulk-import#bulk-schedule-videos', icon: 'M4 6h12v12H4zM8 3h12v12M8 10l4 2-4 2z' },
+];
+const [calendar, ...features] = h.features.map((f, i) => ({ ...f, ...featureMeta[i], href: href(featureMeta[i].href) }));
+// Bring your own AI: where each assistant connects.
+const aiLinks = [
+  { label: 'Claude', href: href('/claude-cowork'), icon: 'claude' },
+  { label: 'ChatGPT', href: href('/docs/mcp/chatgpt'), glyph: '❋' },
+  { label: 'Cursor', href: href('/codex'), icon: 'cursor' },
+  { label: 'REST API', href: href('/api'), glyph: '{ }' },
+];
+---
+<Base title={h.title} description={h.description(TRIAL_DAYS, liveCount)} jsonLd={[appLd, faqLd]} lang={lang}>
+  <section class="home-hero" aria-labelledby="hero-title">
+    <div class="hero-sky" aria-hidden="true"><span class="hero-grid"></span><span class="hero-glow"></span></div>
+    <OrbitAccent kind="planet" class="hero-star-one" />
+    <div class="home-wide hero-layout">
+      <div class="hero-copy">
+        <fieldset class="mode-toggle">
+          <legend class="sr-only">{h.modeLabel}</legend>
+          <input type="radio" name="home-mode" id="home-mode-ai" value="ai" checked />
+          <label for="home-mode-ai"><span aria-hidden="true">✦</span> {h.modeAi}</label>
+          <input type="radio" name="home-mode" id="home-mode-classic" value="classic" />
+          <label for="home-mode-classic">{h.modeClassic}</label>
+        </fieldset>
+        <h1 id="hero-title"><span class="mode-ai">{h.h1}<span class="hero-mark">{h.h1Mark}<OrbitAccent kind="arc" /></span></span>{' '}<span class="mode-classic">{h.classicH1}<span class="hero-mark">{h.classicH1Mark}<OrbitAccent kind="arc" /></span></span></h1>
+        <p class="hero-description mode-ai">{h.lead(liveCount)}</p>
+        <p class="hero-description mode-classic">{h.classicLead(liveCount)}</p>
+        <div class="hero-actions">
+          <a class="hero-cta" href={SITE.signup} data-pulse-goal="trial_clicked"><span>{t.common.ctaLabel}</span><span class="cta-orb" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+          <p class="hero-trial-note"><span class="note-dot" aria-hidden="true"></span>{h.trialNote(lowestPrice)}</p>
+          <a class="text-link hero-mcp mode-ai" href={href('/mcp')}>{h.mcpLink} <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="orbit" role="img" aria-label={orbitLabel}>
+          <span class="orbit-ring ring-outer" style="--r:46.5cqw">{orbitOuter.map((n, i) => <span class="orbit-slot" style={`--a:${i * 360 / orbitOuter.length + 15}deg`}><span class="orbit-body orbit-soon"><NetworkBadge n={n} size="sm" /></span></span>)}</span>
+          <span class="orbit-ring ring-middle" style="--r:34cqw">{orbitMiddle.map((n, i) => <span class="orbit-slot" style={`--a:${i * 360 / orbitMiddle.length}deg`}><span class="orbit-body orbit-live"><NetworkBadge n={n} size="md" /></span></span>)}<span class="orbit-slot" style={`--a:${cometAngle}deg`}><span class="orbit-comet"></span></span></span>
+          <span class="orbit-ring ring-inner" style="--r:21.5cqw">{orbitInner.map((n, i) => <span class="orbit-slot" style={`--a:${i * 90 + 45}deg`}><span class="orbit-body orbit-live"><NetworkBadge n={n} size="md" /></span></span>)}</span>
+          <span class="orbit-core"><img src="/mark.svg?v=orbit-slot" width="56" height="56" alt="" /><b>{h.orbitCore}</b></span>
+          <span class="orbit-card orbit-card-scheduled"><i class="card-check">✓</i><span><b>{h.cardScheduled}</b><small>{h.cardScheduledSub}</small></span></span>
+          <span class="orbit-card orbit-card-draft"><i class="card-spark">✦</i><span><b>{h.cardDraft}</b><small class="mode-ai">{h.cardDraftSub}</small><small class="mode-classic">{h.classicCardDraftSub}</small></span></span>
+        </div>
+        <p class="orbit-legend"><span><i class="legend-live" aria-hidden="true"></i>{h.legendLive}</span><span><i class="legend-soon" aria-hidden="true"></i>{h.legendSoon}</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="relay-section" aria-labelledby="steps-title">
+    <div class="container">
+      <h2 class="eyebrow relay-title" id="steps-title">{h.stepsTitle}</h2>
+      <div class="relay-wrap">
+      <span class="relay-track" aria-hidden="true"><span class="relay-comet"></span></span>
+      <ol class="relay">
+        {h.steps.map((step, i) => (
+          <li class="relay-step reveal">
+            <span class:list={['relay-icon', ['is-ai', 'is-you', 'is-pd'][i]]} aria-hidden="true">{i === 0 ? '✦' : i === 1 ? '✓' : <img src="/mark.svg" width="28" height="28" alt="" />}</span>
+            <h3><span class="mode-ai">{step}</span><span class="mode-classic">{h.classicSteps[i]}</span></h3>
+          </li>
+        ))}
+      </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="section networks-section" id="channels" aria-labelledby="channels-title">
+    <div class="container">
+      <div class="section-head reveal"><span class="eyebrow">{h.channelsEyebrow}</span><h2 class="section-heading" id="channels-title">{h.channelsTitle(liveCount)}</h2></div>
+      <NetworkGrid compact lang={lang} />
+    </div>
+  </section>
+
+  <section class="section features-section" id="features" aria-labelledby="features-title">
+    <div class="home-wide">
+      <div class="section-head reveal"><span class="eyebrow">{h.featuresEyebrow}</span><h2 class="section-heading" id="features-title">{h.featuresTitle}</h2></div>
+      <div class="feature-grid">
+        <article class="feature-card feature-calendar reveal">
+          <div class="feature-copy">
+            <h3><a class="feature-link" href={calendar.href}>{calendar.title}</a></h3>
+            <p>{calendar.text}</p>
+          </div>
+          <figure class="demo-frame">
+            <div class="demo-browser" aria-hidden="true"><span></span><span></span><span></span><span class="demo-address">app.postdelegate.com</span></div>
+            <img src="/images/postdelegate-workspace.webp" width="1600" height="1000" alt={h.demoAlt} loading="lazy" decoding="async" />
+          </figure>
+        </article>
+        {features.map((f) => (
+          <article class="feature-card reveal">
+            <span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d={f.icon} /></svg></span>
+            <h3><a class="feature-link" href={f.href}>{f.title}</a></h3>
+            <p>{f.text}</p>
+            <span class="feature-arrow" aria-hidden="true">↗</span>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <Testimonials lang={lang} />
+
+  <section class="section ai-section mode-ai" id="ai" aria-labelledby="ai-title">
+    <div class="container ai-panel reveal">
+      <span class="eyebrow">{h.aiEyebrow}</span>
+      <h2 class="section-heading" id="ai-title">{h.aiTitleA}{' '}<br />{h.aiTitleB}<span class="ink-circle">{h.aiMark}<OrbitAccent kind="ring" /></span></h2>
+      <p class="section-intro">{h.aiIntro}</p>
+      <ul class="ai-links" aria-label={h.aiLinksLabel}>
+        {aiLinks.map((link) => <li><a href={link.href}><span class="ai-glyph" aria-hidden="true">{link.icon ? <Icon name={link.icon} class="size-4" /> : link.glyph}</span>{link.label}<span class="ai-arrow" aria-hidden="true">↗</span></a></li>)}
+      </ul>
+    </div>
+  </section>
+
+  <section class="section home-pricing" id="pricing" aria-labelledby="pricing-title">
+    <div class="container">
+      <div class="section-head reveal"><span class="eyebrow">{h.pricingEyebrow}</span><h2 class="section-heading" id="pricing-title">{h.pricingTitle}</h2></div>
+      <Pricing heading={false} lang={lang} />
+      <p class="home-pricing-more"><a class="text-link" href={href('/pricing')}>{h.pricingMore} <span aria-hidden="true">↗</span></a></p>
+    </div>
+  </section>
+
+  <section class="switch-band" aria-label={t.header.compare}>
+    <p class="container" set:html={localizeLinks(lang, h.compareLine)} />
+  </section>
+
+  <section class="section home-faq" id="faq" aria-labelledby="faq-title">
+    <div class="container">
+      <h2 class="section-heading reveal" id="faq-title">{h.faqTitle}<span class="ink-underline">{h.faqMark}<OrbitAccent kind="arc" /></span></h2>
+      <Faq items={faq.map((f) => ({ q: f.q, a: localizeLinks(lang, f.a) }))} />
+    </div>
+  </section>
+
+  <CtaBand eyebrow="" title={h.ctaTitle} text={h.ctaText(TRIAL_DAYS, lowestPrice)} trialNote={false} lang={lang} />
+  <a class="support-bubble" href={href('/support')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 12a8 8 0 0 1 16 0v6a3 3 0 0 1-3 3h-4M4 12v5H2v-5h2Zm16 0v5h2v-5h-2Z" /></svg>{h.supportBubble}</a>
+</Base>

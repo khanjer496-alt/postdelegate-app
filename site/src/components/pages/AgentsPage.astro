@@ -1,0 +1,29 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import { SITE } from '../../data/site';
+import { AGENTS, GUIDE_NETWORKS, agentGuideHref } from '../../data/agent-guides';
+import { localeHref, localizeLinks, strings, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = strings(lang);
+const p = t.agentsPage;
+const guides = ['/mcp', '/api', '/claude-cowork', '/codex'].map((href, index) => ({ ...p.guides[index], href: localeHref(lang, href) }));
+---
+<Doc title={p.title} description={p.description} h1={p.h1} eyebrow={p.eyebrow} lead={p.lead} lang={lang}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{t.common.ctaLabel}</a>
+  <a slot="actions" href="/docs" class="button button-outline">{p.readDocs}</a>
+  <div class="document-grid">
+    {guides.map((guide) => <a href={guide.href} class="document-card"><h2>{guide.title}</h2><p>{guide.text}</p><span>{p.explore}</span></a>)}
+  </div>
+  <Fragment set:html={localizeLinks(lang, p.body)} />
+  <h2>{p.byNetworkTitle}</h2>
+  <p>{p.byNetworkLead}</p>
+  {AGENTS.map((agent) => <>
+    <h3>{agent.name}</h3>
+    <ul class="agent-guides">{GUIDE_NETWORKS.map((network) => <li><a href={agentGuideHref(agent, network)}>{network.name}</a></li>)}</ul>
+  </>)}
+</Doc>
+<style>
+  .agent-guides { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 !important; list-style: none !important; font-size: 15px; }
+  .agent-guides li { margin: 0; padding: 0; }
+</style>

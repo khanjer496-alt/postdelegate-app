@@ -1,0 +1,82 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import AppShot from '../../components/AppShot.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+const [starter, team, pro] = PLANS;
+const available = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+const rows = [
+  { feature: 'Pricing model', us: 'A flat monthly price per plan, with a set number of channels', them: 'Priced by the number of social accounts and extra members; every tenth account or member is free' },
+  { feature: 'Monthly plans', us: PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '), them: 'Free; Professional from $5 and Business from $10 a month for one account; Enterprise on request' },
+  { feature: 'Yearly billing', us: `${PLANS.map((p) => `${p.name} $${p.yearly}`).join(', ')} a year, about 20% off`, them: '2 months free with yearly billing' },
+  { feature: 'Free plan or trial', us: `A ${TRIAL_DAYS}-day free trial on every plan, no credit card needed, then paid plans`, them: 'Free plan for 3 accounts (not X) and 10 scheduled posts per account; 7-day trial of Professional, 14-day trial of Business' },
+  { feature: 'Team and approvals', us: 'Team members on Team, Pro and Ultimate; post statuses, client approval links that need no account, and an AI review inbox', them: 'Workspaces, with extra members and approval workflows added per member' },
+  { feature: 'Networks', us: `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval; X is not available`, them: 'Facebook, Instagram, TikTok, X, Threads, LinkedIn, Pinterest, Mastodon, Google Business Profile, YouTube, Telegram, Bluesky and WordPress' },
+  { feature: 'AI approach', us: 'Bring your own: AI writing, the Agent and AI images run on your workspace’s own OpenAI API key. PostDelegate never charges for AI', them: 'Unlimited AI Assist prompts on Business' },
+  { feature: 'API and MCP', us: 'Public REST API, webhooks and an MCP server on every plan', them: 'API and MCP server on Business and Enterprise' },
+  { feature: 'Bulk and recycling', us: 'Bulk CSV import and evergreen posts that recycle on a schedule', them: 'Bulk scheduling of up to 500 posts from a CSV; post recycling on Business' },
+];
+const faq = [
+  { q: 'Is PostDelegate cheaper than Publer?', a: `For one or two accounts, Publer usually costs less: it has a free plan, and paid plans start at $5 a month for one account. Publer’s price then rises with every account and every extra member. PostDelegate is a flat $${starter.monthly} a month for ${starter.channels} channels, $${team.monthly} for ${team.channels} channels with team members and $${pro.monthly} for ${pro.channels} channels. Compare totals for your real account and member count.` },
+  { q: 'Can PostDelegate post to Instagram, Facebook, TikTok or X like Publer?', a: `No. Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval, and X is not available on PostDelegate. Today you can connect ${available}.` },
+  { q: 'Do I need a higher plan to use the API or MCP?', a: 'Not on PostDelegate. The public REST API, webhooks and the MCP server come with every plan, including Starter. Publer offers its API and MCP server on Business and Enterprise.' },
+  { q: 'How does AI differ between PostDelegate and Publer?', a: 'Publer includes unlimited AI Assist prompts on its Business plan. PostDelegate runs AI writing, the Agent and AI images on your workspace’s own OpenAI API key, so you pay OpenAI directly and PostDelegate never charges for AI.' },
+  { q: 'Can I use PostDelegate for free like Publer?', a: `For ${TRIAL_DAYS} days. Every PostDelegate plan starts with a ${TRIAL_DAYS}-day free trial that needs no credit card, and after that PostDelegate is paid. Add a card before the trial ends to keep your plan.` },
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Publer', item: `${SITE.url}/compare/publer` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Publer alternative: PostDelegate vs Publer compared" description="PostDelegate vs Publer: flat plans or per-account pricing, free plan and trial, approvals, AI approach, API and MCP, and the networks each connects today." h1="PostDelegate vs Publer." eyebrow="Compare" lead="Publer prices by the account and the member. PostDelegate charges a flat price for a set of channels. Here is how pricing, AI, API access and networks compare, including where Publer is the better pick today." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://publer.com" class="button button-outline" target="_blank" rel="noreferrer">Visit Publer</a>
+  <h2>At a glance</h2>
+  <CompareTable other="Publer" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Publer details are taken from publer.com and its help centre in October 2026. Check its website for current plans, limits and terms.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>Publer builds each price from the number of social accounts and extra members you choose. Professional starts at $5 a month and Business at $10 a month, each for one account with no extra members, and the total goes up as you add more. Every tenth account or member is free, and yearly billing gives two months free. Publer also has a free plan for three accounts, excluding X, with ten scheduled posts per account and a 24-hour post history.</p>
+  <p>PostDelegate prices a plan, not an account. {starter.name} is ${starter.monthly} a month for {starter.channels} channels, {team.name} ${team.monthly} for {team.channels} channels with team members, and {pro.name} ${pro.monthly} for {pro.channels} channels. The price stays the same whether you connect one channel or the full allowance, and team plans are not priced per member. Yearly billing is about 20% less; see the <a href="/pricing">pricing page</a>.</p>
+  <p>For one or two accounts, Publer is likely to cost less, and its free plan costs nothing. As accounts and members grow, a flat plan becomes easier to predict, so work out the totals for your own numbers with Publer’s calculator. Publer offers a 7-day trial of Professional and a 14-day trial of Business. PostDelegate offers a {TRIAL_DAYS}-day free trial on every plan that needs no credit card; add a card before the trial ends to keep your plan.</p>
+
+  <h2>AI</h2>
+  <p>Publer’s Business plan includes unlimited AI Assist prompts. PostDelegate takes a bring-your-own approach. An admin adds the workspace’s own OpenAI API key, and AI writing, the Agent and AI images run on that key. You pay OpenAI directly for what you use, and PostDelegate never charges for AI. If you would rather not hold an API key, Publer’s included prompts are simpler.</p>
+  <p>Both services let outside assistants work with the calendar. Publer offers an MCP server and its API on Business and Enterprise. PostDelegate’s <a href="/mcp">MCP server</a>, public <a href="/api">REST API</a> and webhooks come with every plan, including {starter.name}, so Claude, ChatGPT, Cursor, Claude Code and other MCP clients can draft and schedule posts from the start. Drafts from an assistant can wait in the AI review inbox until a person approves them.</p>
+
+  <h2>Workflow</h2>
+  <p>The two overlap a good deal here. Publer has bulk scheduling from a CSV, post recycling, content ideas, workspaces and approval workflows when you add members. PostDelegate has bulk CSV import, evergreen posts that recycle on a schedule, campaigns and an ideas board, post statuses and a media library that takes uploads up to 1 GB. Where PostDelegate differs is client review: clients can approve a post from a link without an account, and assistant drafts have their own review inbox. Analytics that keep daily history for the networks that share statistics — today YouTube, read live rather than stored, and Google Business Profile; neither feeds trends, top posts or insights yet.</p>
+
+  <h2>Channels</h2>
+  <p>Publer supports Facebook, Instagram, TikTok, X, Threads, LinkedIn, Pinterest, Mastodon, Google Business Profile, YouTube, Telegram, Bluesky and WordPress. PostDelegate connects {AVAILABLE_NETWORKS.length} networks today: {available}. Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval and cannot be connected yet. X is not available on PostDelegate.</p>
+  <p>The networks both connect today are YouTube, Bluesky, Mastodon, Google Business Profile, WordPress and Telegram. PostDelegate also publishes to Medium, DEV.to, Hashnode, Tumblr, Lemmy, Nostr, Slack, Discord and Listmonk, among others. The <a href="/platforms">channel directory</a> shows what can be connected right now.</p>
+
+  <h2>Where Publer is the better pick today</h2>
+  <ul>
+    <li>You need Instagram, Facebook, TikTok, X, Threads, LinkedIn or Pinterest now.</li>
+    <li>You manage one or two accounts, or want a free plan rather than a trial.</li>
+    <li>You want AI prompts included in the plan rather than on your own key.</li>
+  </ul>
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>You want one predictable price for a set of channels and the whole team.</li>
+    <li>You want API and MCP access on the entry plan.</li>
+    <li>You work with clients who approve posts from a link, without an account.</li>
+    <li>You publish to YouTube, Bluesky, blogs, developer communities, community chats on Slack, Discord or Telegram, or a newsletter.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of accounts and people.</li><li>Which plan includes the API and MCP, if you automate your work.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+  <p>See also <a href="/alternatives">all comparisons</a>, including <a href="/compare/buffer">Buffer</a>, <a href="/compare/hootsuite">Hootsuite</a>, <a href="/compare/later">Later</a> and <a href="/compare/sprout-social">Sprout Social</a>. For Publer against other tools, see <a href="/compare/publer-vs-buffer">Publer vs Buffer</a> and <a href="/compare/publer-vs-metricool">Publer vs Metricool</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Publer. The Publer name belongs to its owner.</p>
+</Doc>

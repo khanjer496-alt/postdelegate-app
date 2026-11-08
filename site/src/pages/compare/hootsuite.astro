@@ -1,0 +1,82 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import AppShot from '../../components/AppShot.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+const [starter, team, pro, ultimate] = PLANS;
+const available = AVAILABLE_NETWORKS.map((n) => n.name).join(', ');
+const rows = [
+  { feature: 'Pricing model', us: 'A flat monthly price per plan, not per person', them: 'Priced per user, or seat' },
+  { feature: 'Monthly plans', us: PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '), them: 'Standard $99, Professional $199, Advanced $399 per user a month on annual billing; Enterprise on request' },
+  { feature: 'Free trial', us: `${TRIAL_DAYS} days on every plan, no credit card needed`, them: '14 days on Standard, Professional and Advanced, with a daily posting limit and no bulk scheduling during the trial' },
+  { feature: 'Channels per plan', us: PLANS.map((p) => p.channels).join(' / '), them: '10 social accounts on Standard; unlimited on Professional and above' },
+  { feature: 'Team and approvals', us: 'Team members on Team, Pro and Ultimate; post statuses, client approval links that need no account, and an AI review inbox', them: 'Add as many paid seats as you need; content approval on Advanced and Enterprise' },
+  { feature: 'Networks', us: `${AVAILABLE_NETWORKS.length} connect today; Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval; X is not available`, them: 'Facebook, Instagram, X, LinkedIn, TikTok, YouTube, Threads, WhatsApp and Pinterest' },
+  { feature: 'AI approach', us: 'Bring your own: AI writing, the Agent and AI images run on your workspace’s own OpenAI API key. PostDelegate never charges for AI', them: 'AI post and image generation and an AI teammate on every plan; AI smart replies and trend forecasting from Professional' },
+  { feature: 'API and MCP', us: 'Public REST API, webhooks and an MCP server on every plan', them: 'MCP connectors for ChatGPT, Claude, Copilot and Gemini' },
+  { feature: 'Inbox and listening', us: 'Not included. PostDelegate focuses on planning, approving and publishing', them: 'Shared inbox on every plan; inbox automation and listening from Professional' },
+];
+const faq = [
+  { q: 'Is PostDelegate cheaper than Hootsuite?', a: `For most teams, yes. Hootsuite Standard is $99 per user a month on annual billing. PostDelegate plans run from $${starter.monthly} to $${ultimate.monthly} a month in total and are not priced per person; ${team.name} at $${team.monthly} includes 10 channels and team members.` },
+  { q: 'Can PostDelegate replace Hootsuite for Instagram, Facebook and LinkedIn?', a: `Not yet. Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are waiting on platform approval, and X is not available on PostDelegate. Today you can connect ${available}.` },
+  { q: 'Does PostDelegate have a social inbox like Hootsuite?', a: 'No. PostDelegate is built for planning, approving and publishing posts, with analytics on what you publish. If replying to comments and messages from one inbox is central to your work, Hootsuite covers that and PostDelegate does not.' },
+  { q: 'Does PostDelegate offer a free trial?', a: `Yes. Every plan starts with a ${TRIAL_DAYS}-day free trial that needs no credit card. Add a card before the trial ends to keep your plan.` },
+  { q: 'Can AI assistants work with PostDelegate?', a: 'Yes. The PostDelegate MCP server lets Claude, ChatGPT, Cursor, Claude Code and other MCP clients draft and schedule posts on every plan, and assistant drafts can wait in the AI review inbox for a person to approve.' },
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Hootsuite', item: `${SITE.url}/compare/hootsuite` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Hootsuite alternative: PostDelegate vs Hootsuite compared" description="PostDelegate vs Hootsuite: flat plans or per-seat pricing, free trial, channel limits, approvals, AI approach, MCP and the networks each connects today." h1="PostDelegate vs Hootsuite: a flat-price Hootsuite alternative" eyebrow="Compare" lead="Hootsuite is a full social media suite priced per person. PostDelegate is a scheduler with flat plans. Here is how pricing, approvals, AI and networks compare, including where Hootsuite is the better pick today." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href="https://www.hootsuite.com" class="button button-outline" target="_blank" rel="noreferrer">Visit Hootsuite</a>
+  <h2>At a glance</h2>
+  <CompareTable other="Hootsuite" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Hootsuite details are taken from hootsuite.com in October 2026. Check its website for current plans, limits and terms.</p>
+
+  <h2>Pricing and trial</h2>
+  <p>Hootsuite sells its plans per user. Standard is $99 per user a month, Professional $199 and Advanced $399, all on annual billing, and Enterprise is priced on request. Monthly billing is offered at a higher per-user rate. PostDelegate plans have one price each, however many people join: ${starter.monthly} a month for {starter.name}, ${team.monthly} for {team.name}, ${pro.monthly} for {pro.name} and ${ultimate.monthly} for {ultimate.name}.</p>
+  <p>In practice that is a large gap. One person on Hootsuite Standard pays $99 a month for ten social accounts. A team of three on Standard pays $297 a month. On PostDelegate, {team.name} covers {team.channels} channels and invites the whole team for ${team.monthly} a month, and {pro.name} covers {pro.channels} channels for ${pro.monthly}. Yearly billing on PostDelegate costs about 20% less again; the <a href="/pricing">pricing page</a> has the details.</p>
+  <p>Both offer a free trial. Hootsuite’s runs for 14 days on Standard, Professional and Advanced, with a daily posting limit of 10 to 20 posts and no bulk scheduling while you trial. PostDelegate’s runs for {TRIAL_DAYS} days on every plan, and needs no credit card. Add a card before the trial ends to keep your plan.</p>
+
+  <h2>AI</h2>
+  <p>Hootsuite builds AI into every plan: it can generate posts and images, and it has an AI teammate it calls Wisdom. Professional adds AI smart replies and trend forecasting. PostDelegate does not resell AI. An admin adds the workspace’s own OpenAI API key, and AI writing, the Agent and AI images run on that key. You pay OpenAI directly, at its prices, and PostDelegate never charges for AI.</p>
+  <p>Both services also let outside assistants in. Hootsuite offers MCP connectors for ChatGPT, Claude, Copilot and Gemini. PostDelegate has an <a href="/mcp">MCP server</a> on every plan, including {starter.name}, for Claude, ChatGPT, Cursor, Claude Code and other MCP clients, plus a public REST API and webhooks. Posts an assistant drafts can wait in the AI review inbox until a person approves them.</p>
+
+  <h2>Teams and approvals</h2>
+  <p>On Hootsuite, content approval arrives with Advanced at $399 per user a month. On PostDelegate, team members come with {team.name}, {pro.name} and {ultimate.name}. Posts carry statuses, clients approve posts from a link without creating an account, and AI drafts arrive in their own review inbox. That makes PostDelegate a practical fit for small agencies that need client sign-off without paying enterprise prices.</p>
+  <p>Hootsuite does more beyond publishing. Every plan includes an inbox for replying to messages, and higher plans add inbox automation, message routing and social listening. PostDelegate does not have a social inbox or listening. It covers planning, approving and publishing, with analytics that keep daily history for the networks that share statistics — today YouTube, read live rather than stored, and Google Business Profile; neither feeds trends, top posts or insights yet.</p>
+
+  <h2>Channels</h2>
+  <p>Hootsuite supports Facebook, Instagram, X, LinkedIn, TikTok, YouTube, Threads, WhatsApp and Pinterest. PostDelegate connects {AVAILABLE_NETWORKS.length} networks today: {available}. Instagram, Facebook, LinkedIn, TikTok, Threads, Pinterest and Reddit are waiting on platform approval and cannot be connected yet. X is not available on PostDelegate. Of Hootsuite’s list, YouTube is the one PostDelegate connects today. See the <a href="/platforms">channel directory</a> for the current list.</p>
+
+  <h2>Where Hootsuite is the better pick today</h2>
+  <ul>
+    <li>You need Instagram, Facebook, LinkedIn, TikTok, X, Threads, Pinterest or WhatsApp now.</li>
+    <li>Replying to comments and messages from a shared inbox is a large part of the job.</li>
+    <li>You need social listening, trend forecasting or enterprise features such as message routing.</li>
+  </ul>
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>You want team scheduling and approvals without paying per person.</li>
+    <li>You need clients to approve posts from a link, without an account.</li>
+    <li>You want AI on your own key, or your own assistant through MCP, rather than AI priced into the plan.</li>
+    <li>You publish to YouTube, Bluesky, blogs, developer communities, community chats on Slack, Discord or Telegram, or a newsletter.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for the number of people who need access.</li><li>Whether you need an inbox and listening, or publishing and approvals.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+  <p>See also <a href="/alternatives">all comparisons</a>, including <a href="/compare/buffer">Buffer</a>, <a href="/compare/later">Later</a>, <a href="/compare/sprout-social">Sprout Social</a> and <a href="/compare/publer">Publer</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Hootsuite. The Hootsuite name belongs to its owner.</p>
+</Doc>

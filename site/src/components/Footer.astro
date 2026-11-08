@@ -1,0 +1,41 @@
+---
+import Logo from './Logo.astro';
+import { SITE, SOCIAL_PROFILES } from '../data/site';
+import { menuNetworks } from '../data/networks';
+import { FEATURED_ON } from '../data/featured';
+import { localeHref, strings, type Lang } from '../i18n';
+interface Props { lang?: Lang }
+const { lang = 'en' } = Astro.props;
+const t = strings(lang);
+const f = t.footer;
+// Live networks only; everything still pending approval sits behind one line to /platforms.
+const schedulers = [
+  ...menuNetworks(['youtube', 'bluesky', 'wordpress', 'medium', 'devto', 'discord', 'telegram'])
+    .filter((network) => network.available)
+    .map((network) => [network.name, `/${network.scheduler}`] as const),
+  [f.moreNetworks, '/platforms'] as const,
+];
+const columns: { title: string; links: readonly (readonly [string, string])[]; cookieSettings?: boolean }[] = [
+  { title: f.product, links: [[f.features, '/#features'], [f.pricing, '/pricing'], [f.channels, '/platforms'], [t.common.ctaShort, SITE.signup], [f.signIn, SITE.login]] },
+  { title: f.aiDevelopers, links: [[f.documentation, '/docs'], [f.aiWorkflows, '/agents'], [f.claude, '/claude-cowork'], [f.codex, '/codex'], [f.mcp, '/mcp'], [f.restApi, '/api'], [f.apiReference, '/docs/api'], [f.mcpSetup, '/docs/mcp']] },
+  { title: f.schedulers, links: schedulers },
+  { title: f.resources, links: [[f.guides, '/guides'], [f.tools, '/tools'], [f.captionChecker, '/tools/caption-checker'], [f.compare, '/compare'], [f.alternatives, '/alternatives'], [f.changelog, '/changelog'], [f.roadmap, '/roadmap'], [f.about, '/about'], [f.brand, '/brand'], [f.support, '/support'], [f.status, '/status']] },
+  { title: f.legal, links: [[f.privacy, SITE.legal.privacy], [f.terms, SITE.legal.terms], [f.dataDeletion, SITE.legal.dataDeletion], [f.dpa, SITE.legal.dpa], [f.subprocessors, SITE.legal.subprocessors], [f.licenses, SITE.legal.licenses]], cookieSettings: true },
+];
+---
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-intro"><a href={localeHref(lang, '/')} aria-label={t.common.homeLabel}><Logo /></a><p>{f.taglineA}<br />{f.taglineB}</p><a class="footer-email" href={`mailto:${SITE.email}`}>{SITE.email}</a></div>
+    <div class="footer-columns">{columns.map((column) => <div><p class="footer-label">{column.title}</p><ul>{column.links.map(([label, href]) => <li><a href={localeHref(lang, href)} data-pulse-goal={href === SITE.signup ? 'signup_clicked' : undefined} data-pulse-goal-location={href === SITE.signup ? 'footer' : undefined}>{label}</a></li>)}{column.cookieSettings && <li><button type="button" class="cookie-settings" data-cookie-settings>{f.cookieSettings}</button></li>}</ul></div>)}</div>
+    <div class="footer-extra">
+      <div class="footer-social"><p class="footer-label">{f.follow}</p><ul>{SOCIAL_PROFILES.map((profile) => <li><a href={profile.href} rel="me noopener" target="_blank">{profile.name}</a></li>)}</ul></div>
+      {FEATURED_ON.length > 0 && <div class="footer-featured"><p class="footer-label">{f.featuredOn}</p><ul>{FEATURED_ON.map((badge) => <li class="featured-badge" set:html={badge.html} />)}</ul></div>}
+    </div>
+    <div class="footer-bottom"><p>© {new Date().getFullYear()} {SITE.operator}. {f.rights}</p><p>{SITE.operator} · {SITE.address}</p><p><a href={SITE.legal.licenses}>{f.source}</a></p><p>{f.trademarks}</p></div>
+  </div>
+</footer>
+<style>
+  .site-footer{border-top:1px solid var(--line,#2b2b2b);background:#0b0b0b;color:#fff}.footer-inner{width:min(1160px,calc(100% - 48px));margin:auto;padding:70px 0 26px}.footer-intro{display:flex;align-items:center;justify-content:space-between;gap:30px;padding-bottom:52px;border-bottom:1px solid var(--line,#2b2b2b)}.footer-intro>a:first-child{display:inline-flex;min-height:44px;align-items:center;text-decoration:none}.footer-intro p{font-size:17px;line-height:1.5;letter-spacing:-.5px;font-weight:500;color:#c4c4c4;margin:0}.footer-email{color:#a6a6a6;font-size:13px;text-decoration:none;min-height:44px;display:flex;align-items:center}.footer-email:hover{color:#fff}.footer-columns{display:grid;grid-template-columns:1fr 1.2fr 1.15fr 1fr 1.25fr;gap:30px;padding:48px 0 54px}.footer-columns .footer-label{margin:0 0 16px;font-size:13px;line-height:1.5;font-weight:600;color:#fff}.footer-columns ul{list-style:none;padding:0;margin:0}.footer-columns a{display:inline-flex;align-items:center;min-height:36px;color:#929292;font-size:12px;line-height:1.5;text-decoration:none;transition:color .15s}.footer-columns a:hover{color:#fff}.cookie-settings{display:inline-flex;align-items:center;min-height:36px;padding:0;border:0;background:none;color:#929292;font-size:12px;line-height:1.5;text-align:start;transition:color .15s}.cookie-settings:hover{color:#fff}.footer-extra{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:28px 48px;padding:0 0 40px}.footer-extra .footer-label{margin:0 0 14px;font-size:13px;line-height:1.5;font-weight:600;color:#fff}.footer-extra ul{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;list-style:none;padding:0;margin:0}.footer-social a{display:inline-flex;align-items:center;min-height:36px;color:#929292;font-size:12px;text-decoration:none;transition:color .15s}.footer-social a:hover{color:#fff}.footer-featured ul{gap:12px}.featured-badge{display:flex}.featured-badge :global(a){display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:4px 10px;border:1px solid #2f2f2f;border-radius:12px;background:#f4f4f6;box-shadow:0 0 0 4px #ffffff08;opacity:.92;transition:opacity .15s,transform .15s}.featured-badge :global(a:hover){opacity:1;transform:translateY(-1px)}.featured-badge :global(img){display:block;max-width:100%;height:auto}.footer-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px 24px;border-top:1px solid var(--line,#2b2b2b);padding-top:24px;color:#858585;font-size:10px;line-height:1.6}.footer-bottom p{margin:0}.footer-bottom a{color:#aaa;text-decoration:underline;text-underline-offset:3px}a:focus-visible{outline:2px solid var(--accent,#7357ff);outline-offset:4px;border-radius:3px}
+  @media(max-width:900px){.footer-columns{grid-template-columns:repeat(3,1fr);gap:32px}.footer-intro p{font-size:15px}.footer-email{font-size:12px}.footer-bottom{justify-content:flex-start}}
+  @media(max-width:600px){.footer-extra{flex-direction:column;gap:24px;padding-bottom:32px}.footer-inner{width:calc(100% - 40px);padding-top:46px}.footer-intro{align-items:flex-start;flex-direction:column;gap:20px;padding-bottom:32px}.footer-intro p{font-size:17px}.footer-columns{grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 22px;padding:34px 0}.footer-columns a{font-size:12px;min-height:40px}.footer-bottom{flex-direction:column;gap:10px}}
+</style>

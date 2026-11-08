@@ -1,0 +1,60 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import Faq from '../../components/Faq.astro';
+import { NETWORKS, networkStatus } from '../../data/networks';
+import { SITE, CTA_LABEL } from '../../data/site';
+import AppShot from '../../components/AppShot.astro';
+import { CHECKED, IMAGE_SIZES as sections } from '../../data/image-sizes';
+const byKey = new Map(NETWORKS.map((n) => [n.key, n]));
+const rows = sections.map((s) => ({ ...s, network: byKey.get(s.key)! }));
+const faq = [
+  { q: 'What size should a YouTube thumbnail be?', a: 'YouTube asks for a 16:9 image and recommends 3840×2160, with a width of at least 640. JPG and PNG work. When you upload from a phone the file must be 2 MB or less, so a 1280×720 JPEG is a safe choice that still looks sharp.' },
+  { q: 'What is the best image size for link previews?', a: 'Use a 1.91:1 image of 1200×630. Meta asks for at least 1200×630 for link shares, and LinkedIn recommends 1200×627, which is close enough that one image works for both.' },
+  { q: 'Why are some sizes missing?', a: `This page lists only sizes that each platform states on its own help or developer pages, checked in ${CHECKED}. Bluesky, for example, does not publish recommended pixel sizes, and X does not publish one for images in posts, so none is listed.` },
+  { q: 'How do I resize an image to one of these sizes?', a: 'Open the <a href="/tools/image-resizer">image resizer</a>, choose your image and pick a size. It runs in your browser, so the image never leaves your device, and you can save it as PNG or JPEG.' },
+];
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) };
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Free tools', item: `${SITE.url}/tools` },
+  { '@type': 'ListItem', position: 2, name: 'Social media image sizes', item: `${SITE.url}/tools/social-image-sizes` }] };
+---
+<Doc title="Social media image sizes 2026: official specs | PostDelegate" description="Social media image sizes for 2026 taken from each platform’s own help pages: YouTube, Instagram, LinkedIn, X, Pinterest, Mastodon and more, with sources." h1="Social media image sizes 2026" eyebrow="Reference" lead={`Image sizes for each network, taken only from the platform’s own help and developer pages and checked in ${CHECKED}. Each section links to its source.`} jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href="/tools/image-resizer" class="button">Resize an image</a>
+  <a slot="actions" href="/tools" class="button button-outline">All free tools</a>
+  <p>Platforms change their image rules from time to time, and each one checks the final upload. This page lists only what each platform states itself. Where a platform does not publish a size, it says so instead of repeating a figure from elsewhere. Sizes are in pixels, width × height.</p>
+  <p>To resize an image to any of these sizes, use the free <a href="/tools/image-resizer">image resizer</a>. It works in your browser, so the image never leaves your device.</p>
+  <p><strong>Jump to:</strong> {rows.map((s, i) => <>{i > 0 && ' · '}<a href={`#${s.key}`}>{s.network.name}</a></>)}</p>
+
+  {rows.map((s) => (
+    <>
+      <h2 id={s.key}>{s.network.name} image sizes</h2>
+      <p class="status">{s.network.available ? <>You can connect {s.network.name} to PostDelegate today{s.network.scheduler ? <>: see the <a href={`/${s.network.scheduler}`}>{s.network.name} scheduler</a></> : ''}.</> : networkStatus(s.network) === 'waiting' ? <>{s.network.name} is waiting on approval and can’t be connected to PostDelegate yet.</> : <>{s.network.name} is not available on PostDelegate.</>}</p>
+      <table>
+        <thead><tr><th>Image</th><th>Size</th><th>Notes</th></tr></thead>
+        <tbody>{s.rows.map(([item, size, notes]) => <tr><td><strong>{item}</strong></td><td>{size}</td><td>{notes || '—'}</td></tr>)}</tbody>
+      </table>
+      {s.note && <p>{s.note}</p>}
+      <p class="sources">Source{s.sources.length > 1 ? 's' : ''}, checked {CHECKED}: {s.sources.map(([label, href], i) => <>{i > 0 && ', '}<a href={href} rel="noopener">{label}</a></>)}</p>
+    </>
+  ))}
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/tools/image-resizer">Image resizer</a> for every size on this page</li>
+    <li><a href="/youtube-scheduler">YouTube scheduler</a> and the guide to <a href="/guides/schedule-youtube-videos">scheduling YouTube videos</a></li>
+    <li><a href="/bluesky-scheduler">Bluesky scheduler</a> and the guide to <a href="/guides/schedule-bluesky-posts">scheduling Bluesky posts</a></li>
+    <li><a href="/guides/social-media-character-limits">Social media character limits in 2026</a></li>
+  </ul>
+  <p>Ready to plan the posts these images go with? <a href={SITE.signup} data-pulse-goal="trial_clicked">{CTA_LABEL}</a>. No card is needed.</p>
+  <p>Platform names belong to their owners. PostDelegate is not affiliated with or endorsed by any of the platforms listed.</p>
+  <AppShot
+    shot="composer"
+    caption="Composing a post in PostDelegate: Insert Media attaches the image, and the preview beside the editor is what goes out."
+  />
+</Doc>
+<style>
+  .status { margin: -6px 0 6px; font-size: 14px; }
+  .sources { font-size: 13.5px; }
+</style>

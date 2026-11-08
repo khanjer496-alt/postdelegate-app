@@ -1,0 +1,110 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import Faq from '../Faq.astro';
+import type { Scheduler } from '../../data/schedulers';
+import { SITE } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { NETWORKS, AVAILABLE_NETWORKS } from '../../data/networks';
+import NetworkBadge from '../NetworkBadge.astro';
+import LogoStack from '../LogoStack.astro';
+import NetworkGrid from '../NetworkGrid.astro';
+import { localeHref, localizeLinks, strings, type Lang } from '../../i18n';
+import { SCHEDULER_SOON as soon } from '../../i18n/locales/en';
+import { AGENTS, NETWORK_ASKS, agentGuideHref } from '../../data/agent-guides';
+// One network's page. English pages exist for every network in schedulers.ts; the other
+// languages only for live networks, with the translated fields from their locale file and
+// without the English-only how-to, settings and network-specific FAQ.
+interface Props { s: Scheduler; lang: Lang }
+const { lang } = Astro.props;
+const t = strings(lang);
+const c = t.scheduler;
+const s: Scheduler = lang === 'en' ? Astro.props.s : { ...Astro.props.s, ...t.schedulers[Astro.props.s.slug], about: undefined, steps: undefined, settings: undefined, faq: undefined, guides: undefined };
+const availableKeys = new Set(AVAILABLE_NETWORKS.map((network) => network.key));
+const isAvailable = (item: { key: string }) => availableKeys.has(item.key);
+const available = isAvailable(s);
+// Answers are plain text with optional [label](/path) links: the visible FAQ gets anchors, the JSON-LD plain text.
+const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const withLinks = (text: string) => localizeLinks(lang, escape(text).replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>'));
+const plain = (text: string) => text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+const pending = s.pending ?? soon.pendingDefault;
+const starter = PLANS[0];
+const openCount = AVAILABLE_NETWORKS.length;
+const network = NETWORKS.find((n) => n.key === s.key);
+const alongside = AVAILABLE_NETWORKS.filter((n) => n.key !== s.key);
+
+const action = s.action || `Schedule ${s.name} Posts`;
+const howTo = `${action.charAt(0).toLowerCase()}${action.slice(1)}`;
+const title = available ? c.title(s.name, action) : soon.title(s.name);
+const description = s.description || (available ? s.intro : soon.description(s.name, pending, openCount, TRIAL_DAYS));
+
+const faq = available
+  ? [
+      { q: c.freeQ(s.name), a: c.freeA(s.name, TRIAL_DAYS, starter.monthly) },
+      ...(s.faq ?? []),
+      { q: c.aiQ(s.name), a: c.aiA(s.name) },
+    ]
+  : soon.faq(s.name, pending, openCount, TRIAL_DAYS);
+
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: c.crumb, item: `${SITE.url}${localeHref(lang, '/platforms')}` },
+  { '@type': 'ListItem', position: 2, name: s.name, item: `${SITE.url}${localeHref(lang, `/${s.slug}`)}` }] };
+const howToLd = available && s.steps?.length ? { '@context': 'https://schema.org', '@type': 'HowTo', name: `How to ${howTo}`, description: s.intro, step: s.steps.map((step, index) => ({ '@type': 'HowToStep', position: index + 1, name: step.name, text: step.text })) } : undefined;
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: plain(item.a) } })) };
+---
+<Doc title={title} description={description} h1={s.h1} eyebrow={available ? c.eyebrow(s.name) : soon.eyebrow(s.name)} lead={s.intro} jsonLd={[crumbs, ...(howToLd ? [howToLd] : []), faqLd]} lang={lang}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{t.common.ctaLabel}</a>
+  <a slot="actions" href="/tools/caption-checker" class="button button-outline">{c.tryCaption}</a>
+  {network && <div class:list={['sch-head', { 'is-soon': !available }]}>
+    <NetworkBadge n={network} size="lg" />
+    <p><strong>{available ? c.head(s.name) : soon.head(s.name)}</strong><span>{available ? c.headSub(alongside.length) : soon.headSub(openCount)}</span></p>
+    <LogoStack networks={alongside} max={6} size="xs" lang={lang} />
+  </div>}
+  {available
+    ? <aside class="doc-note" set:html={c.note(s.name, s.docs)} />
+    : <aside class="doc-note" set:html={soon.note(s.name, pending)} />}
+  {available && !!s.steps?.length && <>
+    <h2>{c.howTo(howTo)}</h2>
+    <ol>{s.steps.map((step, index) => <li id={`step-${index + 1}`}><strong>{step.name}.</strong> {step.text}</li>)}</ol>
+  </>}
+  <h2>{available ? c.publishTitle(s.name) : soon.publishTitle}</h2>
+  {available && s.about?.map((paragraph) => <p>{paragraph}</p>)}
+  <ul>{s.plan.map((point) => <li>{point}</li>)}</ul>
+  {available && !!s.settings?.length && <>
+    <h2>{c.settingsTitle(s.name)}</h2>
+    <table>
+      <thead><tr><th>{c.setting}</th><th>{c.notes}</th></tr></thead>
+      <tbody>{s.settings.map((row) => <tr><td><strong>{row.label}</strong></td><td>{row.note}</td></tr>)}</tbody>
+    </table>
+  </>}
+  <h2>{c.beforeTitle}</h2>
+  <ul>{s.limits.map((point) => <li>{point}</li>)}</ul>
+  {available
+    ? <p set:html={c.readGuide(s.name, s.docs)} />
+    : <p set:html={soon.readGuide(s.docs)} />}
+  {available && <>
+    <h2>{c.planTitle(s.name)}</h2>
+    <p set:html={localizeLinks(lang, c.planText(s.name))} />
+    <h2>{c.aiTitle(s.name)}</h2>
+    <p set:html={localizeLinks(lang, c.aiText(s.name))} />
+    {network && NETWORK_ASKS[network.key] && <p>{c.fromAgents(s.name)} {AGENTS.map((agent, i) => <>{i > 0 && ' · '}<a href={agentGuideHref(agent, network)}>{agent.name}</a></>)}</p>}
+  </>}
+  <h2>{c.reviewTitle}</h2>
+  <p>{c.reviewText}</p>
+  {!available && <p set:html={soon.agents} />}
+  <h2>{c.faqTitle}</h2>
+  <Faq items={faq.map((item) => ({ q: item.q, a: withLinks(item.a) }))} />
+  {!!s.guides?.length && <>
+    <h2>{c.guidesTitle}</h2>
+    <ul>{s.guides.map((guide) => <li><a href={guide.href}>{guide.label}</a></li>)}</ul>
+  </>}
+  <h2>{available ? c.moreTitle(alongside.length) : soon.moreTitle(openCount)}</h2>
+  <div class="sch-grid"><NetworkGrid exclude={s.key} lang={lang} /></div>
+</Doc>
+<style>
+  .sch-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 16px; margin: 0 0 22px; padding: 18px 20px; border: 1px solid #2c2c2c; border-radius: 18px; background: linear-gradient(180deg, #17151c, #131313); --stack-ring: #151417; }
+  .sch-head p { display: flex; flex: 1 1 220px; flex-direction: column; gap: 2px; margin: 0; font-size: 14px; line-height: 1.5; }
+  .sch-head p strong { color: #fff; font-size: 16px; }
+  .sch-head.is-soon > :global(span[aria-hidden]) { filter: grayscale(1); opacity: .55; }
+  .sch-grid { margin: 22px 0 36px; }
+  .sch-grid :global(.ng-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+</style>

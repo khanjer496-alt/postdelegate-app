@@ -1,0 +1,70 @@
+---
+import Alternatives from '../../components/Alternatives.astro';
+import { SITE } from '../../data/site';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+const faq = [
+  { q: 'What is the best Postiz alternative?', a: 'It depends on why you are leaving. To stop running your own server, use a hosted scheduler such as PostDelegate. To self-host on PHP, try Mixpost. To build posting into your own product, use a social media API such as Zernio. For a simple hosted scheduler, Buffer suits a few channels and Post Bridge suits one person with up to 15 accounts.' },
+  { q: 'Is there a hosted version of Postiz?', a: 'Yes, two kinds. Postiz Cloud is run by the Postiz team, from $29 a month. PostDelegate is a separate hosted, open-source scheduler (AGPL-3.0) run by Nasida Apps LLC, from $19 a month after a 7-day free trial with no card. PostDelegate connects fewer networks today.' },
+  { q: 'Which Postiz alternative is open source?', a: 'Mixpost Lite is MIT-licensed, but limited to Facebook Pages, X and Mastodon. Mixpost Pro and Enterprise are source-available under a paid license rather than open source. PostDelegate is open source under AGPL-3.0, though it is offered as a hosted service.' },
+  { q: 'Can I move my posts from Postiz?', a: 'We could not verify a one-click import from Postiz into any tool on this page. Plan to reconnect your channels and re-create upcoming posts. PostDelegate can import up to 200 posts at a time from a CSV file; see <a href="/docs/bulk-import">bulk import</a>.' },
+];
+const links = [
+  { href: '/compare/postiz-vs-buffer', label: 'Postiz vs Buffer' },
+  { href: '/compare/postiz-vs-mixpost', label: 'Postiz vs Mixpost' },
+  { href: '/compare/postiz-vs-post-bridge', label: 'Postiz vs Post Bridge' },
+  { href: '/compare/postiz-vs-zernio', label: 'Postiz vs Zernio' },
+  { href: '/compare/postiz-vs-blotato', label: 'Postiz vs Blotato' },
+  { href: '/compare/postiz', label: 'PostDelegate vs Postiz' },
+  { href: '/alternatives', label: 'All scheduler alternatives' },
+  { href: '/licenses', label: 'Licenses and AGPL source' },
+  { href: '/pricing', label: 'PostDelegate pricing' },
+  { href: '/mcp', label: 'PostDelegate MCP server' },
+  { href: '/discord-scheduler', label: 'Discord scheduler' },
+  { href: '/telegram-scheduler', label: 'Telegram scheduler' },
+  { href: '/guides/ai-social-media-agent-guardrails', label: 'Let an AI agent post safely' },
+];
+---
+<Alternatives
+  subject="postiz" alternatives={['mixpost', 'zernio', 'buffer', 'post-bridge']} published="2026-11-02"
+  title="Postiz Alternatives (2026): Hosted, Self-Hosted and API"
+  description="Looking past Postiz? Compare hosted schedulers, self-hosted options and social media APIs by price, networks and MCP support, with honest notes on when to stay."
+  h1="Postiz alternatives: hosted, self-hosted and API options"
+  shortAnswer="To stop running your own server, use a hosted scheduler such as PostDelegate (fewer networks live today). To self-host on PHP, look at Mixpost. To build posting into your own app, use an API such as Zernio. For a simple hosted scheduler, try Buffer or Post Bridge. Or stay on Postiz Cloud."
+  fitIntro="PostDelegate is a hosted, open-source scheduler run by Nasida Apps LLC, so it suits you if your issue is running a server rather than the features. It is cheaper than Postiz Cloud at each tier and the trial needs no card. It reaches fewer networks today."
+  faq={faq} links={links}
+>
+  <Fragment slot="before-table">
+    <h2>Why people look for an alternative</h2>
+    <ul>
+      <li><strong>Self-hosting upkeep.</strong> The Postiz stack runs several services, including Temporal, and someone has to back it up and upgrade it.</li>
+      <li><strong>Network app reviews.</strong> Self-hosters register their own developer app with every network. Postiz itself notes that Meta and YouTube reviews usually take more than a month.</li>
+      <li><strong>Price.</strong> Postiz Cloud starts at $29 a month, and a few channels can cost less elsewhere.</li>
+      <li><strong>Fit.</strong> Some people want a PHP stack, a one-time license, an API for their own product, or a simpler tool for one person.</li>
+    </ul>
+
+    <h2>Quick picks by need</h2>
+    <ul>
+      <li><strong>Postiz, but hosted for you:</strong> Postiz Cloud, or PostDelegate.</li>
+      <li><strong>Self-host on a PHP stack:</strong> Mixpost (Lite is free and MIT-licensed; Pro is $299 once).</li>
+      <li><strong>An API for your own product:</strong> Zernio, priced per connected account with two free.</li>
+      <li><strong>One to three channels on a budget:</strong> Buffer, which has a free plan.</li>
+      <li><strong>One person, up to 15 accounts:</strong> Post Bridge Marketer at $39 a month.</li>
+    </ul>
+  </Fragment>
+
+  <h2>Hosted option: PostDelegate</h2>
+  <p>We should be plain about this one, because it is ours. PostDelegate is open source under AGPL-3.0. What you gain over self-hosting is that we run the servers and backups, we hold the network developer apps, and you email us for support instead of debugging Temporal. What you give up is control: you do not choose the server, the code version or when upgrades land.</p>
+  <p>It is not a drop-in replacement for everything Postiz Cloud does today. {AVAILABLE_NETWORKS.length} networks connect now; Instagram, Facebook, Threads, TikTok and LinkedIn are waiting for each platform's approval, and X is not available. AI runs on your own OpenAI key rather than included credits, and there is no AI video generation.</p>
+
+  <h2>Self-hosted: Mixpost</h2>
+  <p>Mixpost is the main self-hosted alternative with a different stack: PHP, MySQL and Redis. Lite is free under MIT but covers only Facebook Pages, X and Mastodon. Pro costs $299 once for a year of updates and adds the other networks, an API, webhooks, an MCP server and unlimited workspaces. See <a href="/compare/postiz-vs-mixpost">Postiz vs Mixpost</a> for the full breakdown.</p>
+
+  <h2>Social media API: Zernio</h2>
+  <p>Zernio is a different kind of tool: an API for developers who want to add posting, messaging or analytics to their own product. It charges per connected account (the first two are free, then $6 each up to 10 and $3 each up to 100) and lists an MCP server. If you used Postiz mainly through its API, it is worth a look; if you want a calendar for your team, it is not the same thing. See <a href="/compare/postiz-vs-zernio">Postiz vs Zernio</a>.</p>
+
+  <h2>Simple hosted schedulers: Buffer and Post Bridge</h2>
+  <p>Buffer prices per channel and has a free plan for 3 channels, so it is often cheapest for small setups, and it includes MCP even on Free. Post Bridge is built for one person: $39 a month for 15 accounts with its API and MCP connection included, and team members only on its $99 Operator plan. Both are hosted services. See <a href="/compare/postiz-vs-buffer">Postiz vs Buffer</a> and <a href="/compare/postiz-vs-post-bridge">Postiz vs Post Bridge</a> for worked costs.</p>
+
+  <h2>When to stay on Postiz</h2>
+  <p>Plenty of people should not switch. Stay if you already self-host and the server is quiet, if you need networks only Postiz Cloud has approved today, if you use the included AI image and video allowances, or if you want features the moment the Postiz team ships them. Postiz is actively developed, and it is the project PostDelegate is built on.</p>
+</Alternatives>

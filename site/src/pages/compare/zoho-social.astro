@@ -1,0 +1,136 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CompareTable from '../../components/CompareTable.astro';
+import Faq from '../../components/Faq.astro';
+import { SITE, CTA_LABEL } from '../../data/site';
+import { PLANS, TRIAL_DAYS } from '../../data/plans';
+import { AVAILABLE_NETWORKS } from '../../data/networks';
+import { tool, formatDate } from '../../data/tools';
+import AppShot from '../../components/AppShot.astro';
+const [starter, team, pro] = PLANS;
+// Zoho Social facts come from src/data/tools/zoho-social.json, re-read on the vendor's own site.
+const them = tool('zoho-social');
+const rows = [
+  {
+    "feature": "Pricing model",
+    "us": "A flat monthly price per plan with a set number of channels",
+    "them": "Per brand: each plan includes one brand with a channel cap, and extra brands are an add-on on the two dearest plans only"
+  },
+  {
+    "feature": "Monthly plans",
+    "us": PLANS.map((p) => `${p.name} $${p.monthly}`).join(', '),
+    "them": "Free $0 (6 channels), Standard $15 (14), Professional $40 (14), Premium $65 (16); agency plans $320 and $460"
+  },
+  {
+    "feature": "Free plan or trial",
+    "us": `A ${TRIAL_DAYS}-day free trial on every plan, no credit card`,
+    "them": "A forever free plan with 1 brand, 6 channels and 1 team member, plus a 15-day all-access trial with no card"
+  },
+  {
+    "feature": "10 channels",
+    "us": `${team.name}, $${team.monthly} a month`,
+    "them": "Standard, $15 a month — a single brand holds 14 channels"
+  },
+  {
+    "feature": "30 channels",
+    "us": `${pro.name}, $${pro.monthly} a month`,
+    "them": "$74 to $88: thirty exceeds one brand, so Professional with three brands is $74 and Premium with two is $88"
+  },
+  {
+    "feature": "Team",
+    "us": "Team members on Team, Pro and Ultimate, at no extra cost",
+    "them": "1 team member on Free, Standard and Professional; 3 on Premium; extra members $12 a month each"
+  },
+  {
+    "feature": "Approvals",
+    "us": "Post statuses, an approvals inbox, client approval links that need no account, and an AI review inbox",
+    "them": "Content approvals, workflow and custom roles start on Premium at $65"
+  },
+  {
+    "feature": "AI approach",
+    "us": "Bring your own: AI runs on your workspace's own OpenAI key, and PostDelegate never charges for AI",
+    "them": "The Zia assistant, metered at 5 credits a month on Free, 40 on Standard and Professional, 80 on Premium"
+  },
+  {
+    "feature": "API and MCP",
+    "us": "Public REST API, webhooks and an MCP server on every plan",
+    "them": "A REST API open to developers, agencies and partners by request, reviewed within two business days. No MCP server is documented for Zoho Social"
+  }
+];
+const faq = [
+  {
+    "q": "Is Zoho Social cheaper than PostDelegate?",
+    "a": `At the entry, yes: Standard is $15 a month against $${starter.monthly} for PostDelegate ${starter.name}, and it holds fourteen channels in one brand against five. It also has a genuinely free plan for six channels. The order reverses as you grow — thirty channels cost $74 to $88 there, because they no longer fit one brand, against $${pro.monthly} here.`
+  },
+  {
+    "q": "What is a brand, and why does it matter?",
+    "a": "A brand is Zoho's container for a set of channels, and each plan caps how many channels a brand holds: six on Free, fourteen on Standard and Professional, sixteen on Premium. Extra brands are an add-on sold only on Professional at $17 and Premium at $23. That makes Standard a ceiling rather than a cheap base — if you pass fourteen channels you move to Professional before you can buy a second brand at all."
+  },
+  {
+    "q": "Does Zoho Social have an MCP server?",
+    "a": "Not that is documented. Zoho Social does not appear among the apps on Zoho's own MCP page, and its pricing page does not mention one. Its REST API exists and uses OAuth, but access is by request through a form that Zoho reviews within two business days. PostDelegate has an API, webhooks and an MCP server on every plan."
+  },
+  {
+    "q": "When do I get approvals on Zoho Social?",
+    "a": `On Premium, at $65 a month — content approvals, workflow and custom roles are listed from that tier up. The plans below it are also single-user, with extra team members at $12 each. PostDelegate includes approvals on every plan and team members from ${team.name} at $${team.monthly}.`
+  },
+  {
+    "q": "Which has more networks?",
+    "a": `Zoho Social, on paper: fifteen including WhatsApp, Telegram, Snapchat and Arattai, though it notes that access depends on regional restrictions. PostDelegate has ${AVAILABLE_NETWORKS.length} live, with a different mix — blogs, developer communities and chat platforms rather than consumer messaging — and Instagram, Facebook, LinkedIn, TikTok, Threads and Pinterest are still waiting on approval here.`
+  }
+];
+const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Compare', item: `${SITE.url}/compare` },
+  { '@type': 'ListItem', position: 2, name: 'PostDelegate vs Zoho Social', item: `${SITE.url}/compare/zoho-social` }] };
+const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) };
+---
+<Doc title="Zoho Social alternative: PostDelegate vs Zoho Social compared" description="PostDelegate vs Zoho Social: a $15 entry plan with per-brand channel caps against flat channel bands, AI credits, approvals, and no MCP server." h1="PostDelegate vs Zoho Social." eyebrow="Compare" lead="Zoho Social is the cheapest serious scheduler on this list to start with, at $15 a month. The catch is the brand model: channels are capped per brand, and extra brands are only sold on the dearer plans." jsonLd={[crumbs, faqLd]}>
+  <a slot="actions" href={SITE.signup} data-pulse-goal="trial_clicked" class="button">{CTA_LABEL}</a>
+  <a slot="actions" href={them.site} class="button button-outline" target="_blank" rel="noreferrer">Visit Zoho Social</a>
+
+  <h2>At a glance</h2>
+  <CompareTable other="Zoho Social" rows={rows} />
+  <AppShot
+    shot="calendar"
+    caption="PostDelegate's calendar in month view: the connected channels down the side, and what is scheduled, day by day."
+  />
+  <p>Zoho Social prices checked on {formatDate(them.checked)}, monthly billing, USD, from <a href={them.pricingUrl} target="_blank" rel="noopener">its pricing page</a>. PostDelegate prices come from <a href="/pricing">our own pricing page</a>.</p>
+
+  <h2>The brand model, which is the whole story</h2>
+  <p>Zoho Social's entry price is the lowest here: $15 a month on monthly billing for Standard, which holds one brand with fourteen channels and one team member. There is also a forever free plan with one brand, six channels and one member. For a single business with a handful of accounts and one person running them, that is very hard to beat, and PostDelegate {starter.name} at ${starter.monthly} for five channels does not try to.</p>
+  <p>The model bends at scale rather than at price. Channels are capped per brand, and a second brand is an add-on sold only on Professional at $17 a brand and Premium at $23. Standard has no brand add-on at all, so it is a ceiling: fourteen channels and no way up except changing plan. Thirty channels means Professional with three brands at $74, or Premium with two at $88. The same thirty are ${pro.monthly} on PostDelegate {pro.name}.</p>
+  <p>Two further notes for anyone pricing this themselves. Their page opens on yearly billing, which it advertises as saving up to 33%, so the monthly figures here are the ones behind its monthly tab. And it prices in the local currency by default — the figures here are the US dollar list prices selected with the page's own currency switch.</p>
+  
+  <h2>Team and approvals</h2>
+  <p>This is where the cheap plans show their shape. Free, Standard and Professional are all single-user; Premium at $65 is the first with three members, and extra members are $12 each a month. Content approvals, workflow and custom roles also begin at Premium. So a two-person team that wants an approval step is comparing $65 against PostDelegate {team.name} at ${team.monthly}, which includes team members and approvals.</p>
+  <p>PostDelegate also puts approvals where agencies need them: a client approval link opens the post without the client making an account, and drafts written by an AI assistant land in a separate review inbox before a person releases them.</p>
+  
+  <h2>AI and automation</h2>
+  <p>Zoho meters AI by credits — five a month on Free, forty on Standard and Professional, eighty on Premium — through its Zia assistant. PostDelegate does not meter AI because it does not sell it: writing, the agent and images run on your own OpenAI key, you pay OpenAI for what you use, and PostDelegate never charges for AI.</p>
+  <p>On automation the gap is wider. Zoho Social's REST API exists and uses OAuth 2.0, but access is granted by request: you submit a form and Zoho reviews it within two business days, with no plan requirement stated. No MCP server is documented for Zoho Social — it is absent from Zoho's own MCP page. PostDelegate ships a REST API, webhooks and an MCP server on every plan, so an assistant can draft and schedule from day one.</p>
+
+  <h2>Where Zoho Social is the better pick</h2>
+  <ul>
+    <li>One brand with a modest number of channels and one person running it: $15 a month, or free for six channels.</li>
+    <li>You want WhatsApp, Telegram, Snapchat or the other consumer networks on its list.</li>
+    <li>You already run other Zoho products and want social in the same account.</li>
+    <li>You publish to Instagram, Facebook, LinkedIn, TikTok, Threads or Pinterest today.</li>
+  </ul>
+
+  <h2>Where PostDelegate fits</h2>
+  <ul>
+    <li>More than about fourteen channels, where the brand model forces a plan change and add-ons.</li>
+    <li>You want approvals and team members without reaching the $65 tier.</li>
+    <li>You want an API and an MCP server on every plan, without an access request.</li>
+    <li>You publish to Bluesky, Mastodon, blogs, developer communities or community chats.</li>
+  </ul>
+
+  <h2>What to check before choosing</h2>
+  <ul><li>Whether the exact accounts you manage can connect and publish today.</li><li>The monthly total for your real number of channels and people, not the headline price.</li><li>How you want to pay for AI: included in the plan, or on your own key.</li><li>How approvals work for your team and your clients.</li><li>The support, subscription and data-handling terms of each service.</li></ul>
+
+  <h2>Questions</h2>
+  <Faq items={faq} />
+
+  <p>More comparisons: <a href="/compare">every scheduler we compare</a>, <a href="/alternatives">scheduler alternatives</a>, <a href="/pricing">PostDelegate pricing</a> and <a href="/mcp">the MCP server</a>.</p>
+  <p>PostDelegate is operated independently by {SITE.operator} and is not affiliated with or endorsed by Zoho Social. The Zoho Social name belongs to its owner.</p>
+</Doc>
