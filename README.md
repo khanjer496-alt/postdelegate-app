@@ -8,9 +8,9 @@ PostDelegate is a social media scheduling workspace: plan posts on a calendar, p
 - Documentation: https://postdelegate.com/docs
 - Application: https://app.postdelegate.com
 
-## Based on Postiz
+## Open source
 
-PostDelegate is based on the open-source [Postiz](https://github.com/gitroomhq/postiz-app) project by Gitroom. We are grateful to its authors and contributors. This repository contains PostDelegate's modified version of that code.
+PostDelegate is open source. This repository is the complete source of the application running at app.postdelegate.com, including code we have modified from other open-source projects; the original copyright notices are kept in the files they belong to.
 
 ## Building
 
